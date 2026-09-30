@@ -57,6 +57,8 @@ interface DashboardProps {
 }
 
 export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
+  console.log('✅ DoctorDashboardModern mounted');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModality, setFilterModality] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -195,56 +197,21 @@ export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
     prescriptionsToSign: 5,
   };
 
+  console.log('📊 Dashboard Stats:', stats);
+  console.log('👥 Patients Loaded:', patients.length);
+
   // GSAP Stagger Animations
   useEffect(() => {
-    // Animate stat cards with stagger
     const statCardElements = document.querySelectorAll('[data-stat-card]');
     if (statCardElements.length > 0) {
       gsap.fromTo(
         statCardElements,
-        {
-          opacity: 0,
-          y: 30,
-        },
+        { opacity: 0, y: 30 },
         {
           opacity: 1,
           y: 0,
           duration: 0.6,
           stagger: 0.12,
-          ease: 'power3.out',
-        }
-      );
-    }
-
-    // Animate patient list card
-    const patientListElement = document.querySelector('[data-patient-list]');
-    if (patientListElement) {
-      gsap.fromTo(
-        patientListElement,
-        { opacity: 0, y: 30 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.6,
-          delay: 0.3,
-          ease: 'power3.out',
-        }
-      );
-    }
-
-    // Animate schedule and actions cards
-    const scheduleElement = document.querySelector('[data-schedule-card]');
-    const actionsElement = document.querySelector('[data-actions-card]');
-    if (scheduleElement || actionsElement) {
-      gsap.fromTo(
-        [scheduleElement, actionsElement].filter(Boolean),
-        { opacity: 0, y: 30 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.6,
-          delay: 0.45,
-          stagger: 0.1,
           ease: 'power3.out',
         }
       );
@@ -256,7 +223,6 @@ export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
     };
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -454,68 +420,8 @@ export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
           />
         </div>
 
-        {/* Search & Filters - Full Width */}
-        <div style={{
-          gridColumn: 'span 4',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
-        }}>
-          <input
-            type="text"
-            placeholder="Search patients..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              padding: '12px 16px',
-              border: `1px solid ${modernDesignSystem.colors.border}`,
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: modernDesignSystem.typography.bodyFamily,
-              backgroundColor: modernDesignSystem.colors.card,
-              color: modernDesignSystem.colors.foreground,
-            }}
-          />
-          <select
-            value={filterModality}
-            onChange={(e) => setFilterModality(e.target.value)}
-            style={{
-              padding: '12px 16px',
-              border: `1px solid ${modernDesignSystem.colors.border}`,
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: modernDesignSystem.typography.bodyFamily,
-              backgroundColor: modernDesignSystem.colors.card,
-              color: modernDesignSystem.colors.foreground,
-            }}
-          >
-            <option value="all">All Modalities</option>
-            <option value="allopathy">Allopathy</option>
-            <option value="ayurveda">Ayurveda</option>
-            <option value="homeopathy">Homeopathy</option>
-          </select>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={{
-              padding: '12px 16px',
-              border: `1px solid ${modernDesignSystem.colors.border}`,
-              borderRadius: '12px',
-              fontSize: '14px',
-              fontFamily: modernDesignSystem.typography.bodyFamily,
-              backgroundColor: modernDesignSystem.colors.card,
-              color: modernDesignSystem.colors.foreground,
-            }}
-          >
-            <option value="all">All Status</option>
-            <option value="critical">Critical</option>
-            <option value="stable">Stable</option>
-            <option value="new_patient">New Patient</option>
-          </select>
-        </div>
-
         {/* Patient List - Full Width */}
-        <div ref={patientListRef} data-patient-list style={{
+        <div data-patient-list style={{
           gridColumn: 'span 4',
           backgroundColor: modernDesignSystem.colors.card,
           borderRadius: modernDesignSystem.borderRadius.lg,
@@ -585,7 +491,7 @@ export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
         </div>
 
         {/* Today's Schedule */}
-        <div ref={scheduleCardRef} data-schedule-card style={{
+        <div data-schedule-card style={{
           gridColumn: 'span 2',
           backgroundColor: modernDesignSystem.colors.card,
           borderRadius: modernDesignSystem.borderRadius.lg,
@@ -664,10 +570,10 @@ export function DoctorDashboardModern({ onNavigate }: DashboardProps) {
         </div>
 
         {/* Quick Actions */}
-        <div ref={actionsCardRef} data-actions-card style={{
+        <div data-actions-card style={{
           gridColumn: 'span 2',
           backgroundColor: modernDesignSystem.colors.primary,
-          borderRadius: '16px',
+          borderRadius: modernDesignSystem.borderRadius.lg,
           padding: '1.5rem',
           color: modernDesignSystem.colors.onPrimary,
           boxShadow: modernDesignSystem.shadows.lg,
