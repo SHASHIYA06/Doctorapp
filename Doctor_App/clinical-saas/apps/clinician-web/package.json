@@ -1,5 +1,5 @@
 {
-  "name": "@clinical-saas/clinician-web",
+  "name": "doctor-app",
   "version": "0.1.0",
   "description": "Clinician dashboard for care plan review and signing",
   "type": "module",
