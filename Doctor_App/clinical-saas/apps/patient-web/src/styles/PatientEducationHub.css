@@ -1,0 +1,753 @@
+/**
+ * Patient Education Hub Styles
+ * Modern, responsive layout with sidebar navigation
+ */
+
+.patient-education-hub {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+/* Sidebar */
+.hub-sidebar {
+  width: 280px;
+  background: white;
+  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-header {
+  padding: 25px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.sidebar-header h1 {
+  font-size: 1.5rem;
+  color: #2d3748;
+  margin: 0;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #718096;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.nav-item:hover {
+  background: #f7fafc;
+  color: #667eea;
+  transform: translateX(4px);
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  color: #667eea;
+  border-left: 3px solid #667eea;
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+}
+
+.sidebar-footer {
+  padding: 20px;
+  border-top: 2px solid #e2e8f0;
+}
+
+.info-box {
+  background: #f0fff4;
+  border-left: 4px solid #10b981;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.info-box p {
+  margin: 0;
+  color: #22543d;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.info-box p:last-child {
+  font-weight: 400;
+}
+
+/* Main Content */
+.hub-main {
+  flex: 1;
+  overflow-y: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px;
+}
+
+.hub-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Home View */
+.hub-home {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-section {
+  text-align: center;
+  color: white;
+  margin-bottom: 60px;
+}
+
+.hero-section h1 {
+  font-size: 3rem;
+  font-weight: 900;
+  margin: 0 0 10px 0;
+}
+
+.hero-section p {
+  font-size: 1.3rem;
+  opacity: 0.95;
+  margin: 0;
+}
+
+/* Features Grid */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  margin-bottom: 60px;
+}
+
+.feature-card {
+  background: white;
+  border-radius: 16px;
+  padding: 35px 25px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.feature-card:hover {
+  transform: translateY(-12px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.feature-card h3 {
+  font-size: 1.3rem;
+  color: #2d3748;
+  margin: 0;
+  font-weight: 700;
+}
+
+.feature-card p {
+  color: #718096;
+  margin: 0;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.feature-action {
+  color: #667eea;
+  font-weight: 700;
+  opacity: 0;
+  transition: all 0.3s ease;
+  margin-top: auto;
+}
+
+.feature-card:hover .feature-action {
+  opacity: 1;
+  transform: translateX(4px);
+}
+
+/* Quick Stats */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 25px;
+  text-align: center;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+/* View Header */
+.view-header {
+  color: white;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.view-header h2 {
+  font-size: 2.2rem;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.view-header p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* Educational Content View */
+.educational-content-view {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.resource-card {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.resource-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.resource-card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.resource-card h4 {
+  font-size: 1.1rem;
+  color: #2d3748;
+  margin: 0 0 10px 0;
+  font-weight: 700;
+}
+
+.resource-card p {
+  color: #718096;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 15px 0;
+}
+
+.resource-footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.difficulty {
+  padding: 4px 10px;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.duration {
+  color: #718096;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Resource Detail */
+.resource-detail {
+  background: white;
+  border-radius: 16px;
+  padding: 35px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin-bottom: 25px;
+}
+
+.btn-back:hover {
+  background: #f7fafc;
+  color: #764ba2;
+}
+
+.resource-header {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 30px;
+  padding-bottom: 25px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.resource-icon {
+  font-size: 3.5rem;
+  flex-shrink: 0;
+}
+
+.resource-header h3 {
+  font-size: 1.8rem;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+  font-weight: 700;
+}
+
+.resource-meta {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.resource-meta span {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #f7fafc;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.resource-meta .difficulty {
+  background: none;
+  color: white;
+  padding: 6px 12px;
+}
+
+.resource-meta .rating {
+  color: #667eea;
+}
+
+.resource-content {
+  margin-bottom: 30px;
+}
+
+.resource-content p {
+  color: #4a5568;
+  line-height: 1.8;
+  font-size: 1rem;
+  margin: 0 0 20px 0;
+}
+
+.resource-placeholder {
+  background: #f7fafc;
+  padding: 40px 25px;
+  border-radius: 12px;
+  border: 2px dashed #cbd5e0;
+  text-align: center;
+  color: #718096;
+  margin: 20px 0;
+}
+
+.resource-placeholder p {
+  margin: 0;
+}
+
+/* Wellness Tips View */
+.wellness-tips-view {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.tip-card {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.tip-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.tip-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.tip-card h4 {
+  font-size: 1.2rem;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+  font-weight: 700;
+}
+
+.tip-card p {
+  color: #718096;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 15px 0;
+}
+
+.btn-tip {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.btn-tip:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+}
+
+.wellness-challenge {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #667eea;
+}
+
+.wellness-challenge h3 {
+  font-size: 1.4rem;
+  color: #2d3748;
+  margin: 0 0 15px 0;
+  font-weight: 700;
+}
+
+.challenge-content p {
+  color: #4a5568;
+  margin: 0 0 10px 0;
+  line-height: 1.6;
+}
+
+.challenge-content p:last-of-type {
+  margin-bottom: 20px;
+}
+
+.challenge-content strong {
+  color: #2d3748;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+/* Scrollbar Styling */
+.hub-sidebar::-webkit-scrollbar,
+.hub-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.hub-sidebar::-webkit-scrollbar-track,
+.hub-main::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.hub-sidebar::-webkit-scrollbar-thumb,
+.hub-main::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 4px;
+}
+
+.hub-sidebar::-webkit-scrollbar-thumb:hover,
+.hub-main::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+
+  .hero-section h1 {
+    font-size: 2.2rem;
+  }
+
+  .hero-section p {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .patient-education-hub {
+    flex-direction: column;
+  }
+
+  .hub-sidebar {
+    width: 100%;
+    max-height: 60px;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .sidebar-header {
+    padding: 15px 20px;
+    border-bottom: none;
+    border-right: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  .sidebar-header h1 {
+    font-size: 1.2rem;
+    gap: 5px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    padding: 10px 20px;
+    gap: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    gap: 8px;
+  }
+
+  .nav-item.active {
+    border-left: none;
+    border-bottom: 3px solid #667eea;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+
+  .hub-main {
+    padding: 25px 15px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .hero-section h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero-section p {
+    font-size: 1rem;
+  }
+
+  .quick-stats {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 15px;
+  }
+
+  .stat-number {
+    font-size: 1.8rem;
+  }
+
+  .resources-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+  }
+
+  .tips-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .resource-detail {
+    padding: 20px;
+  }
+
+  .view-header h2 {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hub-main {
+    padding: 15px 10px;
+  }
+
+  .hub-content {
+    width: 100%;
+  }
+
+  .hero-section h1 {
+    font-size: 1.4rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .feature-card {
+    padding: 20px 15px;
+  }
+
+  .feature-icon {
+    font-size: 2.5rem;
+  }
+
+  .feature-card h3 {
+    font-size: 1.1rem;
+  }
+
+  .quick-stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .sidebar-nav {
+    padding: 8px 12px;
+  }
+
+  .nav-item {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .resources-grid,
+  .tips-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .resource-card,
+  .tip-card {
+    padding: 15px;
+  }
+
+  .resource-header {
+    gap: 12px;
+  }
+
+  .resource-icon {
+    font-size: 2.5rem;
+  }
+
+  .resource-header h3 {
+    font-size: 1.3rem;
+  }
+
+  .view-header h2 {
+    font-size: 1.3rem;
+  }
+}
