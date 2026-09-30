@@ -19,7 +19,7 @@ export default defineConfig({
     target: 'es2020',
     outDir: 'dist',
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     chunkSizeWarningLimit: 1000,
     cssCodeSplit: true,
     rollupOptions: {
