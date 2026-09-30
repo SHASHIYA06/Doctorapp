@@ -1,18 +1,11 @@
 /**
- * Doctor App - Comprehensive Healthcare Management System
- * Multi-modal clinical decision support with complete patient management
+ * Doctor App - Modern Healthcare Management System
+ * Trust Blue + Orange, Poppins + Open Sans Typography
  */
 
 import React, { useState } from 'react';
-import { DoctorDashboard } from './components/DoctorDashboard';
+import { DoctorDashboardModern } from './components/DoctorDashboard.modern';
 import { PatientDetails } from './components/PatientDetails';
-import { AppointmentScheduler } from './components/AppointmentScheduler';
-import { MedicalRecords } from './components/MedicalRecords';
-import { PrescriptionManager } from './components/PrescriptionManager';
-import { DiagnosticsViewer } from './components/DiagnosticsViewer';
-import { BillingInvoices } from './components/BillingInvoices';
-import { CDSWorkflow } from './CDSWorkflow';
-import { CareplanReview } from './CareplanReview';
 import './index.css';
 
 type AppView = 
@@ -39,90 +32,19 @@ export default function App() {
     setState({ currentView: view, selectedPatientId: patientId, selectedPlanId: planId });
   };
 
-  const renderView = () => {
-    switch (state.currentView) {
-      case 'dashboard':
-        return <DoctorDashboard onNavigate={navigateTo} />;
-      
-      case 'patient_details':
-        return (
-          <PatientDetails
-            patientId={state.selectedPatientId!}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'appointments':
-        return (
-          <AppointmentScheduler
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'medical_records':
-        return (
-          <MedicalRecords
-            patientId={state.selectedPatientId}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'prescriptions':
-        return (
-          <PrescriptionManager
-            patientId={state.selectedPatientId}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'diagnostics':
-        return (
-          <DiagnosticsViewer
-            patientId={state.selectedPatientId}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'billing':
-        return (
-          <BillingInvoices
-            patientId={state.selectedPatientId}
-            onBack={() => navigateTo('dashboard')}
-          />
-        );
-      
-      case 'cds_workflow':
-        return (
-          <CDSWorkflow
-            patientId={state.selectedPatientId!}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      case 'careplan_review':
-        return (
-          <CareplanReview
-            patientId={state.selectedPatientId!}
-            planId={state.selectedPlanId}
-            onBack={() => navigateTo('dashboard')}
-            onNavigate={navigateTo}
-          />
-        );
-      
-      default:
-        return <DoctorDashboard onNavigate={navigateTo} />;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {renderView()}
-    </div>
+    <>
+      {state.currentView === 'dashboard' && (
+        <DoctorDashboardModern onNavigate={navigateTo} />
+      )}
+      
+      {state.currentView === 'patient_details' && state.selectedPatientId && (
+        <PatientDetails
+          patientId={state.selectedPatientId}
+          onBack={() => navigateTo('dashboard')}
+          onNavigate={navigateTo}
+        />
+      )}
+    </>
   );
 }

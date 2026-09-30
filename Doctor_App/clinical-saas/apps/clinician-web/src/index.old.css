@@ -1,41 +1,56 @@
 /**
- * Modern Global Styles - Doctor App v2
- * Design System: Brutalism + Bento Grid
- * Colors: Trust Blue (#2563EB) + Orange (#EA580C)
- * Typography: Poppins (Headings) + Open Sans (Body)
+ * Doctor App - Global Styles
+ * Design System: Neumorphism + Healthcare
+ * Colors: Cyan + Green
+ * Typography: Figtree + Noto Sans
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=Noto+Sans:wght@300;400;500;700&display=swap');
 
 /* ============================================
    1. CSS Custom Properties (Design Tokens)
    ============================================ */
 
 :root {
-  /* Colors - Trust Blue + Orange */
-  --color-primary: #2563EB;
-  --color-on-primary: #FFFFFF;
-  --color-secondary: #3B82F6;
-  --color-on-secondary: #000000;
-  --color-accent: #EA580C;
+  /* Colors - Calm Cyan + Health Green */
+  --color-primary: #0891B2;
+  --color-on-primary: #000000;
+  --color-secondary: #22D3EE;
+  --color-on-secondary: #0F172A;
+  --color-accent: #059669;
   --color-on-accent: #000000;
-  --color-background: #F8FAFC;
-  --color-foreground: #1E293B;
+  --color-background: #ECFEFF;
+  --color-foreground: #164E63;
   --color-card: #FFFFFF;
-  --color-card-foreground: #1E293B;
-  --color-muted: #E9EFF8;
+  --color-card-foreground: #164E63;
+  --color-muted: #E8F1F6;
   --color-muted-foreground: #475569;
-  --color-border: #E2E8F0;
+  --color-border: #A5F3FC;
   --color-destructive: #DC2626;
   --color-on-destructive: #FFFFFF;
-  --color-ring: #2563EB;
+  --color-ring: #0891B2;
   --color-success: #10B981;
   --color-warning: #F59E0B;
-  --color-info: #0EA5E9;
+  --color-info: #3B82F6;
+
+  /* Healthcare Status Colors */
+  --status-critical: #DC2626;
+  --status-urgent: #F97316;
+  --status-under-treatment: #0891B2;
+  --status-stable: #10B981;
+  --status-recovering: #14B8A6;
+  --status-new-patient: #8B5CF6;
+
+  /* Modality Colors */
+  --modality-allopathy: #0891B2;
+  --modality-ayurveda: #10B981;
+  --modality-homeopathy: #8B5CF6;
+  --modality-unani: #F59E0B;
+  --modality-siddha: #EC4899;
 
   /* Typography */
-  --font-heading: 'Poppins', system-ui, sans-serif;
-  --font-body: 'Open Sans', system-ui, sans-serif;
+  --font-heading: 'Figtree', system-ui, sans-serif;
+  --font-body: 'Noto Sans', system-ui, sans-serif;
   
   /* Spacing Scale (Dense Dashboard) */
   --space-xs: 0.25rem;    /* 4px */
@@ -47,7 +62,7 @@
   --space-3xl: 3rem;      /* 48px */
   --space-4xl: 4rem;      /* 64px */
 
-  /* Border Radius - Modern */
+  /* Border Radius - Neumorphism */
   --radius-xs: 0.25rem;   /* 4px */
   --radius-sm: 0.5rem;    /* 8px */
   --radius-md: 0.75rem;   /* 12px */
@@ -55,17 +70,22 @@
   --radius-xl: 1.5rem;    /* 24px */
   --radius-full: 9999px;  /* Circular */
 
-  /* Shadows - Modern, Clean */
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-hover: 0 12px 20px -2px rgba(0, 0, 0, 0.12);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  /* Shadows - Neumorphism Soft UI */
+  --shadow-soft: -5px -5px 15px rgba(255, 255, 255, 0.7), 
+                 5px 5px 15px rgba(0, 0, 0, 0.05);
+  --shadow-soft-md: -8px -8px 20px rgba(255, 255, 255, 0.8), 
+                    8px 8px 20px rgba(0, 0, 0, 0.08);
+  --shadow-soft-lg: -10px -10px 25px rgba(255, 255, 255, 0.9), 
+                    10px 10px 25px rgba(0, 0, 0, 0.1);
+  --shadow-inset: inset -5px -5px 15px rgba(255, 255, 255, 0.5), 
+                  inset 5px 5px 15px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
 
   /* Motion */
-  --duration-fast: 120ms;
+  --duration-fast: 150ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
   --duration-slower: 500ms;
@@ -73,7 +93,6 @@
   --easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
   --easing-ease-out: cubic-bezier(0, 0, 0.2, 1);
   --easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --easing-back-out: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
   /* Z-Index */
   --z-dropdown: 1000;
@@ -117,19 +136,18 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--color-foreground);
-  line-height: 1.2;
 }
 
 h1 {
-  font-size: 2.5rem;
-  line-height: 3rem;
+  font-size: 2.25rem;
+  line-height: 2.5rem;
 }
 
 h2 {
-  font-size: 2rem;
-  line-height: 2.5rem;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
 }
 
 h3 {
@@ -157,7 +175,7 @@ a {
 }
 
 a:hover {
-  color: var(--color-secondary);
+  color: var(--color-accent);
   text-decoration: underline;
 }
 
@@ -205,13 +223,12 @@ input, select, textarea {
   transition: all var(--duration-fast) var(--easing-ease);
   background: var(--color-card);
   color: var(--color-foreground);
-  font-family: var(--font-body);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.1);
 }
 
 input::placeholder {
@@ -272,20 +289,16 @@ input::placeholder {
   color: var(--color-card-foreground);
 }
 
-.shadow-sm {
-  box-shadow: var(--shadow-sm);
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
 }
 
-.shadow-md {
-  box-shadow: var(--shadow-md);
+.shadow-soft-md {
+  box-shadow: var(--shadow-soft-md);
 }
 
-.shadow-lg {
-  box-shadow: var(--shadow-lg);
-}
-
-.shadow-hover {
-  box-shadow: var(--shadow-hover);
+.shadow-soft-lg {
+  box-shadow: var(--shadow-soft-lg);
 }
 
 /* ============================================
@@ -319,7 +332,7 @@ button, a, [role="button"] {
    ============================================ */
 
 .container {
-  max-width: 1920px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 0 var(--space-md);
 }
@@ -377,131 +390,28 @@ button, a, [role="button"] {
 }
 
 /* ============================================
-   8. Responsive Media Queries
-   ============================================ */
-
-/* Mobile: 375px - 639px */
-@media (max-width: 639px) {
-  html {
-    font-size: 15px;
-  }
-
-  h1 {
-    font-size: 1.75rem;
-    line-height: 2.25rem;
-  }
-
-  h2 {
-    font-size: 1.5rem;
-    line-height: 2rem;
-  }
-
-  h3 {
-    font-size: 1.25rem;
-    line-height: 1.75rem;
-  }
-
-  h4 {
-    font-size: 1rem;
-    line-height: 1.5rem;
-  }
-
-  /* Stack grid to single column on mobile */
-  main {
-    padding: 1rem !important;
-  }
-
-  [style*="gridColumn"] {
-    grid-column: span 1 !important;
-  }
-
-  /* Improve tap targets on mobile */
-  button, [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Reduce padding on mobile cards */
-  [style*="padding: '1.5rem'"] {
-    padding: 1rem !important;
-  }
-}
-
-/* Tablet: 640px - 1023px */
-@media (min-width: 640px) and (max-width: 1023px) {
-  main {
-    padding: 1.5rem !important;
-  }
-
-  /* 2-column grid on tablet */
-  [style*="gridColumn: 'span 4'"] {
-    grid-column: span 2 !important;
-  }
-
-  [style*="gridColumn: 'span 2'"] {
-    grid-column: span 2 !important;
-  }
-}
-
-/* Desktop: 1024px - 1279px */
-@media (min-width: 1024px) and (max-width: 1279px) {
-  main {
-    padding: 2rem !important;
-  }
-
-  /* 3-column grid on small desktop */
-  [style*="gridColumn: 'span 4'"] {
-    grid-column: span 4 !important;
-  }
-
-  [style*="gridColumn: 'span 2'"] {
-    grid-column: span 2 !important;
-  }
-}
-
-/* Large Desktop: 1280px+ */
-@media (min-width: 1280px) {
-  main {
-    padding: 2rem !important;
-  }
-
-  [style*="gridColumn: 'span 4'"] {
-    grid-column: span 4 !important;
-  }
-
-  [style*="gridColumn: 'span 2'"] {
-    grid-column: span 2 !important;
-  }
-}
-
-/* Extra Large Desktop: 1536px+ */
-@media (min-width: 1536px) {
-  .container {
-    max-width: 1920px;
-  }
-
-  main {
-    max-width: 1920px !important;
-  }
-}
-
-/* ============================================
-   9. Dark Mode Support
+   8. Dark Mode Support (Future)
    ============================================ */
 
 @media (prefers-color-scheme: dark) {
   :root {
     --color-background: #0F172A;
-    --color-foreground: #F1F5F9;
     --color-card: #1E293B;
+    --color-foreground: #E2E8F0;
+    --color-card-foreground: #F1F5F9;
     --color-muted: #334155;
     --color-muted-foreground: #CBD5E1;
-    --color-border: #475569;
+    --color-border: #334155;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
   }
 }
 
 /* ============================================
-   10. Print Styles
+   9. Print Styles
    ============================================ */
 
 @media print {
