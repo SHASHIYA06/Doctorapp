@@ -10,7 +10,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@domain/types": "*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "lucide-react": "^0.292.0",

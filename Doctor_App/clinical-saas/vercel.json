@@ -1,6 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/clinician-web && npm run build",
+  "buildCommand": "pnpm install && cd apps/clinician-web && pnpm run build",
+  "installCommand": "pnpm install",
   "outputDirectory": "apps/clinician-web/dist",
   "framework": "vite",
   "regions": ["iad1"],
@@ -37,7 +38,7 @@
   ],
   "rewrites": [
     {
-      "source": "/:path((?!api).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
