@@ -1,14 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "pnpm install && cd apps/clinician-web && pnpm run build",
-  "installCommand": "pnpm install",
+  "buildCommand": "cd apps/clinician-web && npm install && npm run build",
   "outputDirectory": "apps/clinician-web/dist",
   "framework": "vite",
   "regions": ["iad1"],
   "env": {
-    "VITE_API_BASE_URL": {
-      "value": "https://doctorapp.vercel.app"
-    },
     "NODE_ENV": {
       "value": "production"
     }
@@ -32,6 +28,10 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }
