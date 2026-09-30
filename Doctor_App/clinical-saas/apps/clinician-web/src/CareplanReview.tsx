@@ -8,11 +8,13 @@ import { AlertCircle } from 'lucide-react';
 
 interface CareplanReviewProps {
   patientId: string;
-  onReviewPlan: (planId: string) => void;
+  planId?: string;
+  onReviewPlan?: (planId: string) => void;
   onBack: () => void;
+  onNavigate?: (view: any, id?: string) => void;
 }
 
-export function CareplanReview({ patientId, onReviewPlan, onBack }: CareplanReviewProps) {
+export function CareplanReview({ patientId, planId, onReviewPlan, onBack, onNavigate }: CareplanReviewProps) {
   // Mock patient data
   const patient = {
     name: 'John Doe',
