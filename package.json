@@ -1,0 +1,9 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build-clinician-web": "cd Doctor_App/clinical-saas/apps/clinician-web && npm install --legacy-peer-deps --prefer-offline --no-audit --no-fund --ignore-scripts && npm run build"
+  }
+}

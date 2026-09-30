@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm install --prefix Doctor_App/clinical-saas/apps/clinician-web --legacy-peer-deps --prefer-offline --no-audit --no-fund --ignore-scripts && npm run --prefix Doctor_App/clinical-saas/apps/clinician-web build",
+  "buildCommand": "cd Doctor_App/clinical-saas/apps/clinician-web && npm install --legacy-peer-deps --prefer-offline --no-audit --no-fund --ignore-scripts && npm run build",
   "outputDirectory": "Doctor_App/clinical-saas/apps/clinician-web/dist",
   "framework": "vite",
   "regions": ["iad1"],
