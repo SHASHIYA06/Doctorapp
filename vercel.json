@@ -5,9 +5,7 @@
   "framework": "vite",
   "regions": ["iad1"],
   "env": {
-    "NODE_ENV": {
-      "value": "production"
-    }
+    "NODE_ENV": "production"
   },
   "headers": [
     {
