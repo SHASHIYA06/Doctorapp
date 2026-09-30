@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "cd Doctor_App/clinical-saas/apps/clinician-web && npm install --legacy-peer-deps --no-optional && npm run build",
+  "buildCommand": "cd Doctor_App/clinical-saas/apps/clinician-web && npm install --legacy-peer-deps --omit=optional && npm run build",
   "outputDirectory": "Doctor_App/clinical-saas/apps/clinician-web/dist",
   "framework": "vite",
   "regions": ["iad1"],
