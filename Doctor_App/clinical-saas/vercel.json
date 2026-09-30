@@ -1,83 +1,17 @@
 {
   "version": 2,
-  "name": "clinical-saas",
-  "buildCommand": "pnpm build",
-  "devCommand": "pnpm dev",
-  "installCommand": "pnpm install",
+  "buildCommand": "cd apps/clinician-web && npm run build",
+  "outputDirectory": "apps/clinician-web/dist",
   "framework": "vite",
-  "public": false,
-  "env": [
-    {
-      "key": "VITE_API_BASE_URL",
-      "value": "https://api.doctorapp.vercel.app",
-      "type": "plain",
-      "target": ["production", "preview", "development"]
-    },
-    {
-      "key": "VITE_GEMINI_API_KEY",
-      "value": "",
-      "type": "secret",
-      "target": ["production", "preview"]
-    },
-    {
-      "key": "DATABASE_URL",
-      "value": "",
-      "type": "secret",
-      "target": ["production", "preview"]
-    },
-    {
-      "key": "GEMINI_API_KEY",
-      "value": "",
-      "type": "secret",
-      "target": ["production"]
-    },
-    {
-      "key": "JWT_SECRET",
-      "value": "",
-      "type": "secret",
-      "target": ["production"]
-    },
-    {
-      "key": "NODE_ENV",
-      "value": "production",
-      "type": "plain",
-      "target": ["production"]
-    }
-  ],
   "regions": ["iad1"],
-  "git": {
-    "deploymentEnabled": {
-      "main": true
+  "env": {
+    "VITE_API_BASE_URL": {
+      "value": "https://doctorapp.vercel.app"
+    },
+    "NODE_ENV": {
+      "value": "production"
     }
   },
-  "builds": [
-    {
-      "src": "apps/clinician-web",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "apps/api/src/server.ts",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "runtime": "nodejs18.x"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "apps/api/src/server.ts",
-      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
-    },
-    {
-      "src": "^/(?!api/)(.*)$",
-      "dest": "apps/clinician-web/dist/index.html"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -97,32 +31,14 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
-        }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
   ],
-  "redirects": [],
-  "rewrites": []
+  "rewrites": [
+    {
+      "source": "/:path((?!api).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
