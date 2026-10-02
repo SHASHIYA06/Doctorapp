@@ -1,0 +1,481 @@
+// Clinician-Governed Multi-Modality Healthcare SaaS
+// Three Care Tracks: ALLOPATHY, AYURVEDA, HOMEOPATHY
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// TENANCY & AUTH
+// ============================================================
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  jurisdiction String  @default("IN")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  patients    Patient[]
+  practitioners Practitioner[]
+  knowledgeSources KnowledgeSource[]
+  auditEvents AuditEvent[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  permissions String   // JSON array of permission strings
+  createdAt   DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  email      String
+  name       String
+  role       String   @default("PATIENT") // PATIENT, CLINICIAN, ADMIN, KNOWLEDGE_CURATOR, SAFETY_REVIEWER
+  roleId     String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  roleRef    Role?    @relation(fields: [roleId], references: [id])
+
+  @@unique([tenantId, email])
+}
+
+// ============================================================
+// PRACTITIONER
+// ============================================================
+
+model Practitioner {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String?
+  name            String
+  specialization  String
+  modality        String   @default("ALLOPATHY") // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  licenseNumber   String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  encounters     Encounter[]
+  signedCarePlans SignedCarePlan[]
+}
+
+// ============================================================
+// PATIENT & PROFILE
+// ============================================================
+
+model Patient {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String?
+  firstName     String
+  lastName      String
+  dateOfBirth   String?
+  gender        String?
+  phone         String?
+  email         String?
+  address       String?   // JSON
+  bloodGroup    String?
+  emergencyContact String? // JSON
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  consents      Consent[]
+  encounters    Encounter[]
+  allergies     Allergy[]
+  medicationStatements MedicationStatement[]
+  symptoms      Symptom[]
+  conditions    Condition[]
+  safetyAlerts  SafetyAlert[]
+  clinicalDrafts ClinicalDraft[]
+  signedCarePlans SignedCarePlan[]
+  followUps     FollowUp[]
+  adverseEvents AdverseEvent[]
+}
+
+// ============================================================
+// CONSENT
+// ============================================================
+
+model Consent {
+  id          String   @id @default(cuid())
+  patientId   String
+  type        String   // TREATMENT, DATA_SHARING, AI_ASSISTED, RESEARCH
+  modality    String   @default("ALLOPATHY")
+  status      String   @default("PENDING") // PENDING, GRANTED, REVOKED, EXPIRED
+  grantedAt   DateTime?
+  revokedAt   DateTime?
+  expiresAt   DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// CLINICAL ENCOUNTER
+// ============================================================
+
+model Encounter {
+  id              String   @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  tenantId        String
+  modality        String   @default("ALLOPATHY")
+  status          String   @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  priority        String   @default("ROUTINE") // EMERGENCY, URGENT, ROUTINE
+  reason          String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  practitioner    Practitioner? @relation(fields: [practitionerId], references: [id])
+  intake          Intake?
+  triageAssessment TriageAssessment?
+  clinicalDrafts  ClinicalDraft[]
+}
+
+// ============================================================
+// INTAKE (Symptom capture)
+// ============================================================
+
+model Intake {
+  id            String   @id @default(cuid())
+  encounterId   String   @unique
+  chiefComplaint String
+  historyOfPresentIllness String?
+  reviewOfSystems String?  // JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  encounter     Encounter @relation(fields: [encounterId], references: [id])
+}
+
+// ============================================================
+// CLINICAL ENTITIES
+// ============================================================
+
+model Symptom {
+  id          String   @id @default(cuid())
+  patientId   String
+  encounterId String?
+  name        String
+  severity    String   @default("MODERATE") // MILD, MODERATE, SEVERE
+  onset       String?
+  duration    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Condition {
+  id          String   @id @default(cuid())
+  patientId   String
+  code        String   // ICD-10 or modality-specific code
+  name        String
+  modality    String   @default("ALLOPATHY")
+  status      String   @default("ACTIVE") // ACTIVE, RESOLVED, CHRONIC
+  onsetDate   String?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Allergy {
+  id          String   @id @default(cuid())
+  patientId   String
+  substance   String
+  reaction    String?
+  severity    String   @default("MODERATE") // MILD, MODERATE, SEVERE, LIFE_THREATENING
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model MedicationStatement {
+  id          String   @id @default(cuid())
+  patientId   String
+  medication  String
+  dosage      String?
+  frequency   String?
+  route       String?
+  startDate   String?
+  endDate     String?
+  modality    String   @default("ALLOPATHY")
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// TRIAGE & SAFETY
+// ============================================================
+
+model TriageRule {
+  id          String   @id @default(cuid())
+  name        String
+  modality    String   @default("ALLOPATHY")
+  condition   String   // JSON condition spec
+  priority    String   // EMERGENCY, URGENT, ROUTINE
+  action      String   // ESCALATE, QUEUE, NOTIFY
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model TriageAssessment {
+  id          String   @id @default(cuid())
+  encounterId String   @unique
+  priority    String   @default("ROUTINE") // EMERGENCY, URGENT, ROUTINE
+  ruleIds     String?  // JSON array of triggered rule IDs
+  reasoning   String?
+  assessedAt  DateTime @default(now())
+
+  encounter   Encounter @relation(fields: [encounterId], references: [id])
+}
+
+model SafetyAlert {
+  id          String   @id @default(cuid())
+  patientId   String
+  encounterId String?
+  type        String   // ALLERGY, INTERACTION, CONTRAINDICATION, RED_FLAG, DOSAGE, RECALL
+  severity    String   @default("WARNING") // INFO, WARNING, CRITICAL, EMERGENCY
+  message     String
+  source      String   // DETERMINISTIC, AI, MANUAL
+  status      String   @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  metadata    String?  // JSON
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// CARE TRACK & CLINICAL DRAFTS
+// ============================================================
+
+model CareTrack {
+  id          String   @id @default(cuid())
+  name        String
+  modality    String   @default("ALLOPATHY")
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model ClinicalDraft {
+  id            String   @id @default(cuid())
+  patientId     String
+  encounterId   String?
+  practitionerId String?
+  modality      String   @default("ALLOPATHY")
+  content       String   // JSON - the draft care plan
+  aiGenerated   Boolean  @default(false)
+  citations     String?  // JSON array of citation objects
+  safetyFlags   String?  // JSON array of safety flag IDs
+  status        String   @default("DRAFT") // DRAFT, UNDER_REVIEW, SIGNED, REJECTED
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNotes   String?
+  signedBy      String?
+  signedAt      DateTime?
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  encounter     Encounter? @relation(fields: [encounterId], references: [id])
+}
+
+model SignedCarePlan {
+  id              String   @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  draftId         String?
+  modality        String   @default("ALLOPATHY")
+  content         String   // JSON - the signed care plan
+  patientSummary  String?  // Patient-safe version
+  signedBy        String
+  signedAt        DateTime @default(now())
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  practitioner    Practitioner? @relation(fields: [practitionerId], references: [id])
+}
+
+model FollowUp {
+  id          String   @id @default(cuid())
+  patientId   String
+  carePlanId  String?
+  type        String   // CHECKUP, LAB_REVIEW, MEDICATION_REVIEW, SYMPTOM_CHECK
+  scheduledAt DateTime
+  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, MISSED, CANCELLED
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model AdverseEvent {
+  id          String   @id @default(cuid())
+  patientId   String
+  type        String
+  description String
+  severity    String   @default("MODERATE")
+  outcome     String?
+  reportedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// KNOWLEDGE & RAG
+// ============================================================
+
+model KnowledgeSource {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  modality    String   @default("ALLOPATHY")
+  sourceType  String   // TEXTBOOK, GUIDELINE, MONOGRAPH, JOURNAL, PHARMACOPIA
+  evidenceLevel String? // APPROVED, REVIEWED, EXPERIMENTAL
+  jurisdiction String  @default("IN")
+  license     String?
+  sourceUrl   String?
+  reviewStatus String  @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED
+  reviewerId  String?
+  effectiveFrom DateTime?
+  effectiveUntil DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  documents  SourceDocument[]
+}
+
+model SourceDocument {
+  id              String   @id @default(cuid())
+  sourceId        String
+  title           String
+  content         String
+  version         Int      @default(1)
+  metadata        String?  // JSON
+  chunkCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  source          KnowledgeSource @relation(fields: [sourceId], references: [id])
+}
+
+// ============================================================
+// COMMERCE (Firewalled from Clinical)
+// ============================================================
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  licenseNumber String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  products    Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  modality    String   @default("ALLOPATHY")
+  supplierId  String?
+  sku         String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+}
+
+
+
+// ============================================================
+// AUDIT
+// ============================================================
+
+model AuditEvent {
+  id            String   @id @default(cuid())
+  tenantId      String
+  actorId       String?
+  actorRole     String?
+  patientId     String?
+  encounterId   String?
+  action        String
+  resourceType  String
+  resourceId    String?
+  outcome       String   @default("SUCCESS") // SUCCESS, FAILURE, BLOCKED
+  reason        String?
+  metadata      String?  // JSON
+  createdAt     DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+// ============================================================
+// VOICE SESSIONS
+// ============================================================
+
+model VoiceSession {
+  id            String   @id @default(cuid())
+  patientId     String?
+  encounterId   String?
+  transcript    String?  // JSON
+  status        String   @default("ACTIVE") // ACTIVE, ENDED, HANDOFF
+  handoffTo     String?  // Clinician ID for handoff
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================================
+// APPOINTMENTS
+// ============================================================
+
+model Appointment {
+  id              String   @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  scheduledAt     DateTime
+  duration        Int      @default(30) // minutes
+  modality        String   @default("ALLOPATHY")
+  status          String   @default("SCHEDULED") // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

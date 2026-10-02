@@ -1,0 +1,2784 @@
+Absolutely. I’ll continue from the existing blueprint and make the master prompt more implementation-grade, with stronger generation controls so another coding agent can use it to produce the application systematically rather than merely writing documentation.
+
+# MASTER IMPLEMENTATION PROMPT
+
+## Clinician-Governed Multi-Modality Healthcare SaaS — Full Product, Architecture & Deployment Generation
+
+### 0. EXECUTION DIRECTIVE
+
+You are acting as a **Principal Healthcare Product Architect + Clinical Safety Architect + Staff Full-Stack Engineer + AI/RAG Architect + Platform Engineer + UX Architect + QA/Validation Lead**.
+
+Use the supplied project/blueprint documents as the **primary source of truth**.
+
+Your task is to transform the supplied requirements into a **production-oriented, deployable software system specification and implementation plan**, not a superficial concept document.
+
+The final result must be sufficiently concrete that an engineering team or coding agent can implement the application directly.
+
+Do not respond with generic recommendations.
+
+Where the source documents specify a requirement, preserve it.
+
+Where the source documents do not specify something necessary for implementation:
+
+* do not silently invent a product requirement;
+* explicitly mark it as `ENGINEERING ASSUMPTION`;
+* or mark it as `OPEN DECISION` when stakeholder confirmation is required.
+
+Never represent an assumption as a source-derived requirement.
+
+---
+
+# 1. SOURCE-OF-TRUTH RULE
+
+Treat the supplied project materials as authoritative for:
+
+* product vision
+* terminology
+* target users
+* clinical workflow
+* three-care-track architecture
+* safety boundaries
+* functional requirements
+* data hierarchy
+* AI requirements
+* RAG requirements
+* LangChain/LangGraph/LangFlow requirements
+* voice requirements
+* audit requirements
+* architecture
+* roadmap
+* testing philosophy
+* deployment requirements
+* commercial separation requirements
+
+When there is ambiguity:
+
+```text
+SOURCE REQUIREMENT
+        ↓
+IDENTIFY GAP
+        ↓
+ENGINEERING ASSUMPTION / OPEN DECISION
+        ↓
+IMPLEMENTATION
+        ↓
+TRACEABILITY
+```
+
+Create a traceability matrix connecting:
+
+```text
+Source Requirement
+      ↓
+MRD
+      ↓
+PRD
+      ↓
+TRD
+      ↓
+Architecture
+      ↓
+Schema
+      ↓
+API
+      ↓
+UI
+      ↓
+Implementation Task
+      ↓
+Test
+      ↓
+Acceptance Evidence
+```
+
+---
+
+# 2. CRITICAL SAFETY MODEL
+
+The application is a **clinician-governed clinical decision-support platform**.
+
+It is not an autonomous doctor.
+
+The system must NOT autonomously:
+
+* diagnose a patient;
+* prescribe medication;
+* select medication for a patient;
+* calculate medication dosage;
+* replace clinician judgment;
+* make emergency-care decisions without deterministic safety handling;
+* create a patient-visible treatment plan without required clinician approval;
+* manipulate clinical recommendations for commercial purposes.
+
+AI-generated clinical content must be treated as a **draft requiring appropriate human review**.
+
+Deterministic clinical safety rules must have priority over generative model output.
+
+The system must support explicit:
+
+```text
+ABSTAIN
+ESCALATE
+BLOCK
+REQUIRE HUMAN REVIEW
+```
+
+states.
+
+---
+
+# 3. MODALITY ISOLATION
+
+The system contains three distinct care tracks:
+
+```text
+ALLOPATHY
+AYURVEDA
+HOMEOPATHY
+```
+
+Implement a formal **Modality Isolation Contract**.
+
+Each modality must have independently governed:
+
+* terminology
+* practitioners
+* knowledge collections
+* evidence metadata
+* clinical templates
+* workflows
+* source collections
+* retrieval filters
+* disclaimers
+* governance rules
+* review policies
+
+A retrieval result belonging to one modality must never silently become evidence for another modality.
+
+Every clinical AI request must contain an explicit modality context.
+
+Example:
+
+```json
+{
+  "modality": "ALLOPATHY",
+  "jurisdiction": "IN",
+  "locale": "en-IN",
+  "audience": "CLINICIAN"
+}
+```
+
+Reject requests where modality context is missing when modality-specific clinical knowledge is required.
+
+---
+
+# 4. REQUIRED MASTER DOCUMENT SET
+
+Generate the following complete artifacts.
+
+## Product
+
+1. MRD
+2. PRD
+3. Product Requirements Traceability Matrix
+4. User Journey Specification
+5. Clinical Workflow Specification
+6. Safety Requirements Specification
+
+## Technical
+
+7. TRD
+8. System Architecture
+9. C4 Context Diagram
+10. C4 Container Diagram
+11. C4 Component Diagram
+12. Deployment Architecture
+13. Security Architecture
+14. AI Architecture
+15. RAG Architecture
+16. Voice Architecture
+17. MCP Architecture
+18. LangGraph Architecture
+19. LangFlow Architecture
+20. Data Architecture
+21. API Architecture
+22. Integration Architecture
+
+## Data
+
+23. Complete database schema
+24. ERD
+25. PostgreSQL DDL
+26. ORM models
+27. Index strategy
+28. RLS strategy
+29. Audit schema
+30. Event schema
+31. Knowledge schema
+32. FHIR mapping
+
+## AI
+
+33. Context Engineering Specification
+34. Prompt Architecture
+35. RAG Specification
+36. Retrieval Metadata Contract
+37. Citation Contract
+38. LangChain Architecture
+39. LangGraph State Machine
+40. LangFlow Workflows
+41. AI Evaluation Framework
+42. Model Governance Specification
+43. Tool Permission Model
+44. Human-in-the-loop Architecture
+
+## Engineering
+
+45. Repository structure
+46. API contracts
+47. UI/UX specification
+48. Tailwind design system
+49. Component architecture
+50. Animation system
+51. GSD topology
+52. `skills.md`
+53. Agent rules
+54. MCP configuration
+55. Playwright test architecture
+56. CI/CD
+57. Infrastructure
+58. Observability
+59. Security controls
+60. Disaster recovery
+61. Backup strategy
+62. Deployment runbooks
+
+## Delivery
+
+63. Implementation roadmap
+64. Milestones
+65. Vertical slices
+66. GSD task graph
+67. Acceptance gates
+68. Definition of Done
+69. Release checklist
+70. Production-readiness checklist
+
+---
+
+# 5. MRD
+
+Generate a complete MRD containing:
+
+## 5.1 Executive Summary
+
+Define:
+
+* product
+* target market
+* problem
+* product opportunity
+* major users
+* major workflows
+* differentiation
+* business model boundaries
+
+Do not invent unsupported market-size statistics.
+
+## 5.2 Personas
+
+At minimum:
+
+```text
+Patient
+Clinician
+Clinical Administrator
+Platform Administrator
+Knowledge Curator
+Safety Reviewer
+Compliance/Audit User
+Operations User
+```
+
+## 5.3 Jobs To Be Done
+
+For every persona:
+
+```text
+Job
+Pain
+Current Workflow
+Desired Workflow
+Success Metric
+Failure Risk
+```
+
+## 5.4 Business Requirements
+
+Assign IDs:
+
+```text
+MRD-BR-001
+MRD-BR-002
+...
+```
+
+---
+
+# 6. PRD
+
+Create detailed functional requirements.
+
+Every requirement must include:
+
+```text
+ID
+Name
+Description
+Actor
+Preconditions
+Trigger
+Workflow
+Business Rules
+Safety Classification
+Inputs
+Outputs
+Failure Modes
+Audit Requirements
+Acceptance Criteria
+Dependencies
+```
+
+Example:
+
+```text
+PRD-CLIN-001
+Clinician Review Queue
+```
+
+Acceptance criteria must be testable.
+
+Avoid:
+
+> The system should be user-friendly.
+
+Prefer:
+
+> A clinician can open a pending clinical draft, inspect source citations, view safety alerts, modify the draft, and explicitly sign the resulting care plan.
+
+---
+
+# 7. CLINICAL WORKFLOW
+
+Implement the conceptual workflow:
+
+```text
+Patient
+  ↓
+Consent
+  ↓
+Profile
+  ↓
+Medication / Allergy
+  ↓
+Symptom Intake
+  ↓
+Deterministic Safety Evaluation
+  ↓
+Emergency / Urgent / Routine
+  ↓
+Clinician Queue
+  ↓
+Evidence Retrieval
+  ↓
+AI Draft
+  ↓
+Safety Validation
+  ↓
+Human Clinician Review
+  ↓
+Clinician Modification
+  ↓
+Clinician Sign-off
+  ↓
+Patient-Safe Summary
+  ↓
+Follow-up
+  ↓
+Audit
+```
+
+The system must preserve this ordering wherever clinically applicable.
+
+---
+
+# 8. TRD
+
+Define the technical stack explicitly.
+
+Preferred baseline:
+
+```text
+Frontend:
+Next.js
+React
+TypeScript
+Tailwind CSS
+shadcn/ui or equivalent accessible component system
+Framer Motion
+
+Backend:
+Python
+FastAPI
+Pydantic
+
+Database:
+PostgreSQL
+pgvector
+
+Cache:
+Redis
+
+Object Storage:
+S3-compatible storage
+
+AI:
+LangChain
+LangGraph
+LangFlow
+
+Browser Automation / QA:
+Playwright
+Playwright MCP
+
+Observability:
+OpenTelemetry
+
+Infrastructure:
+Docker
+Terraform
+Managed container/Kubernetes-compatible deployment
+
+CI:
+GitHub Actions
+```
+
+If an alternative is selected, explain:
+
+```text
+Requirement
+Alternative
+Reason
+Trade-off
+Migration Impact
+```
+
+---
+
+# 9. SYSTEM ARCHITECTURE
+
+Generate diagrams using Mermaid.
+
+At minimum:
+
+### Context
+
+```mermaid
+flowchart TB
+    Patient --> Platform
+    Clinician --> Platform
+    Administrator --> Platform
+
+    Platform --> ClinicalEngine
+    Platform --> KnowledgeSystem
+    Platform --> AuditSystem
+    Platform --> CommerceFirewall
+
+    ClinicalEngine --> RAG
+    ClinicalEngine --> LangGraph
+    LangGraph --> DeterministicSafety
+    LangGraph --> HumanReview
+```
+
+Also produce:
+
+* C4 context
+* C4 container
+* C4 component
+* deployment
+* network
+* security boundary
+* data flow
+* AI workflow
+* RAG flow
+* voice flow
+* clinician approval flow
+* commerce firewall
+
+---
+
+# 10. REPOSITORY ARCHITECTURE
+
+Generate a concrete monorepo.
+
+Use:
+
+```text
+/
+├── apps/
+│   ├── patient-web/
+│   ├── clinician-web/
+│   ├── admin-web/
+│   ├── api/
+│   ├── voice-gateway/
+│   └── worker/
+│
+├── services/
+│   ├── triage-rules/
+│   ├── medication-safety/
+│   ├── ai-orchestrator/
+│   ├── rag-service/
+│   ├── knowledge-service/
+│   ├── audit-service/
+│   ├── notification-service/
+│   └── commerce-service/
+│
+├── packages/
+│   ├── ui/
+│   ├── types/
+│   ├── auth/
+│   ├── clinical/
+│   ├── safety/
+│   ├── telemetry/
+│   └── config/
+│
+├── ai/
+│   ├── prompts/
+│   ├── evaluators/
+│   ├── models/
+│   ├── policies/
+│   └── context/
+│
+├── langflow/
+│   ├── flows/
+│   ├── experiments/
+│   └── evaluation/
+│
+├── mcp/
+│   ├── servers/
+│   ├── policies/
+│   └── allowlists/
+│
+├── playwright/
+│   ├── tests/
+│   ├── fixtures/
+│   ├── journeys/
+│   └── accessibility/
+│
+├── prisma/
+│   ├── schema.prisma
+│   ├── migrations/
+│   └── seed/
+│
+├── infra/
+│   ├── terraform/
+│   ├── docker/
+│   ├── monitoring/
+│   └── environments/
+│
+├── docs/
+│   ├── mrd/
+│   ├── prd/
+│   ├── trd/
+│   ├── architecture/
+│   ├── security/
+│   ├── clinical/
+│   ├── context-engineering/
+│   └── runbooks/
+│
+├── skills/
+├── evals/
+└── scripts/
+```
+
+Do not merely list folders.
+
+For every important directory explain:
+
+* ownership
+* responsibilities
+* allowed dependencies
+* forbidden dependencies
+* testing requirements
+
+---
+
+# 11. DATABASE SCHEMA
+
+Generate the complete relational schema.
+
+Core entities must include, where applicable:
+
+```text
+Tenant
+User
+Role
+Permission
+UserRole
+Practitioner
+PractitionerCredential
+Patient
+PatientIdentifier
+Consent
+Encounter
+Intake
+IntakeResponse
+Symptom
+Condition
+Allergy
+MedicationStatement
+Ingredient
+ProductMonograph
+ProductIngredient
+Interaction
+Contraindication
+TriageRule
+TriageAssessment
+SafetyAlert
+CareTrack
+ClinicalDraft
+SignedCarePlan
+FollowUp
+AdverseEvent
+SourceDocument
+KnowledgeVersion
+KnowledgeChunk
+Embedding
+RetrievalTrace
+ModelRun
+PromptVersion
+ToolCall
+AuditEvent
+SecurityEvent
+Notification
+VoiceSession
+VoiceTranscript
+Appointment
+Supplier
+SupplierLicence
+Product
+InventoryOffer
+FulfilmentOrder
+PharmacyValidation
+CommissionLedger
+AdCampaign
+AdCreative
+CampaignApproval
+Recall
+Complaint
+```
+
+For each table provide:
+
+```text
+Primary Key
+Foreign Keys
+Columns
+Data Types
+Nullability
+Constraints
+Indexes
+Tenant Boundary
+PII/PHI Classification
+Retention
+Audit Requirements
+```
+
+Use UUID identifiers unless the source requirements require otherwise.
+
+---
+
+# 12. DATABASE SECURITY
+
+Implement tenant isolation.
+
+Where PostgreSQL is used, define Row-Level Security strategy.
+
+Sensitive clinical data must have:
+
+```text
+tenant_id
+created_at
+updated_at
+created_by
+updated_by
+version
+```
+
+where applicable.
+
+Define:
+
+* encryption at rest
+* encryption in transit
+* secret management
+* field-level protection where appropriate
+* retention
+* deletion
+* legal hold
+* audit immutability
+* backup protection
+
+---
+
+# 13. FHIR
+
+Create a FHIR interoperability mapping.
+
+Map internal entities to appropriate FHIR R4 resources.
+
+At minimum evaluate:
+
+```text
+Patient
+Practitioner
+Organization
+Consent
+Encounter
+Condition
+AllergyIntolerance
+Medication
+MedicationStatement
+Observation
+CarePlan
+ServiceRequest
+FollowUp
+AdverseEvent
+AuditEvent
+```
+
+Clearly distinguish:
+
+```text
+FHIR Resource
+Internal Entity
+Transformation
+Required Fields
+Optional Fields
+Validation
+```
+
+---
+
+# 14. RAG ARCHITECTURE
+
+Implement:
+
+```text
+Approved Source
+      ↓
+Ingestion
+      ↓
+OCR / Parsing
+      ↓
+Normalization
+      ↓
+Clinical Metadata Extraction
+      ↓
+Chunking
+      ↓
+Embedding
+      ↓
+pgvector
+      ↓
+Hybrid Retrieval
+      ↓
+Metadata Filtering
+      ↓
+Reranking
+      ↓
+Evidence Pack
+      ↓
+LLM
+      ↓
+Citation Validation
+      ↓
+Clinical Safety Guardrails
+      ↓
+Human Review
+```
+
+Knowledge metadata must include, where applicable:
+
+```text
+modality
+jurisdiction
+locale
+source_type
+evidence_level
+audience
+source_status
+review_status
+effective_from
+effective_until
+age_group
+population
+clinical_domain
+license
+source_url
+source_version
+reviewer
+```
+
+Do not place PHI into the general knowledge index.
+
+---
+
+# 15. RETRIEVAL CONTRACT
+
+Every retrieval result must expose provenance.
+
+Example:
+
+```json
+{
+  "source_id": "src_123",
+  "document_version": "v4",
+  "chunk_id": "chunk_456",
+  "modality": "ALLOPATHY",
+  "evidence_level": "APPROVED",
+  "jurisdiction": "IN",
+  "retrieval_score": 0.91,
+  "rerank_score": 0.87,
+  "citation_status": "SUPPORTED"
+}
+```
+
+Unsupported clinical claims must produce:
+
+```text
+ABSTAIN
+```
+
+rather than fabricated evidence.
+
+---
+
+# 16. LANGCHAIN
+
+Use LangChain for composable AI infrastructure:
+
+```text
+Model adapters
+Embedding adapters
+Document loaders
+Retrievers
+Structured output
+Prompt templates
+Output parsers
+Evaluation integrations
+Tool wrappers
+```
+
+Do not give the LLM unrestricted access to application tools.
+
+Every tool must have:
+
+```text
+Tool ID
+Purpose
+Input Schema
+Output Schema
+Permission
+Role Requirement
+Clinical Risk
+Audit Requirement
+Allowlist
+Timeout
+Rate Limit
+Failure Behavior
+```
+
+---
+
+# 17. LANGGRAPH
+
+Build the clinical orchestration as a state graph.
+
+Conceptual graph:
+
+```text
+START
+  ↓
+Authenticate
+  ↓
+Consent Check
+  ↓
+Validate Intake
+  ↓
+Normalize Patient Data
+  ↓
+Deterministic Red Flag Check
+  ├── Emergency → Emergency Guidance / Escalation
+  ├── Urgent → Urgent Clinician Queue
+  └── Routine
+          ↓
+      Modality Scope
+          ↓
+      Retrieve Approved Evidence
+          ↓
+      Medication Safety
+          ↓
+      Generate Clinical Draft
+          ↓
+      Citation Validation
+          ↓
+      Clinical Guardrails
+          ↓
+      HUMAN INTERRUPT
+          ↓
+      Clinician Review
+          ↓
+      Clinician Sign
+          ↓
+      Patient-Safe Summary
+          ↓
+      Follow-up
+          ↓
+      Audit
+          ↓
+         END
+```
+
+Represent the graph with typed state.
+
+Example:
+
+```python
+class ClinicalState(TypedDict):
+    tenant_id: str
+    patient_id: str
+    encounter_id: str
+    modality: str
+    consent_valid: bool
+    intake: dict
+    safety_result: dict
+    retrieved_evidence: list
+    draft: dict | None
+    citations: list
+    safety_alerts: list
+    clinician_approved: bool
+    signed_plan: dict | None
+```
+
+The human approval state must be technically enforced.
+
+---
+
+# 18. LANGFLOW
+
+Use LangFlow for:
+
+* RAG experimentation
+* prompt experiments
+* retrieval tuning
+* multilingual evaluation
+* modality isolation experiments
+* citation evaluation
+* model comparison
+* prototype workflows
+
+LangFlow must not become an uncontrolled production authority.
+
+Production execution must remain version-controlled.
+
+Every promoted flow requires:
+
+```text
+Flow ID
+Version
+Owner
+Purpose
+Input Schema
+Output Schema
+Evaluation Results
+Safety Review
+Approval
+Promotion Date
+Rollback Version
+```
+
+---
+
+# 19. CONTEXT ENGINEERING
+
+Create a dedicated Context Engineering system.
+
+Context must be assembled in a deterministic hierarchy:
+
+```text
+SYSTEM POLICY
+      ↓
+SAFETY POLICY
+      ↓
+JURISDICTION POLICY
+      ↓
+CLINICAL TRACK POLICY
+      ↓
+USER ROLE
+      ↓
+CONSENT STATE
+      ↓
+PATIENT FACTS
+      ↓
+SAFETY RESULT
+      ↓
+APPROVED EVIDENCE
+      ↓
+TASK
+      ↓
+OUTPUT CONTRACT
+```
+
+Never dump the entire patient record into the model.
+
+Use minimum necessary context.
+
+---
+
+# 20. CONTEXT PACKET
+
+Every AI invocation should produce an inspectable context packet.
+
+Example:
+
+```json
+{
+  "request_id": "...",
+  "policy_version": "...",
+  "modality": "ALLOPATHY",
+  "jurisdiction": "IN",
+  "role": "CLINICIAN",
+  "consent": {},
+  "patient_context": {},
+  "safety_context": {},
+  "evidence": [],
+  "task": {},
+  "output_contract": {},
+  "excluded_context": []
+}
+```
+
+Store a cryptographically traceable reference to the context version where required by the audit model.
+
+Do not store unnecessary PHI inside prompts or logs.
+
+---
+
+# 21. CONTEXT SECURITY
+
+Design explicit defenses against:
+
+* prompt injection
+* indirect prompt injection
+* poisoned documents
+* malicious retrieved content
+* cross-tenant context leakage
+* modality contamination
+* stale evidence
+* unauthorized tool calls
+* context overexposure
+* instruction hierarchy attacks
+
+Use this priority order:
+
+```text
+Emergency/Safety Policy
+        >
+Law / Regulatory Policy
+        >
+Clinician Constraints
+        >
+Approved Clinical Evidence
+        >
+Application Policy
+        >
+Model Instructions
+        >
+Patient Request
+        >
+Untrusted Retrieved Content
+```
+
+Retrieved documents are **data**, not instructions.
+
+---
+
+# 22. CITATION CONTRACT
+
+AI clinical claims must be traceable.
+
+Represent claims internally as:
+
+```json
+{
+  "claim_id": "claim_001",
+  "text": "...",
+  "source_ids": ["src_001"],
+  "support_level": "SUPPORTED",
+  "citation_status": "VALID"
+}
+```
+
+Possible states:
+
+```text
+SUPPORTED
+PARTIALLY_SUPPORTED
+UNSUPPORTED
+CONTRADICTED
+STALE
+```
+
+If an important clinical claim is unsupported:
+
+```text
+DO NOT PRESENT AS FACT
+```
+
+---
+
+# 23. MEDICATION SAFETY
+
+Medication safety must not depend solely on LLM memory.
+
+Create a deterministic medication-safety service supporting checks such as:
+
+```text
+Allergy
+Interaction
+Contraindication
+Duplicate therapy
+Age
+Pregnancy
+Renal considerations
+Hepatic considerations
+Known safety warnings
+Product status
+Recall status
+```
+
+Use a provider abstraction:
+
+```text
+MedicationSafetyProvider
+    ├── ApprovedKnowledgeProvider
+    ├── ExternalReferenceProvider
+    └── OrganizationSpecificProvider
+```
+
+Every safety result requires provenance.
+
+---
+
+# 24. VOICE AGENT
+
+Architecture:
+
+```text
+Browser
+  ↓
+WebRTC
+  ↓
+Voice Gateway
+  ↓
+Speech-to-Text
+  ↓
+LangGraph
+  ↓
+Deterministic Safety
+  ↓
+Approved Tools
+  ↓
+Response Generation
+  ↓
+Text-to-Speech
+```
+
+The voice agent must not:
+
+* independently diagnose;
+* prescribe;
+* recommend medication;
+* modify signed plans;
+* bypass consent;
+* bypass clinician review.
+
+Voice sessions require:
+
+```text
+session_id
+speaker
+timestamp
+transcript_version
+consent
+tool_calls
+safety_events
+handoff_events
+audit_reference
+```
+
+---
+
+# 25. PLAYWRIGHT MCP
+
+Use Playwright MCP as a controlled browser-verification layer.
+
+Required use cases:
+
+```text
+Patient onboarding
+Consent
+Patient intake
+Clinician login
+Clinician queue
+Clinical review
+Safety alert
+Care-plan approval
+Patient plan viewing
+Admin workflows
+Accessibility
+Responsive UI
+Visual regression
+Smoke tests
+Release validation
+```
+
+The browser layer must verify actual application behavior.
+
+A task is NOT complete because code exists.
+
+It is complete only when:
+
+```text
+CODE
++
+UNIT TEST
++
+INTEGRATION TEST
++
+DATABASE VERIFICATION
++
+API VERIFICATION
++
+BROWSER VERIFICATION
++
+AUDIT VERIFICATION
+=
+DONE
+```
+
+Never use real production PHI for automated QA.
+
+---
+
+# 26. MCP SECURITY
+
+Every MCP server must declare:
+
+```text
+name
+purpose
+tools
+read/write classification
+risk level
+allowed roles
+allowed environments
+domain allowlist
+authentication
+rate limit
+timeout
+audit events
+```
+
+Never expose arbitrary shell/database/browser capabilities to an unrestricted model.
+
+---
+
+# 27. `skills.md`
+
+Generate a complete repository-level `skills.md`.
+
+Include skills such as:
+
+```text
+patient-intake
+consent
+triage
+clinician-review
+care-plan
+knowledge-ingestion
+rag-retrieval
+citation-validation
+medication-safety
+voice-agent
+langgraph
+langflow
+playwright
+mcp
+database
+api
+security
+accessibility
+deployment
+evaluation
+audit
+```
+
+Every skill must use this structure:
+
+```yaml
+name:
+purpose:
+inputs:
+outputs:
+allowed_tools:
+forbidden_tools:
+preconditions:
+workflow:
+validation:
+failure_modes:
+audit_events:
+tests:
+```
+
+Skills must be explicit about what they cannot do.
+
+---
+
+# 28. UI / UX
+
+Create a production-grade UX specification.
+
+## Patient
+
+Screens:
+
+```text
+Landing
+Registration
+Login
+Consent
+Profile
+Health Information
+Medication
+Allergy
+Symptom Intake
+Safety Notification
+Appointment
+Care Plan
+Follow-up
+Voice Interaction
+Notifications
+Privacy
+Account
+```
+
+## Clinician
+
+Screens:
+
+```text
+Dashboard
+Patient Queue
+Patient Profile
+Encounter
+Intake Review
+Safety Alerts
+Evidence Panel
+RAG Sources
+AI Draft
+Clinical Review
+Edit
+Sign
+Care Plan
+Follow-up
+Adverse Event
+Audit
+```
+
+## Admin
+
+Screens:
+
+```text
+Organizations
+Users
+Roles
+Practitioners
+Knowledge Sources
+Knowledge Versions
+RAG Health
+AI Models
+Prompts
+LangGraph Runs
+LangFlow Flows
+MCP Tools
+Audit Logs
+Security Events
+System Health
+```
+
+---
+
+# 29. DESIGN SYSTEM
+
+Use Tailwind CSS.
+
+Define:
+
+```text
+Typography
+Spacing
+Colors
+Elevation
+Borders
+Radius
+Grid
+Responsive breakpoints
+Forms
+Tables
+Cards
+Modals
+Alerts
+Toasts
+Navigation
+Data visualization
+Clinical status indicators
+```
+
+Accessibility target:
+
+```text
+WCAG 2.2 AA
+```
+
+Do not rely on color alone to communicate clinical status.
+
+Clinical alerts must include:
+
+```text
+icon
+label
+severity
+action
+```
+
+---
+
+# 30. ANIMATION SYSTEM
+
+Use animation to communicate state, not decoration.
+
+Use:
+
+```text
+Framer Motion
+SVG
+React Flow where graph visualization is useful
+CSS transitions
+```
+
+Animations should represent:
+
+```text
+workflow progression
+agent state
+retrieval activity
+validation
+approval
+deployment state
+GSD progress
+system topology
+```
+
+Respect:
+
+```text
+prefers-reduced-motion
+```
+
+---
+
+# 31. ANIMATED GSD TOPOLOGY
+
+Create an interactive topology:
+
+```text
+PRODUCT
+   ↓
+MRD
+   ↓
+PRD
+   ↓
+TRD
+   ↓
+ARCHITECTURE
+   ↓
+SCHEMA
+   ↓
+API
+   ↓
+AI
+   ↓
+RAG
+   ↓
+LANGGRAPH
+   ↓
+UI
+   ↓
+TEST
+   ↓
+BROWSER
+   ↓
+DEPLOY
+```
+
+Nodes must expose:
+
+```text
+status
+owner
+dependencies
+progress
+tests
+artifacts
+last verification
+```
+
+Status:
+
+```text
+NOT_STARTED
+PLANNED
+IN_PROGRESS
+BLOCKED
+TESTING
+VERIFIED
+RELEASED
+```
+
+---
+
+# 32. GSD EXECUTION FRAMEWORK
+
+Do not use vague tasks such as:
+
+> Build the backend.
+
+Instead:
+
+```text
+Task ID
+Goal
+Context
+Dependencies
+Files
+Implementation Steps
+Database Changes
+API Changes
+UI Changes
+Tests
+Browser Journey
+Acceptance Criteria
+Evidence
+Rollback
+```
+
+Suggested implementation phases:
+
+```text
+00-foundation
+01-auth-tenancy
+02-patient-profile
+03-consent
+04-intake
+05-safety
+06-clinician-queue
+07-care-plan
+08-audit
+09-knowledge
+10-rag
+11-langgraph
+12-langflow
+13-voice
+14-fhir
+15-admin
+16-security
+17-observability
+18-playwright
+19-deployment
+20-production
+```
+
+---
+
+# 33. VERTICAL SLICE FIRST
+
+The first working vertical slice must be:
+
+```text
+Patient
+ ↓
+Registration
+ ↓
+Consent
+ ↓
+Profile
+ ↓
+Medication / Allergy
+ ↓
+Symptom Intake
+ ↓
+Deterministic Safety
+ ↓
+Clinician Queue
+ ↓
+Clinician Review
+ ↓
+Signed Plan
+ ↓
+Patient View
+ ↓
+Audit
+ ↓
+Playwright Verification
+```
+
+Do not begin with advanced autonomous AI features.
+
+Prove the clinical workflow first.
+
+Then introduce:
+
+```text
+RAG
+↓
+LangChain
+↓
+LangGraph
+↓
+LangFlow
+↓
+Voice
+↓
+FHIR
+↓
+Multilingual
+↓
+Advanced Analytics
+```
+
+---
+
+# 34. SECURITY
+
+Generate a threat model covering:
+
+```text
+Authentication
+Authorization
+Tenant isolation
+PHI exposure
+Prompt injection
+RAG poisoning
+MCP abuse
+Browser automation abuse
+Credential theft
+Session hijacking
+API abuse
+Data exfiltration
+Insider threats
+Supply-chain risks
+Dependency vulnerabilities
+Secrets
+Backup compromise
+```
+
+For each threat:
+
+```text
+Threat
+Asset
+Attack Vector
+Likelihood
+Impact
+Control
+Detection
+Response
+Residual Risk
+```
+
+Do not invent quantitative risk ratings without explaining the methodology.
+
+---
+
+# 35. AUDIT
+
+Every clinically meaningful operation must be auditable.
+
+Audit fields should include:
+
+```text
+event_id
+tenant_id
+actor_id
+actor_role
+patient_id
+encounter_id
+action
+resource_type
+resource_id
+timestamp
+source
+request_id
+model_run_id
+prompt_version
+knowledge_version
+tool_call_id
+before_hash
+after_hash
+outcome
+reason
+```
+
+Audit logs must be tamper-resistant.
+
+---
+
+# 36. OBSERVABILITY
+
+Instrument:
+
+```text
+API latency
+database latency
+queue latency
+RAG latency
+retrieval quality
+LLM latency
+token usage
+model failures
+tool failures
+safety events
+clinician approval time
+browser failures
+voice latency
+availability
+```
+
+Use OpenTelemetry.
+
+Trace:
+
+```text
+User Request
+ → API
+ → LangGraph
+ → Retrieval
+ → Model
+ → Tool
+ → Human Review
+ → Final Action
+```
+
+---
+
+# 37. AI EVALUATION
+
+Build an evaluation framework covering:
+
+```text
+Groundedness
+Citation accuracy
+Retrieval recall
+Retrieval precision
+Modality isolation
+Safety adherence
+Abstention behavior
+Prompt injection resistance
+PHI leakage
+Tool authorization
+Clinical draft quality
+Human review usability
+Multilingual behavior
+```
+
+Every AI release must pass predefined evaluation gates.
+
+---
+
+# 38. TESTING
+
+Generate:
+
+```text
+Unit Tests
+Integration Tests
+Contract Tests
+Database Tests
+API Tests
+Security Tests
+AI Evaluations
+RAG Evaluations
+LangGraph Tests
+LangFlow Tests
+MCP Tests
+Accessibility Tests
+Playwright Tests
+Visual Regression Tests
+Load Tests
+Chaos Tests
+Backup/Restore Tests
+```
+
+Clinical safety paths require deterministic tests.
+
+---
+
+# 39. CI/CD
+
+Pipeline:
+
+```text
+Commit
+ ↓
+Formatting
+ ↓
+Lint
+ ↓
+Type Check
+ ↓
+Unit Tests
+ ↓
+Security Scan
+ ↓
+Build
+ ↓
+Database Validation
+ ↓
+Integration Tests
+ ↓
+AI Evaluation
+ ↓
+Playwright
+ ↓
+Accessibility
+ ↓
+Artifact Generation
+ ↓
+Deploy Staging
+ ↓
+Smoke Tests
+ ↓
+Approval Gate
+ ↓
+Production
+```
+
+Production deployment must have explicit approval gates for safety-sensitive changes.
+
+---
+
+# 40. ENVIRONMENTS
+
+Define:
+
+```text
+local
+development
+test
+staging
+production
+```
+
+Production must never be used for development testing.
+
+Generate:
+
+```text
+.env.example
+```
+
+Never include actual secrets.
+
+---
+
+# 41. INFRASTRUCTURE
+
+Generate infrastructure specifications for:
+
+```text
+Frontend
+API
+Workers
+PostgreSQL
+pgvector
+Redis
+Object Storage
+Secrets
+Monitoring
+Logging
+Queues
+Load Balancer
+DNS
+TLS
+Backups
+CI/CD
+```
+
+Provide Terraform/module boundaries where appropriate.
+
+---
+
+# 42. DEPLOYMENT
+
+Provide exact deployment sequence:
+
+```text
+Provision Infrastructure
+ ↓
+Configure Secrets
+ ↓
+Provision Database
+ ↓
+Run Migrations
+ ↓
+Seed Non-PHI Reference Data
+ ↓
+Deploy Backend
+ ↓
+Deploy Workers
+ ↓
+Deploy Frontend
+ ↓
+Deploy AI Services
+ ↓
+Configure Observability
+ ↓
+Run Smoke Tests
+ ↓
+Run Playwright
+ ↓
+Run Safety Evaluation
+ ↓
+Approval
+ ↓
+Production Release
+```
+
+---
+
+# 43. LOCAL DEVELOPMENT
+
+Generate exact setup instructions.
+
+Include:
+
+```bash
+git clone ...
+cp .env.example .env
+docker compose up -d
+npm install
+...
+```
+
+Include commands for:
+
+```text
+database
+migration
+seed
+frontend
+backend
+workers
+LangFlow
+tests
+Playwright
+lint
+typecheck
+build
+```
+
+---
+
+# 44. REQUIRED HEALTH CHECKS
+
+Create endpoints such as:
+
+```text
+/health
+/health/live
+/health/ready
+/health/database
+/health/vector
+/health/redis
+/health/ai
+/health/knowledge
+```
+
+Never expose sensitive internal information from public health endpoints.
+
+---
+
+# 45. RECOVERY / DIAGNOSTIC RULE
+
+Before claiming implementation is complete, verify:
+
+```bash
+npm run build
+```
+
+Check database configuration.
+
+Verify migrations.
+
+Verify actual database connectivity.
+
+Run application.
+
+Open the application in a real browser.
+
+Inspect actual UI.
+
+Verify actual data.
+
+Verify critical workflow.
+
+Run Playwright.
+
+Capture evidence.
+
+The system must never claim:
+
+> implemented
+
+based solely on source-code existence.
+
+---
+
+# 46. DEFINITION OF DONE
+
+A feature is DONE only when:
+
+```text
+Requirement exists
+AND
+Design exists
+AND
+Code exists
+AND
+Database exists
+AND
+API exists
+AND
+UI exists
+AND
+Tests pass
+AND
+Security reviewed
+AND
+Audit implemented
+AND
+Browser verified
+AND
+Evidence captured
+AND
+Documentation updated
+```
+
+If one is missing:
+
+```text
+NOT DONE
+```
+
+---
+
+# 47. ROADMAP
+
+Generate a phased roadmap.
+
+## Phase 0 — Foundation
+
+* repository
+* CI
+* environments
+* authentication
+* tenancy
+* database
+* observability
+
+## Phase 1 — Clinical Core
+
+* patient
+* consent
+* intake
+* medications
+* allergies
+* deterministic safety
+* clinician queue
+
+## Phase 2 — Care Workflow
+
+* clinician review
+* care plan
+* signing
+* patient presentation
+* follow-up
+* audit
+
+## Phase 3 — Knowledge
+
+* source ingestion
+* knowledge governance
+* embeddings
+* pgvector
+* hybrid search
+* citations
+
+## Phase 4 — AI
+
+* LangChain
+* LangGraph
+* context engineering
+* clinical drafting
+* evaluation
+
+## Phase 5 — Workflow Platform
+
+* LangFlow
+* MCP
+* Playwright MCP
+* automation
+* topology
+
+## Phase 6 — Voice
+
+* STT
+* voice gateway
+* TTS
+* voice safety
+* handoff
+
+## Phase 7 — Interoperability
+
+* FHIR
+* integrations
+* external systems
+
+## Phase 8 — Production
+
+* security hardening
+* load testing
+* DR
+* backups
+* production readiness
+* launch
+
+---
+
+# 48. ROADMAP FORMAT
+
+For every milestone provide:
+
+```text
+Milestone ID
+Objective
+Dependencies
+Deliverables
+Engineering Tasks
+Clinical/Safety Tasks
+UI Tasks
+AI Tasks
+Infrastructure Tasks
+Testing
+Acceptance Criteria
+Evidence
+Owner
+Estimated Complexity
+Risks
+Rollback
+```
+
+Do not provide arbitrary calendar estimates unless supported by the source material.
+
+---
+
+# 49. ADRs
+
+Generate Architecture Decision Records for major decisions.
+
+At minimum:
+
+```text
+ADR-001 PostgreSQL
+ADR-002 pgvector
+ADR-003 FastAPI
+ADR-004 Next.js
+ADR-005 LangChain
+ADR-006 LangGraph
+ADR-007 LangFlow
+ADR-008 MCP
+ADR-009 Playwright
+ADR-010 Context Engineering
+ADR-011 Human Clinical Approval
+ADR-012 Modality Isolation
+ADR-013 Medication Safety
+ADR-014 Audit Architecture
+ADR-015 FHIR
+```
+
+Each ADR:
+
+```text
+Context
+Decision
+Alternatives
+Consequences
+Security
+Operational Impact
+Migration
+Status
+```
+
+---
+
+# 50. API CONTRACT
+
+Generate OpenAPI-level definitions for:
+
+```text
+Authentication
+Users
+Patients
+Consent
+Encounters
+Intake
+Symptoms
+Allergies
+Medications
+Triage
+Safety
+Clinical Drafts
+Evidence
+RAG
+Care Plans
+Follow-ups
+Adverse Events
+Voice
+Knowledge
+Audit
+Administration
+```
+
+Every endpoint must define:
+
+```text
+method
+path
+authentication
+authorization
+request
+response
+validation
+errors
+idempotency
+rate limit
+audit
+```
+
+---
+
+# 51. ERROR MODEL
+
+Standardize:
+
+```json
+{
+  "error": {
+    "code": "SAFETY_REVIEW_REQUIRED",
+    "message": "Human clinical review is required.",
+    "request_id": "...",
+    "details": {}
+  }
+}
+```
+
+Define machine-readable error codes.
+
+Never expose stack traces or secrets to clients.
+
+---
+
+# 52. PRODUCT COMMERCE FIREWALL
+
+Commercial functionality must be isolated from clinical decision-making.
+
+The architecture must prevent:
+
+```text
+advertising
+commission
+supplier ranking
+inventory
+commercial promotion
+```
+
+from influencing:
+
+```text
+triage
+diagnosis
+clinical evidence
+medication safety
+care-plan generation
+clinician recommendations
+```
+
+Create a formal:
+
+```text
+COMMERCE → CLINICAL
+```
+
+boundary.
+
+Clinical decisions cannot consume commercial ranking signals.
+
+---
+
+# 53. KNOWLEDGE GOVERNANCE
+
+Knowledge ingestion must follow:
+
+```text
+Source Registration
+ ↓
+License Verification
+ ↓
+Document Ingestion
+ ↓
+Parsing
+ ↓
+Metadata
+ ↓
+Clinical Review
+ ↓
+Versioning
+ ↓
+Approval
+ ↓
+Indexing
+ ↓
+Retrieval
+ ↓
+Monitoring
+ ↓
+Expiry / Re-review
+```
+
+Never allow arbitrary internet content to become authoritative clinical evidence.
+
+---
+
+# 54. SOURCE TRACEABILITY
+
+Every major generated artifact must identify whether it came from:
+
+```text
+SOURCE
+ENGINEERING ASSUMPTION
+OPEN DECISION
+IMPLEMENTATION CHOICE
+```
+
+Use tags:
+
+```text
+[SOURCE]
+[ASSUMPTION]
+[OPEN-DECISION]
+[ENGINEERING-CHOICE]
+```
+
+---
+
+# 55. FINAL OUTPUT STRUCTURE
+
+Return the final engineering package in this exact order:
+
+```text
+01_EXECUTIVE_SUMMARY.md
+02_MRD.md
+03_PRD.md
+04_SAFETY_REQUIREMENTS.md
+05_TRD.md
+06_SYSTEM_ARCHITECTURE.md
+07_DATA_ARCHITECTURE.md
+08_DATABASE_SCHEMA.prisma
+09_DATABASE_DDL.sql
+10_API_SPECIFICATION.md
+11_FHIR_MAPPING.md
+12_RAG_ARCHITECTURE.md
+13_LANGCHAIN_ARCHITECTURE.md
+14_LANGGRAPH_ARCHITECTURE.md
+15_LANGFLOW_SPECIFICATION.md
+16_CONTEXT_ENGINEERING.md
+17_MCP_ARCHITECTURE.md
+18_PLAYWRIGHT_ARCHITECTURE.md
+19_VOICE_ARCHITECTURE.md
+20_UI_UX_SPECIFICATION.md
+21_TAILWIND_DESIGN_SYSTEM.md
+22_GSD_TOPOLOGY.md
+23_SKILLS.md
+24_SECURITY_ARCHITECTURE.md
+25_AUDIT_ARCHITECTURE.md
+26_OBSERVABILITY.md
+27_AI_EVALUATION.md
+28_TEST_STRATEGY.md
+29_CICD.md
+30_INFRASTRUCTURE.md
+31_DEPLOYMENT.md
+32_ROADMAP.md
+33_GSD_BACKLOG.md
+34_ADRS.md
+35_RUNBOOKS.md
+36_ACCEPTANCE_GATES.md
+37_DEFINITION_OF_DONE.md
+38_TRACEABILITY_MATRIX.md
+```
+
+---
+
+# 56. REQUIRED FINAL REPOSITORY TREE
+
+End with the complete repository tree showing where every artifact belongs.
+
+Example:
+
+```text
+project/
+├── apps/
+├── services/
+├── packages/
+├── ai/
+├── langflow/
+├── mcp/
+├── playwright/
+├── prisma/
+├── infra/
+├── docs/
+├── skills/
+├── evals/
+├── scripts/
+├── .github/
+├── docker-compose.yml
+├── package.json
+├── pyproject.toml
+├── Makefile
+├── .env.example
+├── README.md
+└── skills.md
+```
+
+---
+
+# 57. BOOTSTRAP IMPLEMENTATION ORDER
+
+When implementing the actual application, execute in this order:
+
+```text
+1. Repository
+2. Local infrastructure
+3. Database
+4. Authentication
+5. Tenancy
+6. Patient model
+7. Consent
+8. Clinical intake
+9. Deterministic safety
+10. Clinician queue
+11. Clinical review
+12. Signed care plan
+13. Audit
+14. Patient UI
+15. Clinician UI
+16. Admin UI
+17. Playwright
+18. Knowledge system
+19. RAG
+20. LangChain
+21. LangGraph
+22. Context engineering
+23. LangFlow
+24. MCP
+25. Voice
+26. FHIR
+27. Security hardening
+28. Observability
+29. Load testing
+30. Production deployment
+```
+
+---
+
+# 58. IMPLEMENTATION RULE
+
+Do not attempt to build everything as one giant operation.
+
+Work vertically.
+
+For every milestone:
+
+```text
+PLAN
+↓
+IMPLEMENT
+↓
+TEST
+↓
+RUN
+↓
+OPEN IN BROWSER
+↓
+VERIFY REAL DATA
+↓
+CAPTURE EVIDENCE
+↓
+DOCUMENT
+↓
+MARK VERIFIED
+```
+
+---
+
+# 59. WHEN INFORMATION IS MISSING
+
+Never fabricate.
+
+Use:
+
+```text
+OPEN DECISION: <question>
+```
+
+or:
+
+```text
+ENGINEERING ASSUMPTION: <assumption>
+RATIONALE: <reason>
+IMPACT: <impact>
+```
+
+At the end generate an:
+
+## OPEN DECISION REGISTER
+
+containing:
+
+```text
+Decision ID
+Question
+Why Needed
+Options
+Impact
+Blocking?
+Owner
+Status
+```
+
+---
+
+# 60. FINAL SELF-AUDIT
+
+Before finishing, verify:
+
+### Product
+
+* MRD exists
+* PRD exists
+* personas exist
+* workflows exist
+* requirements are testable
+
+### Clinical Safety
+
+* clinician governance exists
+* deterministic safety exists
+* emergency escalation exists
+* medication safety is independently governed
+* AI cannot autonomously prescribe
+* commercial influence is isolated
+
+### AI
+
+* RAG exists
+* citations exist
+* provenance exists
+* LangChain exists
+* LangGraph exists
+* LangFlow exists
+* context engineering exists
+* prompt injection defenses exist
+* modality isolation exists
+* human approval exists
+
+### Engineering
+
+* schema exists
+* API exists
+* UI exists
+* Tailwind exists
+* repository structure exists
+* skills.md exists
+* MCP exists
+* Playwright exists
+* CI/CD exists
+* infrastructure exists
+
+### Verification
+
+* unit tests
+* integration tests
+* API tests
+* database tests
+* AI evaluations
+* security tests
+* accessibility tests
+* browser tests
+* deployment tests
+
+### Documentation
+
+* MRD
+* PRD
+* TRD
+* architecture
+* schema
+* roadmap
+* GSD
+* ADRs
+* runbooks
+* acceptance gates
+* traceability
+
+---
+
+# 61. MOST IMPORTANT EXECUTION RULE
+
+Never confuse:
+
+```text
+DOCUMENT GENERATED
+```
+
+with:
+
+```text
+SYSTEM IMPLEMENTED
+```
+
+Never confuse:
+
+```text
+CODE WRITTEN
+```
+
+with:
+
+```text
+FEATURE VERIFIED
+```
+
+Never confuse:
+
+```text
+LLM RESPONSE
+```
+
+with:
+
+```text
+CLINICAL EVIDENCE
+```
+
+Never confuse:
+
+```text
+RETRIEVED DOCUMENT
+```
+
+with:
+
+```text
+AUTHORIZED CLINICAL KNOWLEDGE
+```
+
+Never confuse:
+
+```text
+AI DRAFT
+```
+
+with:
+
+```text
+CLINICIAN-APPROVED CARE
+```
+
+The system must preserve these distinctions throughout the architecture.
+
+---
+
+# 62. FINAL DELIVERY
+
+Produce the complete implementation package.
+
+Start with:
+
+```text
+EXECUTIVE SUMMARY
+```
+
+Then generate all required artifacts in the specified order.
+
+For every artifact:
+
+1. preserve source requirements;
+2. identify assumptions;
+3. identify open decisions;
+4. provide implementation-level detail;
+5. provide acceptance criteria;
+6. provide testing requirements;
+7. provide traceability.
+
+Finish with:
+
+```text
+OPEN DECISION REGISTER
+TRACEABILITY MATRIX
+IMPLEMENTATION ORDER
+PRODUCTION READINESS CHECKLIST
+FINAL REPOSITORY TREE
+```
+
+The final result must be usable as the **single implementation contract for a coding team or autonomous coding agent**.
+
+Do not stop at architecture diagrams.
+
+Do not stop at pseudocode.
+
+Do not claim implementation unless implementation has actually been performed and verified.
+
+This version turns the earlier prompt into an **implementation contract**: it forces source traceability, clinical safety boundaries, concrete schemas/APIs, RAG + LangGraph + LangFlow + MCP + Playwright integration, context engineering, `skills.md`, UI/UX, GSD, and browser-based verification rather than allowing an agent to merely generate attractive documentation.
