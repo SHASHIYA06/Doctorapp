@@ -20,6 +20,12 @@ import {
   BarChart3,
   Mic,
   RotateCcw,
+  Fingerprint,
+  ShieldAlert,
+  CalendarClock,
+  GitCompare,
+  Clock,
+  Syringe,
 } from 'lucide-react'
 import {
   SidebarProvider,
@@ -60,6 +66,12 @@ import { AnalyticsSection } from '@/components/sections/analytics-section'
 import { VoiceSection } from '@/components/sections/voice-section'
 import { RecallsSection } from '@/components/sections/recalls-section'
 import { AdminSection } from '@/components/sections/admin-section'
+import { AbhaSection } from '@/components/sections/abha-section'
+import { CounterfeitSection } from '@/components/sections/counterfeit-section'
+import { ExpiryTrackerSection } from '@/components/sections/expiry-tracker-section'
+import { MedicineCompareSection } from '@/components/sections/medicine-compare-section'
+import { DosageTrackerSection } from '@/components/sections/dosage-tracker-section'
+import { VaccinationSection } from '@/components/sections/vaccination-section'
 
 interface NavItem {
   id: Section
@@ -79,12 +91,16 @@ const navItems: NavItem[] = [
   { id: 'drug-interactions', label: 'Drug Interactions', icon: GitCompareArrows, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
   { id: 'scan-verify', label: 'Scan & Verify', icon: ScanLine, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
   { id: 'pharmacy', label: 'Pharmacy Finder', icon: MapPin, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
+  { id: 'medicine-compare', label: 'Compare', icon: GitCompare, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
+  { id: 'expiry-tracker', label: 'Expiry Tracker', icon: CalendarClock, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
+  { id: 'dosage-tracker', label: 'Dosage Tracker', icon: Clock, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Patient Tools' },
   // Clinical
   { id: 'patients', label: 'Patients', icon: Users, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'intake', label: 'Intake', icon: ClipboardList, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'safety', label: 'Safety', icon: AlertTriangle, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'clinician-queue', label: 'Clinician Queue', icon: Stethoscope, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'care-plans', label: 'Care Plans', icon: FileText, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'vaccination', label: 'Vaccination', icon: Syringe, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical' },
   // Intelligence
   { id: 'voice', label: 'Voice Triage', icon: Mic, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Intelligence' },
   { id: 'analytics', label: 'District Analytics', icon: BarChart3, roles: ['CLINICIAN', 'ADMIN'], group: 'Intelligence' },
@@ -92,6 +108,8 @@ const navItems: NavItem[] = [
   { id: 'consent', label: 'Consent', icon: ShieldCheck, roles: ['CLINICIAN', 'ADMIN'], group: 'Compliance' },
   { id: 'knowledge', label: 'Knowledge', icon: BookOpen, roles: ['CLINICIAN', 'ADMIN'], group: 'Compliance' },
   { id: 'recalls', label: 'Recall Monitor', icon: RotateCcw, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Compliance' },
+  { id: 'abha', label: 'ABHA', icon: Fingerprint, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Compliance' },
+  { id: 'counterfeit', label: 'Counterfeit', icon: ShieldAlert, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Compliance' },
   // System
   { id: 'audit', label: 'Audit', icon: ScrollText, roles: ['ADMIN'], group: 'System' },
   { id: 'admin', label: 'Admin', icon: Settings, roles: ['ADMIN'], group: 'System' },
@@ -116,6 +134,12 @@ const sectionComponents: Record<Section, React.ComponentType> = {
   analytics: AnalyticsSection,
   voice: VoiceSection,
   recalls: RecallsSection,
+  abha: AbhaSection,
+  counterfeit: CounterfeitSection,
+  'expiry-tracker': ExpiryTrackerSection,
+  'medicine-compare': MedicineCompareSection,
+  'dosage-tracker': DosageTrackerSection,
+  vaccination: VaccinationSection,
   admin: AdminSection,
 }
 
@@ -179,7 +203,7 @@ export function AppShell() {
             <Separator className="mb-2" />
             <div className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
               <p className="font-medium">Role: {activeRole}</p>
-              <p className="text-[10px]">v3.0 • CDSCO Integrated</p>
+              <p className="text-[10px]">v4.0 • ABHA + CDSCO + LASA</p>
             </div>
           </SidebarFooter>
           <SidebarRail />

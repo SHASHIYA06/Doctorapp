@@ -1,0 +1,2002 @@
+     1→├── .nvmrc
+     2→├── apps/ (30800 tokens)
+     3→    ├── ml/ (2300 tokens)
+     4→    │   ├── services/ (300 tokens)
+     5→    │   │   ├── __init__.py
+     6→    │   │   ├── similarity.py
+     7→    │   │   └── matcher.py (200 tokens)
+     8→    │   ├── tests/ (600 tokens)
+     9→    │   │   ├── fixtures/ (400 tokens)
+    10→    │   │   │   ├── hindi_sample.wav
+    11→    │   │   │   ├── tamil_sample.wav
+    12→    │   │   │   ├── bengali_sample.wav
+    13→    │   │   │   └── telugu_sample.wav
+    14→    │   │   └── test_voice_verify.py (200 tokens)
+    15→    │   ├── .dockerignore
+    16→    │   ├── models/ (100 tokens)
+    17→    │   │   └── mobilenetv3_large_int8.tflite
+    18→    │   ├── utils/ (400 tokens)
+    19→    │   │   ├── database.py
+    20→    │   │   └── audio_upload.py (300 tokens)
+    21→    │   ├── verify_transcode_timeout.py (200 tokens)
+    22→    │   ├── tracing.py (300 tokens)
+    23→    │   └── routers/ (300 tokens)
+    24→    │   │   └── medicine_extract.py (300 tokens)
+    25→    ├── web/ (20300 tokens)
+    26→    │   ├── lib/ (5000 tokens)
+    27→    │   │   ├── api/
+    28→    │   │   │   └── apiKeys.ts
+    29→    │   │   ├── sync/ (600 tokens)
+    30→    │   │   │   ├── index.ts
+    31→    │   │   │   ├── syncConfig.ts (200 tokens)
+    32→    │   │   │   └── networkSync.ts (300 tokens)
+    33→    │   │   ├── utils.ts
+    34→    │   │   ├── apiConfig.ts
+    35→    │   │   ├── supabase.ts
+    36→    │   │   ├── constants.ts
+    37→    │   │   ├── supabase/ (100 tokens)
+    38→    │   │   │   └── medicineSearch.ts
+    39→    │   │   ├── redis.ts
+    40→    │   │   ├── vision/ (400 tokens)
+    41→    │   │   │   ├── detectPackaging.ts (200 tokens)
+    42→    │   │   │   └── README.md (200 tokens)
+    43→    │   │   ├── adminApi.ts (200 tokens)
+    44→    │   │   ├── alertFormatting.ts (200 tokens)
+    45→    │   │   ├── slugify.ts (200 tokens)
+    46→    │   │   ├── structuredLogger.ts (200 tokens)
+    47→    │   │   ├── counterfeitReports.ts (200 tokens)
+    48→    │   │   ├── accessToken.ts (300 tokens)
+    49→    │   │   ├── adminAuth.ts (300 tokens)
+    50→    │   │   ├── offlineCache.ts (300 tokens)
+    51→    │   │   ├── chatUtils.ts (300 tokens)
+    52→    │   │   ├── env.ts (300 tokens)
+    53→    │   │   ├── syncUserScoping.ts (300 tokens)
+    54→    │   │   ├── rateLimit.ts (300 tokens)
+    55→    │   │   └── authReturn.ts (300 tokens)
+    56→    │   ├── app/ (3600 tokens)
+    57→    │   │   ├── [locale]/ (3000 tokens)
+    58→    │   │   │   ├── settings/
+    59→    │   │   │   │   └── ApiKeysSection.tsx
+    60→    │   │   │   ├── [...rest]/ (100 tokens)
+    61→    │   │   │   │   └── page.tsx
+    62→    │   │   │   ├── voice/ (800 tokens)
+    63→    │   │   │   │   ├── lib/ (400 tokens)
+    64→    │   │   │   │   │   ├── emergency.ts
+    65→    │   │   │   │   │   └── recording.ts (300 tokens)
+    66→    │   │   │   │   ├── types.ts (200 tokens)
+    67→    │   │   │   │   └── layout.tsx (200 tokens)
+    68→    │   │   │   ├── components/ (500 tokens)
+    69→    │   │   │   │   ├── ThemeProvider.tsx
+    70→    │   │   │   │   ├── ReactQueryProvider.tsx (200 tokens)
+    71→    │   │   │   │   └── InteractiveOverlays.tsx (200 tokens)
+    72→    │   │   │   ├── expiry-tracker/ (100 tokens)
+    73→    │   │   │   │   └── components/ (100 tokens)
+    74→    │   │   │   │   │   └── types.ts
+    75→    │   │   │   ├── asha/ (200 tokens)
+    76→    │   │   │   │   └── dashboard/ (200 tokens)
+    77→    │   │   │   │   │   └── page.tsx (200 tokens)
+    78→    │   │   │   ├── map/ (200 tokens)
+    79→    │   │   │   │   └── layout.tsx (200 tokens)
+    80→    │   │   │   ├── compare/ (200 tokens)
+    81→    │   │   │   │   └── layout.tsx (200 tokens)
+    82→    │   │   │   ├── report/ (200 tokens)
+    83→    │   │   │   │   └── layout.tsx (200 tokens)
+    84→    │   │   │   ├── history/ (200 tokens)
+    85→    │   │   │   │   └── layout.tsx (200 tokens)
+    86→    │   │   │   ├── alerts/ (200 tokens)
+    87→    │   │   │   │   └── layout.tsx (200 tokens)
+    88→    │   │   │   └── scan/ (300 tokens)
+    89→    │   │   │   │   └── layout.tsx (300 tokens)
+    90→    │   │   ├── favicon.ico
+    91→    │   │   ├── loading.tsx
+    92→    │   │   ├── robots.ts
+    93→    │   │   └── api/ (300 tokens)
+    94→    │   │   │   └── auth/ (300 tokens)
+    95→    │   │   │       └── signout/ (300 tokens)
+    96→    │   │   │           └── route.ts (300 tokens)
+    97→    │   ├── tests/ (3100 tokens)
+    98→    │   │   ├── mocks/ (900 tokens)
+    99→    │   │   │   ├── styleMock.ts
+   100→    │   │   │   ├── next-intl-routing.ts
+   101→    │   │   │   ├── leaflet.ts
+   102→    │   │   │   ├── react-leaflet.ts
+   103→    │   │   │   ├── next-navigation.tsx (200 tokens)
+   104→    │   │   │   ├── next-intl-navigation.tsx (200 tokens)
+   105→    │   │   │   └── i18n-routing.tsx (200 tokens)
+   106→    │   │   ├── fixtures/ (300 tokens)
+   107→    │   │   │   ├── med.webp
+   108→    │   │   │   ├── table.avif
+   109→    │   │   │   └── blank-wall.webp
+   110→    │   │   ├── history-dynamic-export-modal.test.ts (200 tokens)
+   111→    │   │   ├── medicine-search-filter.test.ts (200 tokens)
+   112→    │   │   ├── expiry-tracker-structure.test.ts (300 tokens)
+   113→    │   │   ├── chatBubble-render.test.tsx (300 tokens)
+   114→    │   │   ├── back-to-top-button.test.tsx (300 tokens)
+   115→    │   │   ├── live-message.test.tsx (300 tokens)
+   116→    │   │   └── chatFormatting.test.ts (300 tokens)
+   117→    │   ├── lucide-react-fallback.d.ts
+   118→    │   ├── postcss.config.mjs
+   119→    │   ├── public/ (1300 tokens)
+   120→    │   │   ├── icons/ (500 tokens)
+   121→    │   │   │   ├── icon-192.png
+   122→    │   │   │   ├── icon-512.png
+   123→    │   │   │   ├── sahidawa-logo.png
+   124→    │   │   │   ├── icon-192-maskable.png
+   125→    │   │   │   └── icon-512-maskable.png
+   126→    │   │   └── tesseract/ (800 tokens)
+   127→    │   │   │   ├── eng.traineddata.gz
+   128→    │   │   │   ├── tesseract-core.wasm
+   129→    │   │   │   ├── index.js
+   130→    │   │   │   ├── tesseract-core-lstm.wasm
+   131→    │   │   │   ├── tesseract-core-simd.wasm
+   132→    │   │   │   ├── tesseract-core-relaxedsimd.wasm
+   133→    │   │   │   ├── tesseract-core-simd-lstm.wasm
+   134→    │   │   │   └── tesseract-core-relaxedsimd-lstm.wasm
+   135→    │   ├── jest.globalTeardown.cjs
+   136→    │   ├── src/ (300 tokens)
+   137→    │   │   └── lib/ (300 tokens)
+   138→    │   │   │   ├── compareSelectFields.ts
+   139→    │   │   │   └── mapMedicineRow.ts (200 tokens)
+   140→    │   ├── .dockerignore
+   141→    │   ├── vercel.json
+   142→    │   ├── components/ (3300 tokens)
+   143→    │   │   ├── OutbreakListener.tsx
+   144→    │   │   ├── vaccine/ (100 tokens)
+   145→    │   │   │   └── index.ts
+   146→    │   │   ├── medicine/ (400 tokens)
+   147→    │   │   │   ├── index.ts
+   148→    │   │   │   └── validateMedicineFile.ts (300 tokens)
+   149→    │   │   ├── ui/ (1200 tokens)
+   150→    │   │   │   ├── Icons.tsx
+   151→    │   │   │   ├── Skeleton.tsx (200 tokens)
+   152→    │   │   │   ├── Kbd.tsx (200 tokens)
+   153→    │   │   │   ├── Container.tsx (200 tokens)
+   154→    │   │   │   ├── VisuallyHidden.tsx (200 tokens)
+   155→    │   │   │   └── LiveMessage.tsx (300 tokens)
+   156→    │   │   ├── ABHABadge.tsx
+   157→    │   │   ├── Card.tsx (200 tokens)
+   158→    │   │   ├── TracingInitializer.tsx (200 tokens)
+   159→    │   │   ├── map/ (200 tokens)
+   160→    │   │   │   └── mapIcons.ts (200 tokens)
+   161→    │   │   ├── medicines/ (200 tokens)
+   162→    │   │   │   └── AlternativeCard.tsx (200 tokens)
+   163→    │   │   ├── FakeMedicineHunterBadge.tsx (300 tokens)
+   164→    │   │   └── scanner/ (300 tokens)
+   165→    │   │   │   └── results/ (300 tokens)
+   166→    │   │   │       └── CdscoStatusBadge.tsx (300 tokens)
+   167→    │   ├── hooks/ (300 tokens)
+   168→    │   │   ├── useScrollToTop.ts
+   169→    │   │   └── useMediaQuery.ts (200 tokens)
+   170→    │   ├── .eslintrc.json (200 tokens)
+   171→    │   ├── .gitignore (200 tokens)
+   172→    │   ├── tsconfig.test.json (200 tokens)
+   173→    │   ├── sentry.server.config.ts (200 tokens)
+   174→    │   ├── i18n/ (200 tokens)
+   175→    │   │   └── routing.ts (200 tokens)
+   176→    │   ├── jest-transformer.cjs (200 tokens)
+   177→    │   ├── lighthouserc.json (200 tokens)
+   178→    │   ├── sentry.edge.config.ts (200 tokens)
+   179→    │   ├── worker/ (200 tokens)
+   180→    │   │   └── workboxRuntimeCaching.mjs (200 tokens)
+   181→    │   ├── tsconfig.json (300 tokens)
+   182→    │   ├── sentry.client.config.ts (300 tokens)
+   183→    │   ├── eslint.config.mjs (300 tokens)
+   184→    │   └── playwright.config.ts (300 tokens)
+   185→    ├── etl/ (900 tokens)
+   186→    │   ├── requirements.txt
+   187→    │   ├── tests/
+   188→    │   │   └── __init__.py
+   189→    │   ├── src/ (400 tokens)
+   190→    │   │   ├── __init__.py
+   191→    │   │   ├── utils/ (100 tokens)
+   192→    │   │   │   ├── __init__.py
+   193→    │   │   │   └── logger.py
+   194→    │   │   ├── loaders/ (100 tokens)
+   195→    │   │   │   └── __init__.py
+   196→    │   │   ├── scrapers/ (100 tokens)
+   197→    │   │   │   └── __init__.py
+   198→    │   │   └── validators/ (100 tokens)
+   199→    │   │   │   └── __init__.py
+   200→    │   ├── pyproject.toml (200 tokens)
+   201→    │   └── README.md (300 tokens)
+   202→    └── api/ (7300 tokens)
+   203→    │   ├── .dockerignore
+   204→    │   ├── assets/ (100 tokens)
+   205→    │       └── brandMap.json.gz
+   206→    │   ├── tests/ (1500 tokens)
+   207→    │       ├── fixtures/ (200 tokens)
+   208→    │       │   ├── blank.webp
+   209→    │       │   └── medicine-box.jpg
+   210→    │       ├── cacheMiddleware.test.ts (200 tokens)
+   211→    │       ├── medicineFilter.test.ts (200 tokens)
+   212→    │       ├── medicine.test.ts (300 tokens)
+   213→    │       ├── interactionFilters.test.ts (300 tokens)
+   214→    │       └── pharmacyRadius.shared.test.ts (300 tokens)
+   215→    │   ├── src/ (5000 tokens)
+   216→    │       ├── utils/ (1800 tokens)
+   217→    │       │   ├── validation.ts
+   218→    │       │   ├── cryptoUtils.ts (200 tokens)
+   219→    │       │   ├── originCheck.ts (200 tokens)
+   220→    │       │   ├── dbErrors.ts (200 tokens)
+   221→    │       │   ├── verification.ts (200 tokens)
+   222→    │       │   ├── security/ (300 tokens)
+   223→    │       │   │   └── sanitize.ts (300 tokens)
+   224→    │       │   ├── db.ts (300 tokens)
+   225→    │       │   └── env.ts (300 tokens)
+   226→    │       ├── db/ (300 tokens)
+   227→    │       │   └── migrations/ (300 tokens)
+   228→    │       │   │   ├── add_drug_alerts_unique_alert_constraint.sql
+   229→    │       │   │   └── 001_map_tables.sql (200 tokens)
+   230→    │       ├── types/ (300 tokens)
+   231→    │       │   ├── notification.types.ts
+   232→    │       │   └── pharmacy.types.ts (200 tokens)
+   233→    │       ├── middleware/ (600 tokens)
+   234→    │       │   ├── cache.ts
+   235→    │       │   ├── uploadRateLimit.ts (200 tokens)
+   236→    │       │   └── uploadSizeValidator.ts (300 tokens)
+   237→    │       ├── repositories/ (200 tokens)
+   238→    │       │   └── redis.repository.ts (200 tokens)
+   239→    │       ├── validators/ (200 tokens)
+   240→    │       │   └── medicine.validator.ts (200 tokens)
+   241→    │       ├── queues/ (200 tokens)
+   242→    │       │   └── smsQueue.ts (200 tokens)
+   243→    │       ├── services/ (200 tokens)
+   244→    │       │   └── audit.service.ts (200 tokens)
+   245→    │       ├── schemas/ (600 tokens)
+   246→    │       │   ├── filters.ts (300 tokens)
+   247→    │       │   └── pagination.ts (300 tokens)
+   248→    │       ├── tracing.ts (300 tokens)
+   249→    │       └── instrument.ts (300 tokens)
+   250→    │   ├── jest.globalTeardown.js
+   251→    │   ├── tsconfig.test.json
+   252→    │   ├── tsconfig.json (200 tokens)
+   253→    │   └── ws-setup.js (300 tokens)
+   254→├── .husky/ (100 tokens)
+   255→    ├── pre-push
+   256→    └── pre-commit
+   257→├── docs/ (600 tokens)
+   258→    ├── getting-started/
+   259→    │   └── .gitkeep
+   260→    └── assets/ (600 tokens)
+   261→    │   └── issue-screenshots/ (600 tokens)
+   262→    │       ├── issue-1177.png
+   263→    │       ├── issue-1178.png
+   264→    │       ├── issue-1184.png
+   265→    │       ├── issue-1185.png
+   266→    │       ├── issue-1186.png
+   267→    │       └── issue-1187.png
+   268→├── supabase/ (10400 tokens)
+   269→    ├── migrations/ (10300 tokens)
+   270→    │   ├── 20260813000000_add_description_to_api_keys.sql
+   271→    │   ├── 20260519000000_add_batch_number_index.sql
+   272→    │   ├── 20260619000000_add_created_by_to_pharmacies.sql
+   273→    │   ├── 20260624000001_add_is_verified_to_tracked_medicines.sql
+   274→    │   ├── 20260629000001_add_push_subscriptions_user_id_index.sql
+   275→    │   ├── 20260612000001_add_drug_alerts_proof_url.sql
+   276→    │   ├── 20260701000001_add_snoozed_until_to_expiry_tracker.sql
+   277→    │   ├── 20260627000000_add_interaction_versioning.sql
+   278→    │   ├── 20260707133002_add_drug_alerts_unique_constraint.sql
+   279→    │   ├── 20260708072041_add_etl_failed_rows_cleanup.sql
+   280→    │   ├── 20260714000000_add_encryption_salt_to_abha_links.sql
+   281→    │   ├── 20260709000000_add_reporter_phone_to_reports.sql
+   282→    │   ├── 20260625091923_add_pharmacy_rls.sql
+   283→    │   ├── 20260708000000_widen_abha_record_types.sql
+   284→    │   ├── 20260710000001_validate_pharmacies_license_id.sql
+   285→    │   ├── 20260518000000_create_push_subscriptions.sql
+   286→    │   ├── 20260707070958_add_scan_history_ttl.sql
+   287→    │   ├── 20260531000000_drop_mrp_gte_jan_aushadhi_price_constraint.sql
+   288→    │   ├── 20260718175419_create_hnsw_medicine_index.sql
+   289→    │   ├── 20260705000000_add_expires_at_to_api_keys.sql
+   290→    │   ├── 20260712000000_add_notification_subscribers_trgm_idx.sql
+   291→    │   ├── 20260615000000_add_cdsco_validation_evidence_columns.sql
+   292→    │   ├── 20260704000000_add_key_salt_to_api_keys.sql
+   293→    │   ├── 20260615100000_add_tracked_medicines.sql (200 tokens)
+   294→    │   ├── 20260603000000_add_license_id_to_pharmacies.sql (200 tokens)
+   295→    │   ├── 20260704150905_add_rls_to_scan_history.sql (200 tokens)
+   296→    │   ├── 20260516000000_add_reporter_id_to_reports.sql (200 tokens)
+   297→    │   ├── 20260812220000_create_dosage_reminder_deliveries.sql (200 tokens)
+   298→    │   ├── 20260705000001_add_snooze_to_alerts.sql (200 tokens)
+   299→    │   ├── 20260625120000_add_notification_verification.sql (200 tokens)
+   300→    │   ├── 20260616192724_tighten_dose_logs_rls.sql (200 tokens)
+   301→    │   ├── 20260517000000_extend_counterfeit_reports_fields.sql (200 tokens)
+   302→    │   ├── 20260602000000_create_scan_history.sql (200 tokens)
+   303→    │   ├── 20260629000000_add_scan_history_idx_and_rpc.sql (200 tokens)
+   304→    │   ├── 20260628000000_create_ocr_synonyms.sql (200 tokens)
+   305→    │   ├── 20260708010000_add_medicines_vacuum_cron.sql (200 tokens)
+   306→    │   ├── 20260609000001_add_rls_api_keys.sql (200 tokens)
+   307→    │   ├── 20260705000002_add_hnsw_index_medicines_embedding.sql (200 tokens)
+   308→    │   ├── 20260525000000_create_lasa_rpc.sql (200 tokens)
+   309→    │   ├── 20260701000000_add_guest_rls_tracked_medicines.sql (200 tokens)
+   310→    │   ├── 20260704153000_create_api_keys_table.sql (200 tokens)
+   311→    │   ├── 20260625093800_add_subscriber_frequency.sql (300 tokens)
+   312→    │   ├── 20260520000000_create_etl_failed_rows.sql (300 tokens)
+   313→    │   ├── 20260529000003_fix_medicines_unique_variant.sql (300 tokens)
+   314→    │   ├── 20260616000000_add_medicines_trgm_indexes.sql (300 tokens)
+   315→    │   ├── 20260609000004_create_dose_logs.sql (300 tokens)
+   316→    │   ├── 20260803000000_create_public_users_points.sql (300 tokens)
+   317→    │   ├── 20260613000000_add_counterfeit_report_safeguards.sql (300 tokens)
+   318→    │   ├── 20260609000002_create_expiry_tracker_items.sql (300 tokens)
+   319→    │   ├── 20260711000000_create_pg_cron_monitor_rpc.sql (300 tokens)
+   320→    │   ├── 20260607000000_add_rls_scan_history.sql (300 tokens)
+   321→    │   ├── 20260609000003_create_medicine_schedules.sql (300 tokens)
+   322→    │   ├── 20260620000000_create_pharmacy_inventory.sql (300 tokens)
+   323→    │   ├── 20260811000000_optimize_supabase_read_perf.sql (300 tokens)
+   324→    │   ├── 20260629100000_wishlist_schema.sql (300 tokens)
+   325→    │   └── 20260720120000_restore_api_key_revocation.sql (300 tokens)
+   326→    └── .gitignore
+   327→├── packages/ (2800 tokens)
+   328→    ├── shared/ (1000 tokens)
+   329→    │   ├── src/ (700 tokens)
+   330→    │   │   ├── index.ts
+   331→    │   │   ├── utils/ (300 tokens)
+   332→    │   │   │   └── dbUtils.ts (300 tokens)
+   333→    │   │   └── limits.ts (300 tokens)
+   334→    │   ├── tsconfig.json
+   335→    │   └── package.json (200 tokens)
+   336→    ├── validators/ (900 tokens)
+   337→    │   ├── src/ (600 tokens)
+   338→    │   │   ├── index.ts
+   339→    │   │   ├── partner.ts (200 tokens)
+   340→    │   │   └── reports.ts (300 tokens)
+   341→    │   ├── tsconfig.json
+   342→    │   └── package.json (200 tokens)
+   343→    └── types/ (900 tokens)
+   344→    │   ├── src/ (700 tokens)
+   345→    │       ├── index.ts
+   346→    │       ├── lasa.types.ts
+   347→    │       ├── abha.types.ts
+   348→    │       ├── partner.types.ts (200 tokens)
+   349→    │       └── pharmacy.types.ts (200 tokens)
+   350→    │   ├── tsconfig.json
+   351→    │   └── package.json
+   352→├── .github/ (2900 tokens)
+   353→    ├── assets/ (300 tokens)
+   354→    │   └── backend-bugs/ (300 tokens)
+   355→    │   │   ├── coords_error.png
+   356→    │   │   ├── cache_leak_error.png
+   357→    │   │   └── license_id_error.png
+   358→    ├── ISSUE_TEMPLATE/ (500 tokens)
+   359→    │   ├── config.yml (200 tokens)
+   360→    │   └── ui_ux_suggestion.yml (300 tokens)
+   361→    ├── workflows/ (500 tokens)
+   362→    │   ├── release-drafter.yml (200 tokens)
+   363→    │   └── codeql.yml (300 tokens)
+   364→    ├── dependabot.yml (200 tokens)
+   365→    ├── scripts/ (200 tokens)
+   366→    │   └── test_gemini.mjs (200 tokens)
+   367→    ├── labeler.yml (300 tokens)
+   368→    ├── PULL_REQUEST_TEMPLATE.md (300 tokens)
+   369→    ├── release-drafter.yml (300 tokens)
+   370→    └── onboarding.md (300 tokens)
+   371→├── ml_model_dev_pipeline/ (400 tokens)
+   372→    ├── mobilenetv3_large_checkpoint.keras
+   373→    ├── requirements.txt
+   374→    └── README.md (200 tokens)
+   375→├── .madgerc
+   376→├── data/ (1300 tokens)
+   377→    ├── logger.py
+   378→    ├── .gitignore
+   379→    ├── requirements.txt
+   380→    ├── normalization.py
+   381→    ├── seeds/ (700 tokens)
+   382→    │   ├── generic_alternatives/ (100 tokens)
+   383→    │   │   └── alternatives.csv
+   384→    │   ├── medicines.csv (300 tokens)
+   385→    │   └── map_seed.sql (300 tokens)
+   386→    └── validate_cdsco.py (200 tokens)
+   387→├── .prettierrc
+   388→├── .editorconfig
+   389→├── tsconfig.base.json
+   390→├── .prettierignore
+   391→├── .gitattributes
+   392→├── .dockerignore (300 tokens)
+   393→├── LICENSE (300 tokens)
+   394→├── scripts/ (300 tokens)
+   395→    └── check_models.py (300 tokens)
+   396→└── turbo.json (300 tokens)
+   397→
+   398→
+   399→/.nvmrc:
+   400→--------------------------------------------------------------------------------
+   401→1 | 22
+   402→2 | 
+   403→
+   404→
+   405→--------------------------------------------------------------------------------
+   406→/apps/ml/services/__init__.py:
+   407→--------------------------------------------------------------------------------
+   408→1 | 
+   409→
+   410→
+   411→--------------------------------------------------------------------------------
+   412→/apps/web/lib/api/apiKeys.ts:
+   413→--------------------------------------------------------------------------------
+   414→1 | 
+   415→
+   416→
+   417→--------------------------------------------------------------------------------
+   418→/.husky/pre-push:
+   419→--------------------------------------------------------------------------------
+   420→1 | npm run audit:all
+   421→2 | 
+   422→
+   423→
+   424→--------------------------------------------------------------------------------
+   425→/docs/getting-started/.gitkeep:
+   426→--------------------------------------------------------------------------------
+   427→1 | 
+   428→2 | 
+   429→
+   430→
+   431→--------------------------------------------------------------------------------
+   432→/apps/etl/requirements.txt:
+   433→--------------------------------------------------------------------------------
+   434→1 | free-proxy
+   435→2 | 
+   436→
+   437→
+   438→--------------------------------------------------------------------------------
+   439→/apps/web/app/[locale]/settings/ApiKeysSection.tsx:
+   440→--------------------------------------------------------------------------------
+   441→1 | 
+   442→
+   443→
+   444→--------------------------------------------------------------------------------
+   445→/apps/web/tests/mocks/styleMock.ts:
+   446→--------------------------------------------------------------------------------
+   447→1 | export default {};
+   448→2 | 
+   449→
+   450→
+   451→--------------------------------------------------------------------------------
+   452→/apps/etl/tests/__init__.py:
+   453→--------------------------------------------------------------------------------
+   454→1 | # tests package for sahidawa-etl
+   455→2 | 
+   456→
+   457→
+   458→--------------------------------------------------------------------------------
+   459→/apps/etl/src/__init__.py:
+   460→--------------------------------------------------------------------------------
+   461→1 | # sahidawa-etl — unified ETL workspace
+   462→2 | 
+   463→
+   464→
+   465→--------------------------------------------------------------------------------
+   466→/apps/etl/src/utils/__init__.py:
+   467→--------------------------------------------------------------------------------
+   468→1 | # Utils package — shared helpers
+   469→2 | 
+   470→
+   471→
+   472→--------------------------------------------------------------------------------
+   473→/supabase/migrations/20260813000000_add_description_to_api_keys.sql:
+   474→--------------------------------------------------------------------------------
+   475→1 | 
+   476→
+   477→
+   478→--------------------------------------------------------------------------------
+   479→/apps/api/.dockerignore:
+   480→--------------------------------------------------------------------------------
+   481→1 | node_modules
+   482→2 | .env
+   483→3 | dist
+   484→4 | npm-debug.log
+   485→
+   486→
+   487→--------------------------------------------------------------------------------
+   488→/apps/web/lucide-react-fallback.d.ts:
+   489→--------------------------------------------------------------------------------
+   490→1 | declare module "lucide-react";
+   491→2 | 
+   492→
+   493→
+   494→--------------------------------------------------------------------------------
+   495→/apps/etl/src/loaders/__init__.py:
+   496→--------------------------------------------------------------------------------
+   497→1 | # Loaders package — database write layer
+   498→2 | 
+   499→
+   500→
+   501→--------------------------------------------------------------------------------
+   502→/apps/etl/src/scrapers/__init__.py:
+   503→--------------------------------------------------------------------------------
+   504→1 | # Scrapers package — one module per data source
+   505→2 | 
+   506→
+   507→
+   508→--------------------------------------------------------------------------------
+   509→/apps/etl/src/validators/__init__.py:
+   510→--------------------------------------------------------------------------------
+   511→1 | # Validators package — CDSCO verification logic
+   512→2 | 
+   513→
+   514→
+   515→--------------------------------------------------------------------------------
+   516→/apps/web/lib/sync/index.ts:
+   517→--------------------------------------------------------------------------------
+   518→1 | export * from "./syncConfig";
+   519→2 | export * from "./networkSync";
+   520→3 | 
+   521→
+   522→
+   523→--------------------------------------------------------------------------------
+   524→/packages/shared/src/index.ts:
+   525→--------------------------------------------------------------------------------
+   526→1 | export * from "./limits";
+   527→2 | export * from "./utils/dbUtils";
+   528→3 | 
+   529→
+   530→
+   531→--------------------------------------------------------------------------------
+   532→/apps/web/app/favicon.ico:
+   533→--------------------------------------------------------------------------------
+   534→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/app/favicon.ico
+   535→
+   536→
+   537→--------------------------------------------------------------------------------
+   538→/apps/api/assets/brandMap.json.gz:
+   539→--------------------------------------------------------------------------------
+   540→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/api/assets/brandMap.json.gz
+   541→
+   542→
+   543→--------------------------------------------------------------------------------
+   544→/apps/web/tests/fixtures/med.webp:
+   545→--------------------------------------------------------------------------------
+   546→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/tests/fixtures/med.webp
+   547→
+   548→
+   549→--------------------------------------------------------------------------------
+   550→/apps/web/tests/mocks/next-intl-routing.ts:
+   551→--------------------------------------------------------------------------------
+   552→1 | export function defineRouting<T>(routing: T) {
+   553→2 |     return routing;
+   554→3 | }
+   555→4 | 
+   556→
+   557→
+   558→--------------------------------------------------------------------------------
+   559→/supabase/.gitignore:
+   560→--------------------------------------------------------------------------------
+   561→1 | # Supabase
+   562→2 | .branches
+   563→3 | .temp
+   564→4 | 
+   565→5 | # dotenvx
+   566→6 | .env.keys
+   567→7 | .env.local
+   568→8 | .env.*.local
+   569→9 | 
+   570→
+   571→
+   572→--------------------------------------------------------------------------------
+   573→/apps/api/tests/fixtures/blank.webp:
+   574→--------------------------------------------------------------------------------
+   575→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/api/tests/fixtures/blank.webp
+   576→
+   577→
+   578→--------------------------------------------------------------------------------
+   579→/apps/web/postcss.config.mjs:
+   580→--------------------------------------------------------------------------------
+   581→1 | export default {
+   582→2 |     plugins: {
+   583→3 |         "@tailwindcss/postcss": {},
+   584→4 |     },
+   585→5 | };
+   586→6 | 
+   587→
+   588→
+   589→--------------------------------------------------------------------------------
+   590→/apps/web/public/icons/icon-192.png:
+   591→--------------------------------------------------------------------------------
+   592→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/icons/icon-192.png
+   593→
+   594→
+   595→--------------------------------------------------------------------------------
+   596→/apps/web/public/icons/icon-512.png:
+   597→--------------------------------------------------------------------------------
+   598→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/icons/icon-512.png
+   599→
+   600→
+   601→--------------------------------------------------------------------------------
+   602→/apps/web/tests/fixtures/table.avif:
+   603→--------------------------------------------------------------------------------
+   604→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/tests/fixtures/table.avif
+   605→
+   606→
+   607→--------------------------------------------------------------------------------
+   608→/packages/validators/src/index.ts:
+   609→--------------------------------------------------------------------------------
+   610→1 | export * from "./reports";
+   611→2 | export * from "./verify";
+   612→3 | export * from "./partner";
+   613→4 | 
+   614→
+   615→
+   616→--------------------------------------------------------------------------------
+   617→/apps/api/src/utils/validation.ts:
+   618→--------------------------------------------------------------------------------
+   619→1 | import { z } from "zod";
+   620→2 | 
+   621→3 | export const uuidSchema = z.string().uuid("Invalid UUID format");
+   622→4 | 
+   623→
+   624→
+   625→--------------------------------------------------------------------------------
+   626→/apps/ml/tests/fixtures/hindi_sample.wav:
+   627→--------------------------------------------------------------------------------
+   628→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/ml/tests/fixtures/hindi_sample.wav
+   629→
+   630→
+   631→--------------------------------------------------------------------------------
+   632→/apps/ml/tests/fixtures/tamil_sample.wav:
+   633→--------------------------------------------------------------------------------
+   634→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/ml/tests/fixtures/tamil_sample.wav
+   635→
+   636→
+   637→--------------------------------------------------------------------------------
+   638→/apps/web/public/icons/sahidawa-logo.png:
+   639→--------------------------------------------------------------------------------
+   640→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/icons/sahidawa-logo.png
+   641→
+   642→
+   643→--------------------------------------------------------------------------------
+   644→/apps/web/tests/fixtures/blank-wall.webp:
+   645→--------------------------------------------------------------------------------
+   646→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/tests/fixtures/blank-wall.webp
+   647→
+   648→
+   649→--------------------------------------------------------------------------------
+   650→/apps/api/tests/fixtures/medicine-box.jpg:
+   651→--------------------------------------------------------------------------------
+   652→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/api/tests/fixtures/medicine-box.jpg
+   653→
+   654→
+   655→--------------------------------------------------------------------------------
+   656→/apps/ml/.dockerignore:
+   657→--------------------------------------------------------------------------------
+   658→ 1 | __pycache__/
+   659→ 2 | *.pyc
+   660→ 3 | *.pyo
+   661→ 4 | .env
+   662→ 5 | venv/
+   663→ 6 | .git/
+   664→ 7 | *.md
+   665→ 8 | .pytest_cache/
+   666→ 9 | *.egg-info/
+   667→10 | 
+   668→
+   669→
+   670→--------------------------------------------------------------------------------
+   671→/apps/ml/tests/fixtures/bengali_sample.wav:
+   672→--------------------------------------------------------------------------------
+   673→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/ml/tests/fixtures/bengali_sample.wav
+   674→
+   675→
+   676→--------------------------------------------------------------------------------
+   677→/apps/ml/tests/fixtures/telugu_sample.wav:
+   678→--------------------------------------------------------------------------------
+   679→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/ml/tests/fixtures/telugu_sample.wav
+   680→
+   681→
+   682→--------------------------------------------------------------------------------
+   683→/.github/assets/backend-bugs/coords_error.png:
+   684→--------------------------------------------------------------------------------
+   685→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/.github/assets/backend-bugs/coords_error.png
+   686→
+   687→
+   688→--------------------------------------------------------------------------------
+   689→/apps/ml/models/mobilenetv3_large_int8.tflite:
+   690→--------------------------------------------------------------------------------
+   691→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/ml/models/mobilenetv3_large_int8.tflite
+   692→
+   693→
+   694→--------------------------------------------------------------------------------
+   695→/apps/web/public/icons/icon-192-maskable.png:
+   696→--------------------------------------------------------------------------------
+   697→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/icons/icon-192-maskable.png
+   698→
+   699→
+   700→--------------------------------------------------------------------------------
+   701→/apps/web/public/icons/icon-512-maskable.png:
+   702→--------------------------------------------------------------------------------
+   703→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/icons/icon-512-maskable.png
+   704→
+   705→
+   706→--------------------------------------------------------------------------------
+   707→/apps/web/public/tesseract/eng.traineddata.gz:
+   708→--------------------------------------------------------------------------------
+   709→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/eng.traineddata.gz
+   710→
+   711→
+   712→--------------------------------------------------------------------------------
+   713→/docs/assets/issue-screenshots/issue-1177.png:
+   714→--------------------------------------------------------------------------------
+   715→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1177.png
+   716→
+   717→
+   718→--------------------------------------------------------------------------------
+   719→/docs/assets/issue-screenshots/issue-1178.png:
+   720→--------------------------------------------------------------------------------
+   721→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1178.png
+   722→
+   723→
+   724→--------------------------------------------------------------------------------
+   725→/docs/assets/issue-screenshots/issue-1184.png:
+   726→--------------------------------------------------------------------------------
+   727→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1184.png
+   728→
+   729→
+   730→--------------------------------------------------------------------------------
+   731→/docs/assets/issue-screenshots/issue-1185.png:
+   732→--------------------------------------------------------------------------------
+   733→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1185.png
+   734→
+   735→
+   736→--------------------------------------------------------------------------------
+   737→/docs/assets/issue-screenshots/issue-1186.png:
+   738→--------------------------------------------------------------------------------
+   739→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1186.png
+   740→
+   741→
+   742→--------------------------------------------------------------------------------
+   743→/docs/assets/issue-screenshots/issue-1187.png:
+   744→--------------------------------------------------------------------------------
+   745→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/docs/assets/issue-screenshots/issue-1187.png
+   746→
+   747→
+   748→--------------------------------------------------------------------------------
+   749→/apps/web/public/tesseract/tesseract-core.wasm:
+   750→--------------------------------------------------------------------------------
+   751→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core.wasm
+   752→
+   753→
+   754→--------------------------------------------------------------------------------
+   755→/.github/assets/backend-bugs/cache_leak_error.png:
+   756→--------------------------------------------------------------------------------
+   757→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/.github/assets/backend-bugs/cache_leak_error.png
+   758→
+   759→
+   760→--------------------------------------------------------------------------------
+   761→/.github/assets/backend-bugs/license_id_error.png:
+   762→--------------------------------------------------------------------------------
+   763→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/.github/assets/backend-bugs/license_id_error.png
+   764→
+   765→
+   766→--------------------------------------------------------------------------------
+   767→/supabase/migrations/20260519000000_add_batch_number_index.sql:
+   768→--------------------------------------------------------------------------------
+   769→1 | CREATE INDEX IF NOT EXISTS idx_medicines_batch_number
+   770→2 |   ON medicines (batch_number);
+   771→3 | 
+   772→
+   773→
+   774→--------------------------------------------------------------------------------
+   775→/apps/web/app/[locale]/[...rest]/page.tsx:
+   776→--------------------------------------------------------------------------------
+   777→1 | import { notFound } from "next/navigation";
+   778→2 | 
+   779→3 | export default function CatchAll() {
+   780→4 |     notFound();
+   781→5 | }
+   782→6 | 
+   783→
+   784→
+   785→--------------------------------------------------------------------------------
+   786→/apps/web/public/tesseract/index.js:
+   787→--------------------------------------------------------------------------------
+   788→1 | module.exports =
+   789→2 |     typeof WebAssembly === "object" ? require("./tesseract-core") : require("./tesseract-core.asm");
+   790→3 | 
+   791→
+   792→
+   793→--------------------------------------------------------------------------------
+   794→/apps/web/public/tesseract/tesseract-core-lstm.wasm:
+   795→--------------------------------------------------------------------------------
+   796→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core-lstm.wasm
+   797→
+   798→
+   799→--------------------------------------------------------------------------------
+   800→/apps/web/public/tesseract/tesseract-core-simd.wasm:
+   801→--------------------------------------------------------------------------------
+   802→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core-simd.wasm
+   803→
+   804→
+   805→--------------------------------------------------------------------------------
+   806→/supabase/migrations/20260619000000_add_created_by_to_pharmacies.sql:
+   807→--------------------------------------------------------------------------------
+   808→1 | ALTER TABLE pharmacies
+   809→2 | ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);
+   810→
+   811→
+   812→--------------------------------------------------------------------------------
+   813→/supabase/migrations/20260624000001_add_is_verified_to_tracked_medicines.sql:
+   814→--------------------------------------------------------------------------------
+   815→1 | ALTER TABLE tracked_medicines
+   816→2 | ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+   817→
+   818→
+   819→--------------------------------------------------------------------------------
+   820→/apps/web/public/tesseract/tesseract-core-relaxedsimd.wasm:
+   821→--------------------------------------------------------------------------------
+   822→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core-relaxedsimd.wasm
+   823→
+   824→
+   825→--------------------------------------------------------------------------------
+   826→/apps/web/public/tesseract/tesseract-core-simd-lstm.wasm:
+   827→--------------------------------------------------------------------------------
+   828→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core-simd-lstm.wasm
+   829→
+   830→
+   831→--------------------------------------------------------------------------------
+   832→/ml_model_dev_pipeline/mobilenetv3_large_checkpoint.keras:
+   833→--------------------------------------------------------------------------------
+   834→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/ml_model_dev_pipeline/mobilenetv3_large_checkpoint.keras
+   835→
+   836→
+   837→--------------------------------------------------------------------------------
+   838→/supabase/migrations/20260629000001_add_push_subscriptions_user_id_index.sql:
+   839→--------------------------------------------------------------------------------
+   840→1 | CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id
+   841→2 | ON public.push_subscriptions(user_id);
+   842→
+   843→
+   844→--------------------------------------------------------------------------------
+   845→/apps/web/public/tesseract/tesseract-core-relaxedsimd-lstm.wasm:
+   846→--------------------------------------------------------------------------------
+   847→https://raw.githubusercontent.com/RatLoopz/sahidawa-india/HEAD/apps/web/public/tesseract/tesseract-core-relaxedsimd-lstm.wasm
+   848→
+   849→
+   850→--------------------------------------------------------------------------------
+   851→/.madgerc:
+   852→--------------------------------------------------------------------------------
+   853→1 | {
+   854→2 |     "fileExtensions": ["ts", "tsx"],
+   855→3 |     "tsConfig": "apps/web/tsconfig.json",
+   856→4 |     "excludeRegExp": ["(^|/)(node_modules|\\.next|dist|build|coverage|\\.turbo)(/|$)"]
+   857→5 | }
+   858→6 | 
+   859→
+   860→
+   861→--------------------------------------------------------------------------------
+   862→/apps/web/jest.globalTeardown.cjs:
+   863→--------------------------------------------------------------------------------
+   864→1 | module.exports = async () => {
+   865→2 |   // Close any open handles by forcing garbage collection if available
+   866→3 |   if (global.gc) {
+   867→4 |     global.gc();
+   868→5 |   }
+   869→6 | };
+   870→7 | 
+   871→
+   872→
+   873→--------------------------------------------------------------------------------
+   874→/supabase/migrations/20260612000001_add_drug_alerts_proof_url.sql:
+   875→--------------------------------------------------------------------------------
+   876→1 | -- Add proof_image_url column to drug_alerts table
+   877→2 | ALTER TABLE public.drug_alerts ADD COLUMN IF NOT EXISTS proof_image_url TEXT;
+   878→3 | 
+   879→
+   880→
+   881→--------------------------------------------------------------------------------
+   882→/apps/web/src/lib/compareSelectFields.ts:
+   883→--------------------------------------------------------------------------------
+   884→1 | export const COMPARE_SELECT_FIELDS =
+   885→2 |     "id, brand_name, generic_name, composition, manufacturer, expiry_date, cdsco_approval_status, mrp, jan_aushadhi_price";
+   886→3 | 
+   887→
+   888→
+   889→--------------------------------------------------------------------------------
+   890→/packages/types/src/index.ts:
+   891→--------------------------------------------------------------------------------
+   892→1 | export * from "./pharmacy.types";
+   893→2 | export * from "./lasa.types";
+   894→3 | export * from "./abha.types";
+   895→4 | export * from "./medicine.types";
+   896→5 | export * from "./partner.types";
+   897→6 | 
+   898→
+   899→
+   900→--------------------------------------------------------------------------------
+   901→/apps/api/jest.globalTeardown.js:
+   902→--------------------------------------------------------------------------------
+   903→1 | module.exports = async () => {
+   904→2 |     // Close any open handles by forcing garbage collection if available
+   905→3 |     if (global.gc) {
+   906→4 |         global.gc();
+   907→5 |     }
+   908→6 | };
+   909→7 | 
+   910→
+   911→
+   912→--------------------------------------------------------------------------------
+   913→/apps/web/tests/mocks/leaflet.ts:
+   914→--------------------------------------------------------------------------------
+   915→1 | const L = {
+   916→2 |   icon: () => ({}),
+   917→3 |   map: () => ({}),
+   918→4 |   tileLayer: () => ({}),
+   919→5 |   marker: () => ({}),
+   920→6 | };
+   921→7 | export default L;
+   922→8 | export const icon = () => ({});
+   923→
+   924→
+   925→--------------------------------------------------------------------------------
+   926→/packages/types/src/lasa.types.ts:
+   927→--------------------------------------------------------------------------------
+   928→1 | export type LasaMatchType = "sound-alike" | "look-alike";
+   929→2 | 
+   930→3 | export interface LasaMatch {
+   931→4 |     name: string;
+   932→5 |     type: LasaMatchType;
+   933→6 |     score: number;
+   934→7 | }
+   935→8 | 
+   936→
+   937→
+   938→--------------------------------------------------------------------------------
+   939→/packages/types/tsconfig.json:
+   940→--------------------------------------------------------------------------------
+   941→1 | {
+   942→2 |     "extends": "../../tsconfig.base.json",
+   943→3 |     "compilerOptions": {
+   944→4 |         "outDir": "dist",
+   945→5 |         "rootDir": "src"
+   946→6 |     },
+   947→7 |     "include": ["src"]
+   948→8 | }
+   949→9 | 
+   950→
+   951→
+   952→--------------------------------------------------------------------------------
+   953→/apps/web/lib/utils.ts:
+   954→--------------------------------------------------------------------------------
+   955→1 | import { type ClassValue, clsx } from "clsx";
+   956→2 | import { twMerge } from "tailwind-merge";
+   957→3 | 
+   958→4 | export function cn(...inputs: ClassValue[]) {
+   959→5 |     return twMerge(clsx(inputs));
+   960→6 | }
+   961→7 | 
+   962→
+   963→
+   964→--------------------------------------------------------------------------------
+   965→/packages/shared/tsconfig.json:
+   966→--------------------------------------------------------------------------------
+   967→1 | {
+   968→2 |     "extends": "../../tsconfig.base.json",
+   969→3 |     "compilerOptions": {
+   970→4 |         "outDir": "dist",
+   971→5 |         "rootDir": "src"
+   972→6 |     },
+   973→7 |     "include": ["src"]
+   974→8 | }
+   975→9 | 
+   976→
+   977→
+   978→--------------------------------------------------------------------------------
+   979→/supabase/migrations/20260701000001_add_snoozed_until_to_expiry_tracker.sql:
+   980→--------------------------------------------------------------------------------
+   981→1 | -- Add snoozed_until column to expiry_tracker_items
+   982→2 | ALTER TABLE public.expiry_tracker_items
+   983→3 | ADD COLUMN snoozed_until TIMESTAMPTZ;
+   984→4 | 
+   985→
+   986→
+   987→--------------------------------------------------------------------------------
+   988→/apps/etl/src/utils/logger.py:
+   989→--------------------------------------------------------------------------------
+   990→1 | import logging
+   991→2 | 
+   992→3 | logging.basicConfig(
+   993→4 |     level=logging.INFO,
+   994→5 |     format="%(asctime)s - %(levelname)s - %(message)s",
+   995→6 | )
+   996→7 | 
+   997→8 | logger = logging.getLogger("sahidawa.etl")
+   998→9 | 
+   999→
+  1000→
+  1001→--------------------------------------------------------------------------------
+  1002→/apps/web/tests/mocks/react-leaflet.ts:
+  1003→--------------------------------------------------------------------------------
+  1004→1 | const MapContainer = () => null;
+  1005→2 | const TileLayer = () => null;
+  1006→3 | const Marker = () => null;
+  1007→4 | const Popup = () => null;
+  1008→5 | export { MapContainer, TileLayer, Marker, Popup };
+  1009→
+  1010→
+  1011→--------------------------------------------------------------------------------
+  1012→/apps/web/app/[locale]/voice/lib/emergency.ts:
+  1013→--------------------------------------------------------------------------------
+  1014→1 | export { detectEmergencyKeywords, normalizeTranscript } from "../../../../lib/voice/emergency";
+  1015→2 | export type { EmergencyDetectionResult } from "../../../../lib/voice/emergency";
+  1016→3 | 
+  1017→
+  1018→
+  1019→--------------------------------------------------------------------------------
+  1020→/supabase/migrations/20260627000000_add_interaction_versioning.sql:
+  1021→--------------------------------------------------------------------------------
+  1022→1 | ALTER TABLE drug_interactions
+  1023→2 | ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ DEFAULT NOW(),
+  1024→3 | ADD COLUMN IF NOT EXISTS data_version VARCHAR(20) DEFAULT '1.0';
+  1025→
+  1026→
+  1027→--------------------------------------------------------------------------------
+  1028→/apps/web/lib/apiConfig.ts:
+  1029→--------------------------------------------------------------------------------
+  1030→1 | const DEFAULT_API_ORIGIN = "http://localhost:4000";
+  1031→2 | const configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_ORIGIN).trim();
+  1032→3 | 
+  1033→4 | export const API_BASE = configuredApiUrl.replace(/\/+$/, "");
+  1034→5 | 
+  1035→
+  1036→
+  1037→--------------------------------------------------------------------------------
+  1038→/data/logger.py:
+  1039→--------------------------------------------------------------------------------
+  1040→1 | # ⚠️  MIGRATED — do not add code here.
+  1041→2 | #
+  1042→3 | # The shared logger has been moved to:
+  1043→4 | #   apps/etl/src/utils/logger.py
+  1044→5 | 
+  1045→6 | raise ImportError(
+  1046→7 |     "data/logger.py has been migrated to apps/etl/src/utils/logger.py"
+  1047→8 | )
+  1048→9 | 
+  1049→
+  1050→
+  1051→--------------------------------------------------------------------------------
+  1052→/supabase/migrations/20260707133002_add_drug_alerts_unique_constraint.sql:
+  1053→--------------------------------------------------------------------------------
+  1054→1 | -- Prevent duplicate CDSCO drug alerts for the same batch and source.
+  1055→2 | ALTER TABLE public.drug_alerts
+  1056→3 | ADD CONSTRAINT unique_drug_alert
+  1057→4 | UNIQUE (batch_number, source_url);
+  1058→
+  1059→
+  1060→--------------------------------------------------------------------------------
+  1061→/apps/web/.dockerignore:
+  1062→--------------------------------------------------------------------------------
+  1063→ 1 | # Dependency directories
+  1064→ 2 | node_modules
+  1065→ 3 | apps/*/node_modules
+  1066→ 4 | packages/*/node_modules
+  1067→ 5 | 
+  1068→ 6 | # Next.js build output
+  1069→ 7 | .next
+  1070→ 8 | apps/web/.next
+  1071→ 9 | 
+  1072→10 | # Misc
+  1073→11 | .git
+  1074→12 | npm-debug.log
+  1075→13 | README.md
+  1076→14 | docs/
+  1077→
+  1078→
+  1079→--------------------------------------------------------------------------------
+  1080→/.prettierrc:
+  1081→--------------------------------------------------------------------------------
+  1082→ 1 | {
+  1083→ 2 |   "semi": true,
+  1084→ 3 |   "singleQuote": false,
+  1085→ 4 |   "tabWidth": 4,
+  1086→ 5 |   "trailingComma": "es5",
+  1087→ 6 |   "printWidth": 100,
+  1088→ 7 |   "bracketSpacing": true,
+  1089→ 8 |   "arrowParens": "always",
+  1090→ 9 |   "plugins": ["prettier-plugin-tailwindcss"]
+  1091→10 | }
+  1092→11 | 
+  1093→
+  1094→
+  1095→--------------------------------------------------------------------------------
+  1096→/supabase/migrations/20260708072041_add_etl_failed_rows_cleanup.sql:
+  1097→--------------------------------------------------------------------------------
+  1098→1 | SELECT cron.schedule(
+  1099→2 |   'cleanup_etl_failed_rows',
+  1100→3 |   '0 2 * * 0', -- Run every Sunday at 2 AM
+  1101→4 |   $$ DELETE FROM public.etl_failed_rows WHERE created_at < NOW() - INTERVAL '30 days'; $$
+  1102→5 | );
+  1103→6 | 
+  1104→
+  1105→
+  1106→--------------------------------------------------------------------------------
+  1107→/data/.gitignore:
+  1108→--------------------------------------------------------------------------------
+  1109→1 | # Raw scraped data — never commit this to git
+  1110→2 | # These are multi-MB files, change frequently, and are regenerated by scrapers
+  1111→3 | raw/
+  1112→4 | .venv
+  1113→5 | __pycache__/
+  1114→6 | seeds/validated_medicines.csv
+  1115→7 | seeds/cdsco_reference.csv
+  1116→8 | failed/
+  1117→9 | memory-subscribers.json
+  1118→
+  1119→
+  1120→--------------------------------------------------------------------------------
+  1121→/ml_model_dev_pipeline/requirements.txt:
+  1122→--------------------------------------------------------------------------------
+  1123→ 1 | ipykernel>=7.2.0
+  1124→ 2 | jupyter>=1.1.1
+  1125→ 3 | tensorflow>=2.21.0
+  1126→ 4 | tflite-runtime>=2.14.0
+  1127→ 5 | matplotlib>=3.10.9
+  1128→ 6 | scikit-learn>=1.8.0
+  1129→ 7 | seaborn>=0.13.2
+  1130→ 8 | tqdm>=4.67.3
+  1131→ 9 | cloudinary>=1.41.0
+  1132→10 | python-dotenv>=1.0.1
+  1133→11 | requests>=2.31.0
+  1134→
+  1135→
+  1136→--------------------------------------------------------------------------------
+  1137→/apps/web/lib/supabase.ts:
+  1138→--------------------------------------------------------------------------------
+  1139→1 | import { createClient } from "@supabase/supabase-js";
+  1140→2 | import { getSupabaseUrl, getSupabaseAnonKey } from "./env";
+  1141→3 | 
+  1142→4 | const supabaseUrl = getSupabaseUrl();
+  1143→5 | const supabaseKey = getSupabaseAnonKey();
+  1144→6 | 
+  1145→7 | export const supabase = createClient(supabaseUrl, supabaseKey);
+  1146→8 | 
+  1147→
+  1148→
+  1149→--------------------------------------------------------------------------------
+  1150→/.editorconfig:
+  1151→--------------------------------------------------------------------------------
+  1152→ 1 | root = true
+  1153→ 2 | 
+  1154→ 3 | [*]
+  1155→ 4 | indent_style = space
+  1156→ 5 | indent_size = 4
+  1157→ 6 | end_of_line = lf
+  1158→ 7 | charset = utf-8
+  1159→ 8 | trim_trailing_whitespace = true
+  1160→ 9 | insert_final_newline = true
+  1161→10 | 
+  1162→11 | [*.{json,yml,yaml}]
+  1163→12 | indent_size = 2
+  1164→13 | 
+  1165→14 | [*.md]
+  1166→15 | trim_trailing_whitespace = false
+  1167→16 | 
+  1168→
+  1169→
+  1170→--------------------------------------------------------------------------------
+  1171→/apps/web/app/loading.tsx:
+  1172→--------------------------------------------------------------------------------
+  1173→1 | export default function Loading() {
+  1174→2 |     return (
+  1175→3 |         <div className="flex min-h-screen items-center justify-center bg-white dark:bg-slate-950">
+  1176→4 |             <div className="h-14 w-14 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-500" />
+  1177→5 |         </div>
+  1178→6 |     );
+  1179→7 | }
+  1180→8 | 
+  1181→
+  1182→
+  1183→--------------------------------------------------------------------------------
+  1184→/data/requirements.txt:
+  1185→--------------------------------------------------------------------------------
+  1186→ 1 | # ⚠️  SUPERSEDED — do not install from this file.
+  1187→ 2 | #
+  1188→ 3 | # All ETL dependencies (pandas, rapidfuzz, requests, supabase, playwright, etc.)
+  1189→ 4 | # have been consolidated into the unified ETL workspace:
+  1190→ 5 | #
+  1191→ 6 | #   apps/etl/pyproject.toml
+  1192→ 7 | #
+  1193→ 8 | # To install:
+  1194→ 9 | #   cd apps/etl
+  1195→10 | #   pip install -e .
+  1196→11 | 
+  1197→
+  1198→
+  1199→--------------------------------------------------------------------------------
+  1200→/packages/validators/tsconfig.json:
+  1201→--------------------------------------------------------------------------------
+  1202→ 1 | {
+  1203→ 2 |     "extends": "../../tsconfig.base.json",
+  1204→ 3 |     "compilerOptions": {
+  1205→ 4 |         "declaration": true,
+  1206→ 5 |         "sourceMap": true,
+  1207→ 6 |         "outDir": "./dist",
+  1208→ 7 |         "rootDir": "./src"
+  1209→ 8 |     },
+  1210→ 9 |     "include": ["src/**/*"],
+  1211→10 |     "exclude": ["node_modules", "dist"]
+  1212→11 | }
+  1213→12 | 
+  1214→
+  1215→
+  1216→--------------------------------------------------------------------------------
+  1217→/supabase/migrations/20260714000000_add_encryption_salt_to_abha_links.sql:
+  1218→--------------------------------------------------------------------------------
+  1219→1 | ALTER TABLE abha_links
+  1220→2 |     ADD COLUMN encryption_salt TEXT NOT NULL DEFAULT 'migrated';
+  1221→3 | 
+  1222→4 | COMMENT ON COLUMN abha_links.encryption_salt IS 'Per-record random salt used in scrypt key derivation for AES-256-CBC token encryption. Each link gets a unique salt.';
+  1223→5 | 
+  1224→
+  1225→
+  1226→--------------------------------------------------------------------------------
+  1227→/supabase/migrations/20260709000000_add_reporter_phone_to_reports.sql:
+  1228→--------------------------------------------------------------------------------
+  1229→1 | -- Add reporter_phone column to counterfeit_reports for SMS confirmation
+  1230→2 | ALTER TABLE counterfeit_reports
+  1231→3 |   ADD COLUMN IF NOT EXISTS reporter_phone VARCHAR(20);
+  1232→4 | 
+  1233→5 | CREATE INDEX IF NOT EXISTS idx_counterfeit_reports_phone
+  1234→6 |   ON counterfeit_reports(reporter_phone);
+  1235→7 | 
+  1236→
+  1237→
+  1238→--------------------------------------------------------------------------------
+  1239→/apps/api/src/db/migrations/add_drug_alerts_unique_alert_constraint.sql:
+  1240→--------------------------------------------------------------------------------
+  1241→1 | -- Prevent duplicate alerts for the same batch+manufacturer+brand combination.
+  1242→2 | -- Required for the ON CONFLICT DO NOTHING upsert in /ingest.
+  1243→3 | ALTER TABLE drug_alerts
+  1244→4 |     ADD CONSTRAINT drug_alerts_unique_alert
+  1245→5 |     UNIQUE (batch_number, manufacturer, reported_brand_name);
+  1246→
+  1247→
+  1248→--------------------------------------------------------------------------------
+  1249→/apps/web/vercel.json:
+  1250→--------------------------------------------------------------------------------
+  1251→ 1 | {
+  1252→ 2 |     "installCommand": "cd ../.. && npm install --legacy-peer-deps --include=dev",
+  1253→ 3 |     "buildCommand": "cd ../.. && npx turbo run build --filter=web...",
+  1254→ 4 |     "crons": [
+  1255→ 5 |         {
+  1256→ 6 |             "path": "/api/cron/rate-limit-metrics",
+  1257→ 7 |             "schedule": "0 0 * * *"
+  1258→ 8 |         }
+  1259→ 9 |     ]
+  1260→10 | }
+  1261→11 | 
+  1262→
+  1263→
+  1264→--------------------------------------------------------------------------------
+  1265→/apps/ml/services/similarity.py:
+  1266→--------------------------------------------------------------------------------
+  1267→1 | import numpy as np
+  1268→2 | 
+  1269→3 | def cosine_similarity(embedding_a, embedding_b):
+  1270→4 |     dot_product = np.dot(embedding_a, embedding_b)
+  1271→5 |     norm_a = np.linalg.norm(embedding_a)
+  1272→6 |     norm_b = np.linalg.norm(embedding_b)
+  1273→7 |     if norm_a == 0 or norm_b == 0:
+  1274→8 |         return 0.0
+  1275→9 |     return float(dot_product / (norm_a * norm_b))
+  1276→
+  1277→
+  1278→--------------------------------------------------------------------------------
+  1279→/apps/web/lib/constants.ts:
+  1280→--------------------------------------------------------------------------------
+  1281→ 1 | export const ChatRoles = {
+  1282→ 2 |     USER: "user",
+  1283→ 3 |     MODEL: "model",
+  1284→ 4 |     ASSISTANT: "assistant",
+  1285→ 5 | } as const;
+  1286→ 6 | 
+  1287→ 7 | export type ChatRole = (typeof ChatRoles)[keyof typeof ChatRoles];
+  1288→ 8 | 
+  1289→ 9 | export type ChatMessage = {
+  1290→10 |     text?: string;
+  1291→11 |     content?: string;
+  1292→12 |     role?: ChatRole | string;
+  1293→13 | };
+  1294→14 | 
+  1295→
+  1296→
+  1297→--------------------------------------------------------------------------------
+  1298→/supabase/migrations/20260625091923_add_pharmacy_rls.sql:
+  1299→--------------------------------------------------------------------------------
+  1300→1 | -- Pharmacy owners can only update their own pharmacies
+  1301→2 | CREATE POLICY "pharmacy_owner_update" ON pharmacies
+  1302→3 |     FOR UPDATE USING (created_by = auth.uid() OR EXISTS (
+  1303→4 |         SELECT 1 FROM auth.users WHERE id = auth.uid() 
+  1304→5 |         AND raw_app_meta_data->>'role' IN ('admin', 'moderator')
+  1305→6 |     ));
+  1306→
+  1307→
+  1308→--------------------------------------------------------------------------------
+  1309→/tsconfig.base.json:
+  1310→--------------------------------------------------------------------------------
+  1311→ 1 | {
+  1312→ 2 |     "compilerOptions": {
+  1313→ 3 |         "target": "ES2022",
+  1314→ 4 |         "module": "Node16",
+  1315→ 5 |         "moduleResolution": "node16",
+  1316→ 6 |         "declaration": true,
+  1317→ 7 |         "strict": true,
+  1318→ 8 |         "esModuleInterop": true,
+  1319→ 9 |         "skipLibCheck": true,
+  1320→10 |         "forceConsistentCasingInFileNames": true
+  1321→11 |     }
+  1322→12 | }
+  1323→13 | 
+  1324→
+  1325→
+  1326→--------------------------------------------------------------------------------
+  1327→/.prettierignore:
+  1328→--------------------------------------------------------------------------------
+  1329→ 1 | # Ignore artifacts
+  1330→ 2 | node_modules/
+  1331→ 3 | .next/
+  1332→ 4 | dist/
+  1333→ 5 | build/
+  1334→ 6 | coverage/
+  1335→ 7 | .cache/
+  1336→ 8 | 
+  1337→ 9 | # Ignore Python and Data
+  1338→10 | apps/ml/
+  1339→11 | data/seeds/
+  1340→12 | *.csv
+  1341→13 | 
+  1342→14 | # Ignore Supabase config
+  1343→15 | supabase/
+  1344→16 | 
+  1345→17 | # Ignore Python, YAML and MD files
+  1346→18 | *.py
+  1347→19 | *.pyc
+  1348→20 | *.yml
+  1349→21 | *.yaml
+  1350→22 | *.md
+  1351→23 | package-lock.json
+  1352→24 | 
+  1353→
+  1354→
+  1355→--------------------------------------------------------------------------------
+  1356→/apps/web/components/OutbreakListener.tsx:
+  1357→--------------------------------------------------------------------------------
+  1358→ 1 | "use client";
+  1359→ 2 | 
+  1360→ 3 | import { useOutbreakAlerts } from "@/hooks/useOutbreakAlerts";
+  1361→ 4 | 
+  1362→ 5 | export function OutbreakListener() {
+  1363→ 6 |     useOutbreakAlerts();
+  1364→ 7 | 
+  1365→ 8 |     // This component doesn't render anything visually,
+  1366→ 9 |     // it just mounts the WebSocket listener at the layout level.
+  1367→10 |     return null;
+  1368→11 | }
+  1369→12 | 
+  1370→
+  1371→
+  1372→--------------------------------------------------------------------------------
+  1373→/packages/types/src/abha.types.ts:
+  1374→--------------------------------------------------------------------------------
+  1375→ 1 | export interface ABHALinkResponse {
+  1376→ 2 |     txnId: string;
+  1377→ 3 | }
+  1378→ 4 | 
+  1379→ 5 | export interface ABHAPrescription {
+  1380→ 6 |     id: string;
+  1381→ 7 |     title: string;
+  1382→ 8 |     issuedAt: string;
+  1383→ 9 | }
+  1384→10 | 
+  1385→11 | export interface ABHAVerificationData {
+  1386→12 |     medicineId: string;
+  1387→13 |     verificationResult: string;
+  1388→14 |     scannedAt: string;
+  1389→15 | }
+  1390→16 | 
+  1391→
+  1392→
+  1393→--------------------------------------------------------------------------------
+  1394→/.husky/pre-commit:
+  1395→--------------------------------------------------------------------------------
+  1396→1 | npx lint-staged
+  1397→2 | 
+  1398→3 | # The circular-dependency scan walks the whole import graph and takes ~8s, so
+  1399→4 | # only pay it when the commit actually touches TypeScript. A commit that is
+  1400→5 | # purely docs, JSON or config cannot introduce an import cycle.
+  1401→6 | if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
+  1402→7 |     npm run lint:circular
+  1403→8 | fi
+  1404→9 | 
+  1405→
+  1406→
+  1407→--------------------------------------------------------------------------------
+  1408→/apps/api/tsconfig.test.json:
+  1409→--------------------------------------------------------------------------------
+  1410→ 1 | {
+  1411→ 2 |     "extends": "./tsconfig.json",
+  1412→ 3 |     "compilerOptions": {
+  1413→ 4 |         "rootDir": "../../",
+  1414→ 5 |         "outDir": "./.tmp/test-dist",
+  1415→ 6 |         "allowJs": true,
+  1416→ 7 |         "types": ["node", "jest", "supertest"]
+  1417→ 8 |     },
+  1418→ 9 |     "include": ["src/**/*.ts", "tests/**/*.ts"],
+  1419→10 |     "exclude": ["node_modules", "dist", ".tmp"]
+  1420→11 | }
+  1421→12 | 
+  1422→
+  1423→
+  1424→--------------------------------------------------------------------------------
+  1425→/apps/web/hooks/useScrollToTop.ts:
+  1426→--------------------------------------------------------------------------------
+  1427→ 1 | "use client";
+  1428→ 2 | import { useEffect } from "react";
+  1429→ 3 | import { usePathname } from "@/i18n/routing";
+  1430→ 4 | 
+  1431→ 5 | export function useScrollToTop(offset = 0) {
+  1432→ 6 |     const pathname = usePathname();
+  1433→ 7 | 
+  1434→ 8 |     useEffect(() => {
+  1435→ 9 |         window.scrollTo({ top: offset, behavior: "instant" as ScrollBehavior });
+  1436→10 |     }, [pathname, offset]);
+  1437→11 | }
+  1438→12 | 
+  1439→
+  1440→
+  1441→--------------------------------------------------------------------------------
+  1442→/apps/web/lib/supabase/medicineSearch.ts:
+  1443→--------------------------------------------------------------------------------
+  1444→ 1 | import { escapePostgrest } from "@sahidawa/shared";
+  1445→ 2 | 
+  1446→ 3 | export function buildMedicineNameSearchFilter(query: string): string | null {
+  1447→ 4 |     const q = query.trim();
+  1448→ 5 |     if (q.length < 2) return null;
+  1449→ 6 | 
+  1450→ 7 |     const pattern = `%${escapePostgrest(q)}%`;
+  1451→ 8 |     return `brand_name.ilike."${pattern}",generic_name.ilike."${pattern}"`;
+  1452→ 9 | }
+  1453→10 | 
+  1454→
+  1455→
+  1456→--------------------------------------------------------------------------------
+  1457→/supabase/migrations/20260708000000_widen_abha_record_types.sql:
+  1458→--------------------------------------------------------------------------------
+  1459→1 | -- Alter metadata schema bounds to dynamically support records downloads checks safely
+  1460→2 | ALTER TABLE abha_records 
+  1461→3 | DROP CONSTRAINT IF EXISTS abha_records_record_type_check;
+  1462→4 | 
+  1463→5 | ALTER TABLE abha_records 
+  1464→6 | ADD CONSTRAINT abha_records_record_type_check 
+  1465→7 | CHECK (record_type IN ('verification', 'prescription', 'health_record'));
+  1466→
+  1467→
+  1468→--------------------------------------------------------------------------------
+  1469→/apps/web/app/robots.ts:
+  1470→--------------------------------------------------------------------------------
+  1471→ 1 | import type { MetadataRoute } from "next";
+  1472→ 2 | import { getSiteUrl } from "@/lib/env";
+  1473→ 3 | 
+  1474→ 4 | export default function robots(): MetadataRoute.Robots {
+  1475→ 5 |     return {
+  1476→ 6 |         rules: {
+  1477→ 7 |             userAgent: "*",
+  1478→ 8 |             allow: "/",
+  1479→ 9 |             disallow: "/admin",
+  1480→10 |         },
+  1481→11 |         sitemap: `${getSiteUrl()}/sitemap.xml`,
+  1482→12 |     };
+  1483→13 | }
+  1484→14 | 
+  1485→
+  1486→
+  1487→--------------------------------------------------------------------------------
+  1488→/apps/ml/utils/database.py:
+  1489→--------------------------------------------------------------------------------
+  1490→ 1 | # apps/ml/utils/database.py
+  1491→ 2 | import os
+  1492→ 3 | import redis.asyncio as aioredis
+  1493→ 4 | 
+  1494→ 5 | REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+  1495→ 6 | 
+  1496→ 7 | # Single global connection pool instance
+  1497→ 8 | redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+  1498→ 9 | 
+  1499→10 | async def get_redis():
+  1500→11 |     """FastAPI Dependency providing the Redis client."""
+  1501→12 |     return redis_client
+  1502→
+  1503→
+  1504→--------------------------------------------------------------------------------
+  1505→/supabase/migrations/20260710000001_validate_pharmacies_license_id.sql:
+  1506→--------------------------------------------------------------------------------
+  1507→1 | -- Prevent short or invalid pharmacy license IDs.
+  1508→2 | -- Enforces that any non-NULL license_id must be at least 3 characters long,
+  1509→3 | -- ensuring consistency with the API layer's registration validation schema.
+  1510→4 | ALTER TABLE public.pharmacies
+  1511→5 | ADD CONSTRAINT pharmacies_license_id_length
+  1512→6 | CHECK (license_id IS NULL OR char_length(license_id) >= 3);
+  1513→7 | 
+  1514→
+  1515→
+  1516→--------------------------------------------------------------------------------
+  1517→/.gitattributes:
+  1518→--------------------------------------------------------------------------------
+  1519→ 1 | # Normalize line endings to LF for cross-platform consistency.
+  1520→ 2 | # Git stores text files with LF in the repository and checks them out as LF,
+  1521→ 3 | # preventing CRLF/LF differences from showing up as spurious diffs.
+  1522→ 4 | * text=auto eol=lf
+  1523→ 5 | 
+  1524→ 6 | # Explicitly mark binary files so Git never alters their contents.
+  1525→ 7 | *.png binary
+  1526→ 8 | *.ico binary
+  1527→ 9 | *.wav binary
+  1528→10 | *.tflite binary
+  1529→11 | *.keras binary
+  1530→12 | 
+  1531→
+  1532→
+  1533→--------------------------------------------------------------------------------
+  1534→/apps/web/components/vaccine/index.ts:
+  1535→--------------------------------------------------------------------------------
+  1536→1 | export { VaccineSelector } from "./VaccineSelector";
+  1537→2 | export { DoseSchedule } from "./DoseSchedule";
+  1538→3 | export { VaccineDetails } from "./VaccineDetails";
+  1539→4 | export { SafetyInfo } from "./SafetyInfo";
+  1540→5 | export { AftercareGuidance } from "./AftercareGuidance";
+  1541→6 | export { DateInitializer } from "./DateInitializer";
+  1542→7 | export { ChildVaccinationTracker } from "./ChildVaccinationTracker";
+  1543→8 | 
+  1544→
+  1545→
+  1546→--------------------------------------------------------------------------------
+  1547→/apps/api/src/types/notification.types.ts:
+  1548→--------------------------------------------------------------------------------
+  1549→ 1 | export interface NotificationSubscriber {
+  1550→ 2 |     id: string;
+  1551→ 3 |     phone: string;
+  1552→ 4 |     language: string;
+  1553→ 5 |     channels: ("sms" | "whatsapp")[];
+  1554→ 6 |     district?: string;
+  1555→ 7 |     is_active: boolean;
+  1556→ 8 | }
+  1557→ 9 | 
+  1558→10 | export interface NotificationAlertData {
+  1559→11 |     medicineName: string;
+  1560→12 |     batchNumber?: string;
+  1561→13 |     district?: string;
+  1562→14 |     expiryDate?: string;
+  1563→15 | }
+  1564→16 | 
+  1565→
+  1566→
+  1567→--------------------------------------------------------------------------------
+  1568→/apps/web/lib/redis.ts:
+  1569→--------------------------------------------------------------------------------
+  1570→ 1 | import { Redis } from "@upstash/redis";
+  1571→ 2 | 
+  1572→ 3 | const hasCredentials =
+  1573→ 4 |     typeof process !== "undefined" &&
+  1574→ 5 |     Boolean(process.env.UPSTASH_REDIS_REST_URL) &&
+  1575→ 6 |     Boolean(process.env.UPSTASH_REDIS_REST_TOKEN);
+  1576→ 7 | 
+  1577→ 8 | export const redis = hasCredentials
+  1578→ 9 |     ? Redis.fromEnv()
+  1579→10 |     : ({
+  1580→11 |           get: async () => null,
+  1581→12 |           set: async () => "OK",
+  1582→13 |       } as unknown as Redis);
+  1583→14 | 
+  1584→
+  1585→
+  1586→--------------------------------------------------------------------------------
+  1587→/data/normalization.py:
+  1588→--------------------------------------------------------------------------------
+  1589→ 1 | # ⚠️  MIGRATED — do not add code here.
+  1590→ 2 | #
+  1591→ 3 | # Text normalisation helpers have been moved to:
+  1592→ 4 | #   apps/etl/src/validators/cdsco_validator.py
+  1593→ 5 | #   (_normalize_text, _normalize_manufacturer — module-private)
+  1594→ 6 | #
+  1595→ 7 | # They are not part of the public API; use CDSCOValidator directly.
+  1596→ 8 | 
+  1597→ 9 | raise ImportError(
+  1598→10 |     "data/normalization.py has been migrated to apps/etl/src/validators/cdsco_validator.py"
+  1599→11 | )
+  1600→12 | 
+  1601→
+  1602→
+  1603→--------------------------------------------------------------------------------
+  1604→/apps/web/components/medicine/index.ts:
+  1605→--------------------------------------------------------------------------------
+  1606→1 | export { MedicinePhotoUpload } from "./MedicinePhotoUpload";
+  1607→2 | export type { MedicinePhotoUploadProps } from "./MedicinePhotoUpload";
+  1608→3 | export { validateMedicineFile } from "./validateMedicineFile";
+  1609→4 | export type { ValidationResult } from "./validateMedicineFile";
+  1610→5 | export { useUpload } from "./useUpload";
+  1611→6 | export type { UploadState, UseUploadReturn } from "./useUpload";
+  1612→7 | export { MedicineSafetyPanel } from "./MedicineSafetyPanel";
+  1613→8 | 
+  1614→
+  1615→
+  1616→--------------------------------------------------------------------------------
+  1617→/supabase/migrations/20260518000000_create_push_subscriptions.sql:
+  1618→--------------------------------------------------------------------------------
+  1619→ 1 | CREATE TABLE IF NOT EXISTS push_subscriptions (
+  1620→ 2 |     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1621→ 3 |     endpoint TEXT NOT NULL UNIQUE,
+  1622→ 4 |     subscription JSONB NOT NULL,
+  1623→ 5 |     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  1624→ 6 |     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  1625→ 7 | );
+  1626→ 8 | 
+  1627→ 9 | CREATE INDEX IF NOT EXISTS idx_push_subscriptions_updated_at
+  1628→10 |     ON push_subscriptions(updated_at DESC);
+  1629→11 | 
+  1630→
+  1631→
+  1632→--------------------------------------------------------------------------------
+  1633→/supabase/migrations/20260707070958_add_scan_history_ttl.sql:
+  1634→--------------------------------------------------------------------------------
+  1635→ 1 | -- Enable the pg_cron extension if it is not already enabled
+  1636→ 2 | CREATE EXTENSION IF NOT EXISTS pg_cron;
+  1637→ 3 | 
+  1638→ 4 | -- Schedule the TTL cleanup job for scan_history
+  1639→ 5 | -- This job runs every midnight to delete records older than 90 days
+  1640→ 6 | SELECT cron.schedule(
+  1641→ 7 |   'cleanup_scan_history',
+  1642→ 8 |   '0 0 * * *', -- Run every midnight
+  1643→ 9 |   $$ DELETE FROM public.scan_history WHERE created_at < NOW() - INTERVAL '90 days'; $$
+  1644→10 | );
+  1645→11 | 
+  1646→
+  1647→
+  1648→--------------------------------------------------------------------------------
+  1649→/apps/web/components/ui/Icons.tsx:
+  1650→--------------------------------------------------------------------------------
+  1651→ 1 | "use client";
+  1652→ 2 | 
+  1653→ 3 | // Client-side icons wrapper to resolve createContext errors in Next.js Server Components
+  1654→ 4 | export {
+  1655→ 5 |     Activity,
+  1656→ 6 |     ArrowLeft,
+  1657→ 7 |     Filter,
+  1658→ 8 |     AlertTriangle,
+  1659→ 9 |     AlertCircle,
+  1660→10 |     Globe,
+  1661→11 |     Bell,
+  1662→12 |     BellOff,
+  1663→13 |     Camera,
+  1664→14 |     Mic,
+  1665→15 |     MapPin,
+  1666→16 |     History,
+  1667→17 |     Home,
+  1668→18 |     User,
+  1669→19 |     ShieldCheck,
+  1670→20 |     ChevronRight,
+  1671→21 |     MessageCircle,
+  1672→22 | } from "lucide-react";
+  1673→23 | 
+  1674→
+  1675→
+  1676→--------------------------------------------------------------------------------
+  1677→/apps/web/app/[locale]/components/ThemeProvider.tsx:
+  1678→--------------------------------------------------------------------------------
+  1679→ 1 | "use client";
+  1680→ 2 | 
+  1681→ 3 | import * as React from "react";
+  1682→ 4 | import { ThemeProvider as NextThemesProvider } from "next-themes";
+  1683→ 5 | import type { ThemeProviderProps } from "next-themes";
+  1684→ 6 | 
+  1685→ 7 | export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  1686→ 8 |     return (
+  1687→ 9 |         <NextThemesProvider attribute="class" defaultTheme="light" {...props}>
+  1688→10 |             {children}
+  1689→11 |         </NextThemesProvider>
+  1690→12 |     );
+  1691→13 | }
+  1692→14 | 
+  1693→
+  1694→
+  1695→--------------------------------------------------------------------------------
+  1696→/apps/web/app/[locale]/expiry-tracker/components/types.ts:
+  1697→--------------------------------------------------------------------------------
+  1698→ 1 | import type React from "react";
+  1699→ 2 | import type { TrackedMedicine } from "@sahidawa/types";
+  1700→ 3 | 
+  1701→ 4 | export type { TrackedMedicine as Medicine };
+  1702→ 5 | 
+  1703→ 6 | export type FilterStatus = "all" | "expired" | "expiringSoon" | "safe";
+  1704→ 7 | export type SortOption = "expirySoonest" | "expiryLatest" | "alpha";
+  1705→ 8 | 
+  1706→ 9 | export interface ExpiryStatus {
+  1707→10 |     icon: React.ReactNode;
+  1708→11 |     text: string;
+  1709→12 |     color: string;
+  1710→13 |     key: FilterStatus;
+  1711→14 | }
+  1712→15 | 
+  1713→
+  1714→
+  1715→--------------------------------------------------------------------------------
+  1716→/supabase/migrations/20260531000000_drop_mrp_gte_jan_aushadhi_price_constraint.sql:
+  1717→--------------------------------------------------------------------------------
+  1718→1 | -- Drop the artificial pricing constraint that assumes branded medicines are always >= generic prices
+  1719→2 | -- This constraint was causing ETL pipeline failures when commercial medicines had MRP < jan_aushadhi_price
+  1720→3 | -- In the real Indian pharmaceutical market, local/discounted brands can be cheaper than government ceiling prices
+  1721→4 | 
+  1722→5 | ALTER TABLE public.medicines
+  1723→6 |   DROP CONSTRAINT IF EXISTS medicines_mrp_gte_jan_aushadhi_price;
+  1724→7 | 
+  1725→
+  1726→
+  1727→--------------------------------------------------------------------------------
+  1728→/apps/api/src/middleware/cache.ts:
+  1729→--------------------------------------------------------------------------------
+  1730→ 1 | import { Request, Response, NextFunction } from "express";
+  1731→ 2 | 
+  1732→ 3 | export function cacheMiddleware(durationSeconds: number, staleWhileRevalidateSeconds: number) {
+  1733→ 4 |     return (_req: Request, res: Response, next: NextFunction) => {
+  1734→ 5 |         res.setHeader(
+  1735→ 6 |             "Cache-Control",
+  1736→ 7 |             `public, max-age=${durationSeconds}, s-maxage=${durationSeconds}, stale-while-revalidate=${staleWhileRevalidateSeconds}`
+  1737→ 8 |         );
+  1738→ 9 | 
+  1739→10 |         next();
+  1740→11 |     };
+  1741→12 | }
+  1742→13 | 
+  1743→
+  1744→
+  1745→--------------------------------------------------------------------------------
+  1746→/supabase/migrations/20260718175419_create_hnsw_medicine_index.sql:
+  1747→--------------------------------------------------------------------------------
+  1748→1 | -- Drop the existing default HNSW index to replace it with a tuned one
+  1749→2 | DROP INDEX IF EXISTS medicines_embedding_idx;
+  1750→3 | 
+  1751→4 | -- Create an HNSW index on the vector embedding column of the medicines table 
+  1752→5 | -- with tuned parameters (m = 16, ef_construction = 64) to optimize cosine similarity searches
+  1753→6 | CREATE INDEX IF NOT EXISTS medicines_embedding_hnsw_idx 
+  1754→7 | ON medicines USING hnsw (embedding vector_cosine_ops) 
+  1755→8 | WITH (m = 16, ef_construction = 64);
+  1756→9 | 
+  1757→
+  1758→
+  1759→--------------------------------------------------------------------------------
+  1760→/apps/web/components/ABHABadge.tsx:
+  1761→--------------------------------------------------------------------------------
+  1762→ 1 | interface ABHABadgeProps {
+  1763→ 2 |     linked: boolean;
+  1764→ 3 | }
+  1765→ 4 | 
+  1766→ 5 | export default function ABHABadge({ linked }: ABHABadgeProps) {
+  1767→ 6 |     return (
+  1768→ 7 |         <span
+  1769→ 8 |             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+  1770→ 9 |                 linked ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+  1771→10 |             }`}
+  1772→11 |         >
+  1773→12 |             {linked ? "ABHA Linked" : "ABHA Not Linked"}
+  1774→13 |         </span>
+  1775→14 |     );
+  1776→15 | }
+  1777→16 | 
+  1778→
+  1779→
+  1780→--------------------------------------------------------------------------------
+  1781→/supabase/migrations/20260705000000_add_expires_at_to_api_keys.sql:
+  1782→--------------------------------------------------------------------------------
+  1783→ 1 | -- =============================================================================
+  1784→ 2 | -- Add expires_at to api_keys
+  1785→ 3 | -- =============================================================================
+  1786→ 4 | 
+  1787→ 5 | ALTER TABLE public.api_keys
+  1788→ 6 | ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+  1789→ 7 | 
+  1790→ 8 | -- Add an index to efficiently query non-expired keys (or prune expired ones)
+  1791→ 9 | CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON public.api_keys (expires_at);
+  1792→10 | 
+  1793→
+  1794→
+  1795→--------------------------------------------------------------------------------
+  1796→/supabase/migrations/20260712000000_add_notification_subscribers_trgm_idx.sql:
+  1797→--------------------------------------------------------------------------------
+  1798→1 | -- Add GIN trigram index on notification_subscribers.district to support ILIKE
+  1799→2 | -- queries used by broadcastDistrictAlerts() and broadcastDrugAlerts().
+  1800→3 | -- Without this index, each broadcast tick performs a sequential scan of the
+  1801→4 | -- entire table, which becomes increasingly expensive as the subscriber base grows.
+  1802→5 | 
+  1803→6 | CREATE INDEX IF NOT EXISTS idx_subs_district_trgm
+  1804→7 |   ON public.notification_subscribers
+  1805→8 |   USING GIN (district gin_trgm_ops);
+  1806→9 | 
+  1807→
+  1808→
+  1809→--------------------------------------------------------------------------------
+  1810→/supabase/migrations/20260615000000_add_cdsco_validation_evidence_columns.sql:
+  1811→--------------------------------------------------------------------------------
+  1812→1 | ALTER TABLE public.medicines
+  1813→2 |     ADD COLUMN IF NOT EXISTS is_cdsco_verified BOOLEAN DEFAULT FALSE,
+  1814→3 |     ADD COLUMN IF NOT EXISTS cdsco_match_score DOUBLE PRECISION DEFAULT 0,
+  1815→4 |     ADD COLUMN IF NOT EXISTS matched_cdsco_product TEXT,
+  1816→5 |     ADD COLUMN IF NOT EXISTS matched_cdsco_manufacturer TEXT,
+  1817→6 |     ADD COLUMN IF NOT EXISTS product_match_score DOUBLE PRECISION DEFAULT 0,
+  1818→7 |     ADD COLUMN IF NOT EXISTS manufacturer_match_score DOUBLE PRECISION DEFAULT 0;
+  1819→8 | 
+  1820→
+  1821→
+  1822→--------------------------------------------------------------------------------
+  1823→/data/seeds/generic_alternatives/alternatives.csv:
+  1824→--------------------------------------------------------------------------------
+  1825→ 1 | brand_name,generic_name,brand_price,jan_aushadhi_price,savings_percentage
+  1826→ 2 | Lipitor,Atorvastatin 10mg,120.00,15.00,88
+  1827→ 3 | Dolo 650,Paracetamol 650mg,30.00,15.00,50
+  1828→ 4 | Crocin 500,Paracetamol 500mg,22.00,8.00,64
+  1829→ 5 | Calpol 650,Paracetamol 650mg,32.00,15.00,53
+  1830→ 6 | Augmentin 625 Duo,Amoxicillin + Clavulanate,185.00,96.50,48
+  1831→ 7 | Amoxil 500,Amoxicillin 500mg,95.00,42.00,56
+  1832→ 8 | Pan 40,Pantoprazole 40mg,168.00,31.50,81
+  1833→ 9 | Norvasc 5,Amlodipine 5mg,125.00,8.00,94
+  1834→10 | Lipitor 20,Atorvastatin 20mg,225.00,22.00,90
+  1835→11 | 
+  1836→
+  1837→
+  1838→--------------------------------------------------------------------------------
+  1839→/packages/shared/package.json:
+  1840→--------------------------------------------------------------------------------
+  1841→ 1 | {
+  1842→ 2 |     "name": "@sahidawa/shared",
+  1843→ 3 |     "version": "1.0.0",
+  1844→ 4 |     "private": true,
+  1845→ 5 |     "main": "dist/index.js",
+  1846→ 6 |     "types": "dist/index.d.ts",
+  1847→ 7 |     "exports": {
+  1848→ 8 |         ".": {
+  1849→ 9 |             "types": "./dist/index.d.ts",
+  1850→10 |             "default": "./dist/index.js"
+  1851→11 |         }
+  1852→12 |     },
+  1853→13 |     "scripts": {
+  1854→14 |         "build": "tsc -p tsconfig.json",
+  1855→15 |         "dev": "tsc -p tsconfig.json --watch"
+  1856→16 |     },
+  1857→17 |     "devDependencies": {
+  1858→18 |         "typescript": "^5.6.2"
+  1859→19 |     }
+  1860→20 | }
+  1861→21 | 
+  1862→
+  1863→
+  1864→--------------------------------------------------------------------------------
+  1865→/packages/types/package.json:
+  1866→--------------------------------------------------------------------------------
+  1867→ 1 | {
+  1868→ 2 |     "name": "@sahidawa/types",
+  1869→ 3 |     "version": "1.0.0",
+  1870→ 4 |     "private": true,
+  1871→ 5 |     "main": "dist/index.js",
+  1872→ 6 |     "types": "dist/index.d.ts",
+  1873→ 7 |     "exports": {
+  1874→ 8 |         ".": {
+  1875→ 9 |             "types": "./dist/index.d.ts",
+  1876→10 |             "default": "./dist/index.js"
+  1877→11 |         }
+  1878→12 |     },
+  1879→13 |     "scripts": {
+  1880→14 |         "build": "tsc -p tsconfig.json",
+  1881→15 |         "dev": "tsc -p tsconfig.json --watch"
+  1882→16 |     },
+  1883→17 |     "devDependencies": {
+  1884→18 |         "typescript": "^5.6.2"
+  1885→19 |     }
+  1886→20 | }
+  1887→21 | 
+  1888→
+  1889→
+  1890→--------------------------------------------------------------------------------
+  1891→/supabase/migrations/20260704000000_add_key_salt_to_api_keys.sql:
+  1892→--------------------------------------------------------------------------------
+  1893→1 | -- Add per-key salt to api_keys to prevent precomputation attacks
+  1894→2 | -- from the previous hardcoded static salt. Existing keys will need
+  1895→3 | -- to be regenerated since their raw secret was never stored.
+  1896→4 | 
+  1897→5 | ALTER TABLE public.api_keys
+  1898→6 |     ADD COLUMN IF NOT EXISTS key_salt TEXT;
+  1899→7 | 
+  1900→8 | COMMENT ON COLUMN public.api_keys.key_salt IS
+  1901→9 |     'Unique per-row cryptographic salt (hex-encoded, 32 random bytes) used to hash the raw API key secret via PBKDF2. Replaces the previous hardcoded static salt.';
+  1902→
+  1903→
+  1904→--------------------------------------------------------------------------------
+  1905→/apps/api/src/utils/cryptoUtils.ts:
+  1906→--------------------------------------------------------------------------------
+  1907→ 1 | import crypto from "crypto";
+  1908→ 2 | /**
+  1909→ 3 |  * Performs a timing-safe comparison between two strings.
+  1910→ 4 |  *
+  1911→ 5 |  * @param a The first string to compare.
+  1912→ 6 |  * @param b The second string to compare.
+  1913→ 7 |  * @returns True if both strings are equal, otherwise false.
+  1914→ 8 |  */
+  1915→ 9 | 
+  1916→10 | export function safeCompare(a: string, b: string): boolean {
+  1917→11 |     const hashA = crypto.createHash("sha256").update(a).digest();
+  1918→12 |     const hashB = crypto.createHash("sha256").update(b).digest();
+  1919→13 |     return crypto.timingSafeEqual(hashA, hashB);
+  1920→14 | }
+  1921→15 | 
+  1922→
+  1923→
+  1924→--------------------------------------------------------------------------------
+  1925→/apps/web/lib/vision/detectPackaging.ts:
+  1926→--------------------------------------------------------------------------------
+  1927→ 1 | /**
+  1928→ 2 |  * detectPackaging.ts
+  1929→ 3 |  *
+  1930→ 4 |  * Public API for packaging geometry detection.
+  1931→ 5 |  * The actual OpenCV processing runs inside a sandboxed iframe
+  1932→ 6 |  * (see loadOpenCv.ts) to keep 'unsafe-eval' out of the main page's CSP.
+  1933→ 7 |  *
+  1934→ 8 |  * Pipeline: grayscale -> Gaussian blur -> Canny edges -> contours ->
+  1935→ 9 |  * approxPolyDP -> keep ~4-corner, ~90deg, large-enough contours.
+  1936→10 |  */
+  1937→11 | 
+  1938→12 | export type { DetectPackagingResult, DetectOptions } from "./loadOpenCv";
+  1939→13 | export { detectPackaging, destroySandbox } from "./loadOpenCv";
+  1940→14 | 
+  1941→
+  1942→
+  1943→--------------------------------------------------------------------------------
+  1944→/supabase/migrations/20260615100000_add_tracked_medicines.sql:
+  1945→--------------------------------------------------------------------------------
+  1946→ 1 | CREATE TABLE tracked_medicines (
+  1947→ 2 |   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  1948→ 3 |   user_id UUID REFERENCES auth.users(id),
+  1949→ 4 |   session_id TEXT,
+  1950→ 5 |   medicine_id TEXT NOT NULL,
+  1951→ 6 |   medicine_name TEXT NOT NULL,
+  1952→ 7 |   batch_number TEXT,
+  1953→ 8 |   expiry_date DATE NOT NULL,
+  1954→ 9 |   notified_7d BOOLEAN DEFAULT FALSE,
+  1955→10 |   notified_14d BOOLEAN DEFAULT FALSE,
+  1956→11 |   notified_30d BOOLEAN DEFAULT FALSE,
+  1957→12 |   created_at TIMESTAMPTZ DEFAULT NOW()
+  1958→13 | );
+  1959→14 | CREATE INDEX idx_tracked_expiry ON tracked_medicines(expiry_date);
+  1960→
+  1961→
+  1962→--------------------------------------------------------------------------------
+  1963→/apps/web/.eslintrc.json:
+  1964→--------------------------------------------------------------------------------
+  1965→ 1 | {
+  1966→ 2 |     "extends": ["next/core-web-vitals", "next/typescript"],
+  1967→ 3 |     "ignorePatterns": ["public/**", ".next/**", "node_modules/**"],
+  1968→ 4 |     "overrides": [
+  1969→ 5 |         {
+  1970→ 6 |             "files": ["jest.env.cjs"],
+  1971→ 7 |             "rules": {
+  1972→ 8 |                 "@typescript-eslint/no-require-imports": "off"
+  1973→ 9 |             }
+  1974→10 |         },
+  1975→11 |         {
+  1976→12 |             "files": ["tests/**/*.ts", "tests/**/*.tsx"],
+  1977→13 |             "rules": {
+  1978→14 |                 "@typescript-eslint/no-unused-vars": "off"
+  1979→15 |             }
+  1980→16 |         }
+  1981→17 |     ]
+  1982→18 | }
+  1983→19 | 
+  1984→
+  1985→
+  1986→--------------------------------------------------------------------------------
+  1987→/apps/web/lib/vision/README.md:
+  1988→--------------------------------------------------------------------------------
+  1989→ 1 | # Packaging Geometry Detection
+  1990→ 2 | 
+  1991→ 3 | Classical computer-vision pre-check run entirely in-browser via OpenCV.js
+  1992→ 4 | before the (slower) barcode lookup / future ML classifier.
+  1993→ 5 | 
+  1994→ 6 | Pipeline: grayscale → Gaussian blur → Canny edge detection → findContours →
+  1995→ 7 | approxPolyDP (keep ~4-corner, ~90°-angle, large-enough shapes) → boolean.
+  1996→ 8 | 
+  1997→ 9 | No training, no model file — pure geometry, so this ships without any ML
+  1998→10 | infra. See `detectPackaging.ts`. OpenCV.js is loaded lazily via
+  1999→11 | `loadOpenCv.ts` only when the scanner page mounts (not bundled app-wide).
+  2000→
+
+[showing lines 1-2000 of 6999; use offset=2001 with limit to continue reading]

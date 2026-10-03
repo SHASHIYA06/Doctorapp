@@ -22,6 +22,12 @@ export type Section =
   | 'voice'
   | 'recalls'
   | 'admin'
+  | 'abha'
+  | 'counterfeit'
+  | 'expiry-tracker'
+  | 'medicine-compare'
+  | 'dosage-tracker'
+  | 'vaccination'
 
 export type Modality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
 
@@ -73,6 +79,8 @@ interface AppState {
   setNotificationCount: (count: number) => void
   sidebarCollapsed: boolean
   setSidebarCollapsed: (collapsed: boolean) => void
+  isAbhaLinked: boolean
+  setIsAbhaLinked: (linked: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -104,4 +112,6 @@ export const useAppStore = create<AppState>((set) => ({
   setNotificationCount: (count) => set({ notificationCount: count }),
   sidebarCollapsed: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+  isAbhaLinked: false,
+  setIsAbhaLinked: (linked) => set({ isAbhaLinked: linked }),
 }))
