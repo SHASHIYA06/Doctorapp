@@ -260,7 +260,9 @@ export function PrescriptionsSection() {
     fetch('/api/patients')
       .then((r) => r.json())
       .then((d) => setPatients(d.data ?? d.patients ?? []))
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+      })
   }, [])
 
   // ─── Fetch prescriptions ─────────────────────────────────────────
@@ -273,7 +275,31 @@ export function PrescriptionsSection() {
       if (modalityTab) params.set('modality', modalityTab)
       const res = await fetch(`/api/prescriptions?${params.toString()}`)
       const json = await res.json()
-      setPrescriptions((json.data ?? json.prescriptions ?? []) as Prescription[])
+      const raw = json.data ?? json.prescriptions ?? []
+      const mapped = raw.map((p: Record<string, unknown>) => {
+        const patient = p.patient as { id: string; firstName: string; lastName: string } | undefined
+        const practitioner = p.practitioner as { id: string; name: string } | undefined
+        const items = (Array.isArray(p.items) ? p.items : []) as PrescriptionItem[]
+        return {
+          id: p.id as string,
+          prescriptionNo: (p.prescriptionNo ?? '') as string,
+          patientId: (p.patientId ?? '') as string,
+          patient,
+          practitioner,
+          modality: (p.modality ?? 'ALLOPATHY') as string,
+          status: (p.status ?? 'DRAFT') as PrescriptionStatus,
+          diagnosis: (p.diagnosis ?? null) as string | null,
+          notes: (p.notes ?? null) as string | null,
+          qrCodeData: (p.qrCodeData ?? null) as string | null,
+          digitalSignature: (p.digitalSignature ?? null) as string | null,
+          isCdScoCompliant: (p.isCdScoCompliant ?? true) as boolean,
+          validFrom: (p.validFrom ?? p.createdAt ?? new Date().toISOString()) as string,
+          validUntil: (p.validUntil ?? null) as string | null,
+          createdAt: (p.createdAt ?? new Date().toISOString()) as string,
+          items,
+        } as Prescription
+      })
+      setPrescriptions(mapped)
     } catch {
       toast({ title: 'Error', description: 'Failed to load prescriptions', variant: 'destructive' })
     } finally {

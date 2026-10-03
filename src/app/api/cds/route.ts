@@ -130,3 +130,80 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to process CDS alert' }, { status: 500 })
   }
 }
+
+// ─── PUT: Acknowledge / Override CDS alert ───────────────────────
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, action, reason } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    }
+
+    const existing = await db.cDSAlert.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'CDS alert not found' }, { status: 404 })
+    }
+
+    // ── Acknowledge single alert ──
+    if (action === 'acknowledge') {
+      const updated = await db.cDSAlert.update({
+        where: { id },
+        data: {
+          isAcknowledged: true,
+          acknowledgedBy: 'Current User',
+          acknowledgedAt: new Date(),
+        },
+      })
+      return NextResponse.json({ data: updated })
+    }
+
+    // ── Acknowledge all non-critical ──
+    if (action === 'acknowledge_all') {
+      const excludeCritical = body.excludeCritical === true
+      const where: Record<string, unknown> = {
+        isAcknowledged: false,
+      }
+      if (excludeCritical) where.severity = { not: 'CRITICAL' }
+
+      await db.cDSAlert.updateMany({
+        where,
+        data: {
+          isAcknowledged: true,
+          acknowledgedBy: 'Current User',
+          acknowledgedAt: new Date(),
+        },
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    // ── Override alert ──
+    if (action === 'override') {
+      if (!existing.isOverrideable) {
+        return NextResponse.json(
+          { error: 'This alert cannot be overridden' },
+          { status: 403 }
+        )
+      }
+
+      const updated = await db.cDSAlert.update({
+        where: { id },
+        data: {
+          isAcknowledged: true,
+          acknowledgedAt: new Date(),
+          overrideReason: reason || 'No reason provided',
+          isActive: false,
+        },
+      })
+      return NextResponse.json({ data: updated })
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  } catch (error) {
+    console.error('[CDS_PUT]', error)
+    return NextResponse.json({ error: 'Failed to process CDS alert' }, { status: 500 })
+  }
+}

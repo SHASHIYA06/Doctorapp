@@ -1,0 +1,987 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Clock,
+     7→  Bell,
+     8→  CheckCircle2,
+     9→  Calendar,
+    10→  Pill,
+    11→  Syringe,
+    12→  FlaskConical,
+    13→  Repeat,
+    14→  Plus,
+    15→  X,
+    16→  AlertCircle,
+    17→  ChevronRight,
+    18→  Send,
+    19→  Smartphone,
+    20→  MessageSquare,
+    21→  BellRing,
+    22→  Timer,
+    23→  CalendarCheck,
+    24→  CalendarX,
+    25→  ListChecks,
+    26→} from 'lucide-react'
+    27→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    28→import { Button } from '@/components/ui/button'
+    29→import { Badge } from '@/components/ui/badge'
+    30→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+    31→import { Input } from '@/components/ui/input'
+    32→import { Textarea } from '@/components/ui/textarea'
+    33→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    34→import { Label } from '@/components/ui/label'
+    35→import { Separator } from '@/components/ui/separator'
+    36→import { Skeleton } from '@/components/ui/skeleton'
+    37→import {
+    38→  Table,
+    39→  TableBody,
+    40→  TableCell,
+    41→  TableHead,
+    42→  TableHeader,
+    43→  TableRow,
+    44→} from '@/components/ui/table'
+    45→import { Calendar as CalendarPicker } from '@/components/ui/calendar'
+    46→import { useAppStore } from '@/lib/store'
+    47→import { toast } from '@/hooks/use-toast'
+    48→
+    49→// ─── Types ───────────────────────────────────────────────────────────────────
+    50→
+    51→type ReminderType = 'FOLLOW_UP' | 'MEDICATION_REMINDER' | 'LAB_REMINDER' | 'VACCINATION_DUE' | 'CHECKUP'
+    52→type RecurrenceType = 'ONCE' | 'DAILY' | 'WEEKLY' | 'MONTHLY'
+    53→type ChannelType = 'IN_APP' | 'SMS' | 'WHATSAPP' | 'PUSH'
+    54→type DeliveryStatus = 'SENT' | 'DELIVERED' | 'FAILED' | 'PENDING'
+    55→type ReminderStatus = 'ACTIVE' | 'COMPLETED' | 'EXPIRED'
+    56→
+    57→interface Reminder {
+    58→  id: string
+    59→  patientId: string
+    60→  patientName: string
+    61→  title: string
+    62→  description: string
+    63→  type: ReminderType
+    64→  scheduledDate: string
+    65→  scheduledTime: string
+    66→  recurrence: RecurrenceType
+    67→  channel: ChannelType
+    68→  deliveryStatus: DeliveryStatus
+    69→  status: ReminderStatus
+    70→  completedAt: string | null
+    71→  createdAt: string
+    72→}
+    73→
+    74→interface Patient {
+    75→  id: string
+    76→  firstName: string
+    77→  lastName: string
+    78→}
+    79→
+    80→// ─── Config Maps ─────────────────────────────────────────────────────────────
+    81→
+    82→const REMINDER_TYPE_CONFIG: Record<ReminderType, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
+    83→  FOLLOW_UP: {
+    84→    label: 'Follow-up',
+    85→    icon: Clock,
+    86→    color: 'text-blue-600 dark:text-blue-400',
+    87→    bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+    88→  },
+    89→  MEDICATION_REMINDER: {
+    90→    label: 'Medication',
+    91→    icon: Pill,
+    92→    color: 'text-emerald-600 dark:text-emerald-400',
+    93→    bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
+    94→  },
+    95→  LAB_REMINDER: {
+    96→    label: 'Lab Test',
+    97→    icon: FlaskConical,
+    98→    color: 'text-purple-600 dark:text-purple-400',
+    99→    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
+   100→  },
+   101→  VACCINATION_DUE: {
+   102→    label: 'Vaccination',
+   103→    icon: Syringe,
+   104→    color: 'text-cyan-600 dark:text-cyan-400',
+   105→    bgColor: 'bg-cyan-50 dark:bg-cyan-950/30',
+   106→  },
+   107→  CHECKUP: {
+   108→    label: 'Checkup',
+   109→    icon: CalendarCheck,
+   110→    color: 'text-amber-600 dark:text-amber-400',
+   111→    bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+   112→  },
+   113→}
+   114→
+   115→const RECURRENCE_CONFIG: Record<RecurrenceType, { label: string; icon: React.ElementType }> = {
+   116→  ONCE: { label: 'Once', icon: Bell },
+   117→  DAILY: { label: 'Daily', icon: Repeat },
+   118→  WEEKLY: { label: 'Weekly', icon: Repeat },
+   119→  MONTHLY: { label: 'Monthly', icon: Repeat },
+   120→}
+   121→
+   122→const CHANNEL_CONFIG: Record<ChannelType, { label: string; icon: React.ElementType }> = {
+   123→  IN_APP: { label: 'In-App', icon: BellRing },
+   124→  SMS: { label: 'SMS', icon: Smartphone },
+   125→  WHATSAPP: { label: 'WhatsApp', icon: MessageSquare },
+   126→  PUSH: { label: 'Push', icon: Send },
+   127→}
+   128→
+   129→const DELIVERY_STATUS_CONFIG: Record<DeliveryStatus, { label: string; className: string }> = {
+   130→  PENDING: { label: 'Pending', className: 'bg-muted text-muted-foreground' },
+   131→  SENT: { label: 'Sent', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+   132→  DELIVERED: { label: 'Delivered', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+   133→  FAILED: { label: 'Failed', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
+   134→}
+   135→
+   136→// ─── Helper functions ────────────────────────────────────────────────────────
+   137→
+   138→function isOverdue(reminder: Reminder): boolean {
+   139→  if (reminder.status === 'COMPLETED' || reminder.status === 'EXPIRED') return false
+   140→  const scheduled = new Date(`${reminder.scheduledDate}T${reminder.scheduledTime}`)
+   141→  return scheduled < new Date()
+   142→}
+   143→
+   144→function isUpcoming(reminder: Reminder): boolean {
+   145→  if (reminder.status !== 'ACTIVE') return false
+   146→  const scheduled = new Date(`${reminder.scheduledDate}T${reminder.scheduledTime}`)
+   147→  const now = new Date()
+   148→  const sevenDays = 7 * 24 * 60 * 60 * 1000
+   149→  return scheduled >= now && (scheduled.getTime() - now.getTime()) <= sevenDays
+   150→}
+   151→
+   152→function isDueToday(reminder: Reminder): boolean {
+   153→  if (reminder.status !== 'ACTIVE') return false
+   154→  const today = new Date().toISOString().slice(0, 10)
+   155→  return reminder.scheduledDate === today
+   156→}
+   157→
+   158→// ─── Demo Data ───────────────────────────────────────────────────────────────
+   159→
+   160→const DEMO_PATIENTS: Patient[] = [
+   161→  { id: 'p-001', firstName: 'Rajesh', lastName: 'Kumar' },
+   162→  { id: 'p-002', firstName: 'Priya', lastName: 'Sharma' },
+   163→  { id: 'p-003', firstName: 'Amit', lastName: 'Patel' },
+   164→]
+   165→
+   166→const today = new Date()
+   167→const fmt = (d: Date) => d.toISOString().slice(0, 10)
+   168→
+   169→const DEMO_REMINDERS: Reminder[] = [
+   170→  {
+   171→    id: 'rem-1',
+   172→    patientId: 'p-001',
+   173→    patientName: 'Rajesh Kumar',
+   174→    title: 'Diabetes Follow-up',
+   175→    description: 'Quarterly diabetes management review. Check HbA1c, fasting glucose, and renal function.',
+   176→    type: 'FOLLOW_UP',
+   177→    scheduledDate: fmt(new Date(today.getTime() + 2 * 86400000)),
+   178→    scheduledTime: '10:00',
+   179→    recurrence: 'MONTHLY',
+   180→    channel: 'IN_APP',
+   181→    deliveryStatus: 'PENDING',
+   182→    status: 'ACTIVE',
+   183→    completedAt: null,
+   184→    createdAt: new Date().toISOString(),
+   185→  },
+   186→  {
+   187→    id: 'rem-2',
+   188→    patientId: 'p-001',
+   189→    patientName: 'Rajesh Kumar',
+   190→    title: 'Metformin 500mg - Morning Dose',
+   191→    description: 'Take Metformin 500mg with breakfast. Do not skip doses.',
+   192→    type: 'MEDICATION_REMINDER',
+   193→    scheduledDate: fmt(today),
+   194→    scheduledTime: '08:00',
+   195→    recurrence: 'DAILY',
+   196→    channel: 'WHATSAPP',
+   197→    deliveryStatus: 'DELIVERED',
+   198→    status: 'ACTIVE',
+   199→    completedAt: null,
+   200→    createdAt: new Date().toISOString(),
+   201→  },
+   202→  {
+   203→    id: 'rem-3',
+   204→    patientId: 'p-002',
+   205→    patientName: 'Priya Sharma',
+   206→    title: 'HbA1c & Lipid Panel',
+   207→    description: 'Order HbA1c and complete lipid profile. Patient has not had labs in 90 days.',
+   208→    type: 'LAB_REMINDER',
+   209→    scheduledDate: fmt(new Date(today.getTime() - 86400000)),
+   210→    scheduledTime: '09:00',
+   211→    recurrence: 'ONCE',
+   212→    channel: 'SMS',
+   213→    deliveryStatus: 'SENT',
+   214→    status: 'ACTIVE',
+   215→    completedAt: null,
+   216→    createdAt: new Date().toISOString(),
+   217→  },
+   218→  {
+   219→    id: 'rem-4',
+   220→    patientId: 'p-002',
+   221→    patientName: 'Priya Sharma',
+   222→    title: 'Tdap Booster Vaccination',
+   223→    description: 'Tdap booster due as per immunization schedule. Last Tdap was 10 years ago.',
+   224→    type: 'VACCINATION_DUE',
+   225→    scheduledDate: fmt(new Date(today.getTime() + 5 * 86400000)),
+   226→    scheduledTime: '11:00',
+   227→    recurrence: 'ONCE',
+   228→    channel: 'IN_APP',
+   229→    deliveryStatus: 'PENDING',
+   230→    status: 'ACTIVE',
+   231→    completedAt: null,
+   232→    createdAt: new Date().toISOString(),
+   233→  },
+   234→  {
+   235→    id: 'rem-5',
+   236→    patientId: 'p-003',
+   237→    patientName: 'Amit Patel',
+   238→    title: 'Annual Health Checkup',
+   239→    description: 'Comprehensive annual health checkup including CBC, LFT, KFT, Lipid, Thyroid, and ECG.',
+   240→    type: 'CHECKUP',
+   241→    scheduledDate: fmt(new Date(today.getTime() + 3 * 86400000)),
+   242→    scheduledTime: '09:30',
+   243→    recurrence: 'YEARLY' as RecurrenceType,
+   244→    channel: 'PUSH',
+   245→    deliveryStatus: 'PENDING',
+   246→    status: 'ACTIVE',
+   247→    completedAt: null,
+   248→    createdAt: new Date().toISOString(),
+   249→  },
+   250→  {
+   251→    id: 'rem-6',
+   252→    patientId: 'p-001',
+   253→    patientName: 'Rajesh Kumar',
+   254→    title: 'Warfarin INR Check',
+   255→    description: 'Weekly INR monitoring for Warfarin therapy. Target INR 2.0-3.0.',
+   256→    type: 'LAB_REMINDER',
+   257→    scheduledDate: fmt(new Date(today.getTime() - 3 * 86400000)),
+   258→    scheduledTime: '07:30',
+   259→    recurrence: 'WEEKLY',
+   260→    channel: 'SMS',
+   261→    deliveryStatus: 'DELIVERED',
+   262→    status: 'ACTIVE',
+   263→    completedAt: null,
+   264→    createdAt: new Date().toISOString(),
+   265→  },
+   266→  {
+   267→    id: 'rem-7',
+   268→    patientId: 'p-003',
+   269→    patientName: 'Amit Patel',
+   270→    title: 'Blood Pressure Medication',
+   271→    description: 'Amlodipine 5mg - Take every evening at 8 PM.',
+   272→    type: 'MEDICATION_REMINDER',
+   273→    scheduledDate: fmt(today),
+   274→    scheduledTime: '20:00',
+   275→    recurrence: 'DAILY',
+   276→    channel: 'WHATSAPP',
+   277→    deliveryStatus: 'PENDING',
+   278→    status: 'ACTIVE',
+   279→    completedAt: null,
+   280→    createdAt: new Date().toISOString(),
+   281→  },
+   282→]
+   283→
+   284→// ─── Animation ───────────────────────────────────────────────────────────────
+   285→
+   286→const fadeSlide = {
+   287→  initial: { opacity: 0, y: 12 },
+   288→  animate: { opacity: 1, y: 0 },
+   289→  transition: { duration: 0.3 },
+   290→}
+   291→
+   292→// ─── Component ───────────────────────────────────────────────────────────────
+   293→
+   294→export function FollowUpRemindersSection() {
+   295→  const { selectedPatientId } = useAppStore()
+   296→
+   297→  const [patients, setPatients] = useState<Patient[]>([])
+   298→  const [selectedPatient, setSelectedPatient] = useState<string>('ALL')
+   299→  const [reminders, setReminders] = useState<Reminder[]>([])
+   300→  const [loading, setLoading] = useState(true)
+   301→
+   302→  // Calendar date
+   303→  const [calendarDate, setCalendarDate] = useState<Date | undefined>(new Date())
+   304→
+   305→  // Create dialog
+   306→  const [createOpen, setCreateOpen] = useState(false)
+   307→  const [newTitle, setNewTitle] = useState('')
+   308→  const [newDesc, setNewDesc] = useState('')
+   309→  const [newDate, setNewDate] = useState(fmt(today))
+   310→  const [newTime, setNewTime] = useState('09:00')
+   311→  const [newType, setNewType] = useState<ReminderType>('FOLLOW_UP')
+   312→  const [newRecurrence, setNewRecurrence] = useState<RecurrenceType>('ONCE')
+   313→  const [newChannel, setNewChannel] = useState<ChannelType>('IN_APP')
+   314→  const [createSubmitting, setCreateSubmitting] = useState(false)
+   315→
+   316→  // ── Fetch data ──
+   317→  useEffect(() => {
+   318→    fetch('/api/patients')
+   319→      .then((r) => r.json())
+   320→      .then((d) => {
+   321→        const list = d.data ?? d.patients ?? []
+   322→        if (Array.isArray(list) && list.length > 0) setPatients(list)
+   323→        else setPatients(DEMO_PATIENTS)
+   324→      })
+   325→      .catch(() => setPatients(DEMO_PATIENTS))
+   326→  }, [])
+   327→
+   328→  useEffect(() => {
+   329→    setLoading(true)
+   330→    const params = selectedPatient !== 'ALL' ? `?patientId=${selectedPatient}` : ''
+   331→    fetch(`/api/follow-up-reminders${params}`)
+   332→      .then((r) => r.json())
+   333→      .then((d) => {
+   334→        const data = d.data ?? d.reminders ?? []
+   335→        if (Array.isArray(data) && data.length > 0) {
+   336→          setReminders(data)
+   337→        } else {
+   338→          setReminders(DEMO_REMINDERS)
+   339→        }
+   340→      })
+   341→      .catch(() => setReminders(DEMO_REMINDERS))
+   342→      .finally(() => setLoading(false))
+   343→  }, [selectedPatient, selectedPatientId])
+   344→
+   345→  // ── Stats ──
+   346→  const stats = useMemo(() => {
+   347→    const now = new Date()
+   348→    const weekAgo = new Date(now.getTime() - 7 * 86400000)
+   349→    return {
+   350→      totalActive: reminders.filter((r) => r.status === 'ACTIVE').length,
+   351→      dueToday: reminders.filter(isDueToday).length,
+   352→      overdue: reminders.filter(isOverdue).length,
+   353→      completedThisWeek: reminders.filter((r) => r.status === 'COMPLETED' && r.completedAt && new Date(r.completedAt) >= weekAgo).length,
+   354→    }
+   355→  }, [reminders])
+   356→
+   357→  // ── Categorized reminders ──
+   358→  const overdueReminders = useMemo(() => reminders.filter(isOverdue), [reminders])
+   359→  const upcomingReminders = useMemo(
+   360→    () => reminders.filter(isUpcoming).sort((a, b) => new Date(`${a.scheduledDate}T${a.scheduledTime}`).getTime() - new Date(`${b.scheduledDate}T${b.scheduledTime}`).getTime()),
+   361→    [reminders]
+   362→  )
+   363→
+   364→  // Calendar dates with reminders
+   365→  const reminderDates = useMemo(() => {
+   366→    const dateMap = new Map<string, Reminder[]>()
+   367→    reminders.forEach((r) => {
+   368→      if (r.status === 'ACTIVE') {
+   369→        const existing = dateMap.get(r.scheduledDate) ?? []
+   370→        existing.push(r)
+   371→        dateMap.set(r.scheduledDate, existing)
+   372→      }
+   373→    })
+   374→    return dateMap
+   375→  }, [reminders])
+   376→
+   377→  const selectedDateReminders = useMemo(() => {
+   378→    if (!calendarDate) return []
+   379→    const key = fmt(calendarDate)
+   380→    return reminderDates.get(key) ?? []
+   381→  }, [calendarDate, reminderDates])
+   382→
+   383→  // ── Mark as complete ──
+   384→  const handleComplete = useCallback(async (id: string) => {
+   385→    try {
+   386→      await fetch('/api/follow-up-reminders', {
+   387→        method: 'PUT',
+   388→        headers: { 'Content-Type': 'application/json' },
+   389→        body: JSON.stringify({ id, status: 'COMPLETED' }),
+   390→      })
+   391→    } catch {
+   392→      // local update anyway
+   393→    }
+   394→    setReminders((prev) =>
+   395→      prev.map((r) => (r.id === id ? { ...r, status: 'COMPLETED' as ReminderStatus, completedAt: new Date().toISOString() } : r))
+   396→    )
+   397→    toast({ title: 'Reminder Completed', description: 'The reminder has been marked as complete' })
+   398→  }, [])
+   399→
+   400→  // ── Create reminder ──
+   401→  const handleCreate = async () => {
+   402→    if (!newTitle.trim()) {
+   403→      toast({ title: 'Validation Error', description: 'Title is required', variant: 'destructive' })
+   404→      return
+   405→    }
+   406→    setCreateSubmitting(true)
+   407→    const patient = patients.find((p) => p.id === selectedPatient) ?? patients[0]
+   408→    const newReminder: Reminder = {
+   409→      id: `rem-${Date.now()}`,
+   410→      patientId: selectedPatient !== 'ALL' ? selectedPatient : (patient?.id ?? 'p-001'),
+   411→      patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+   412→      title: newTitle,
+   413→      description: newDesc,
+   414→      type: newType,
+   415→      scheduledDate: newDate,
+   416→      scheduledTime: newTime,
+   417→      recurrence: newRecurrence,
+   418→      channel: newChannel,
+   419→      deliveryStatus: 'PENDING',
+   420→      status: 'ACTIVE',
+   421→      completedAt: null,
+   422→      createdAt: new Date().toISOString(),
+   423→    }
+   424→    try {
+   425→      await fetch('/api/follow-up-reminders', {
+   426→        method: 'POST',
+   427→        headers: { 'Content-Type': 'application/json' },
+   428→        body: JSON.stringify(newReminder),
+   429→      })
+   430→    } catch {
+   431→      // local update anyway
+   432→    }
+   433→    setReminders((prev) => [newReminder, ...prev])
+   434→    toast({ title: 'Reminder Created', description: `"${newTitle}" scheduled for ${newDate}` })
+   435→    setCreateOpen(false)
+   436→    resetCreateForm()
+   437→    setCreateSubmitting(false)
+   438→  }
+   439→
+   440→  const resetCreateForm = () => {
+   441→    setNewTitle('')
+   442→    setNewDesc('')
+   443→    setNewDate(fmt(today))
+   444→    setNewTime('09:00')
+   445→    setNewType('FOLLOW_UP')
+   446→    setNewRecurrence('ONCE')
+   447→    setNewChannel('IN_APP')
+   448→  }
+   449→
+   450→  // ── Quick actions ──
+   451→  const handleQuickAction = (type: ReminderType, title: string, desc: string) => {
+   452→    setNewType(type)
+   453→    setNewTitle(title)
+   454→    setNewDesc(desc)
+   455→    setCreateOpen(true)
+   456→  }
+   457→
+   458→  // ── Loading skeleton ──
+   459→  if (loading) {
+   460→    return (
+   461→      <div className="space-y-3">
+   462→        {[1, 2, 3, 4].map((i) => (
+   463→          <Skeleton key={i} className="h-24 w-full rounded-lg" />
+   464→        ))}
+   465→      </div>
+   466→    )
+   467→  }
+   468→
+   469→  return (
+   470→    <motion.div {...fadeSlide} className="space-y-4">
+   471→      {/* ── Stats Row ── */}
+   472→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   473→        <Card>
+   474→          <CardContent className="p-4 text-center">
+   475→            <div className="flex items-center justify-center gap-2 mb-1">
+   476→              <Bell className="h-4 w-4 text-blue-600" />
+   477→              <span className="text-2xl font-bold">{stats.totalActive}</span>
+   478→            </div>
+   479→            <p className="text-xs text-muted-foreground">Total Active</p>
+   480→          </CardContent>
+   481→        </Card>
+   482→        <Card>
+   483→          <CardContent className="p-4 text-center">
+   484→            <div className="flex items-center justify-center gap-2 mb-1">
+   485→              <Timer className="h-4 w-4 text-amber-600" />
+   486→              <span className="text-2xl font-bold text-amber-600">{stats.dueToday}</span>
+   487→            </div>
+   488→            <p className="text-xs text-muted-foreground">Due Today</p>
+   489→          </CardContent>
+   490→        </Card>
+   491→        <Card>
+   492→          <CardContent className="p-4 text-center">
+   493→            <div className="flex items-center justify-center gap-2 mb-1">
+   494→              <CalendarX className="h-4 w-4 text-red-600" />
+   495→              <span className="text-2xl font-bold text-red-600">{stats.overdue}</span>
+   496→            </div>
+   497→            <p className="text-xs text-muted-foreground">Overdue</p>
+   498→          </CardContent>
+   499→        </Card>
+   500→        <Card>
+   501→          <CardContent className="p-4 text-center">
+   502→            <div className="flex items-center justify-center gap-2 mb-1">
+   503→              <CheckCircle2 className="h-4 w-4 text-green-600" />
+   504→              <span className="text-2xl font-bold text-green-600">{stats.completedThisWeek}</span>
+   505→            </div>
+   506→            <p className="text-xs text-muted-foreground">Completed This Week</p>
+   507→          </CardContent>
+   508→        </Card>
+   509→      </div>
+   510→
+   511→      {/* ── Controls Row ── */}
+   512→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+   513→        <div className="space-y-1">
+   514→          <Label className="text-xs text-muted-foreground">Patient</Label>
+   515→          <Select value={selectedPatient} onValueChange={setSelectedPatient}>
+   516→            <SelectTrigger className="w-56">
+   517→              <SelectValue placeholder="All Patients" />
+   518→            </SelectTrigger>
+   519→            <SelectContent>
+   520→              <SelectItem value="ALL">All Patients</SelectItem>
+   521→              {patients.map((p) => (
+   522→                <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
+   523→              ))}
+   524→            </SelectContent>
+   525→          </Select>
+   526→        </div>
+   527→        <div className="flex items-center gap-2 mt-auto">
+   528→          <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+   529→            <Plus className="h-3.5 w-3.5" />
+   530→            New Reminder
+   531→          </Button>
+   532→        </div>
+   533→      </div>
+   534→
+   535→      {/* ── Quick Actions ── */}
+   536→      <div className="flex flex-wrap gap-2">
+   537→        <Button
+   538→          variant="outline"
+   539→          size="sm"
+   540→          className="gap-1.5 text-xs"
+   541→          onClick={() => handleQuickAction('FOLLOW_UP', 'Schedule Follow-up', 'Follow-up appointment needed for ongoing care management.')}
+   542→        >
+   543→          <Clock className="h-3.5 w-3.5" />
+   544→          Schedule Follow-up
+   545→        </Button>
+   546→        <Button
+   547→          variant="outline"
+   548→          size="sm"
+   549→          className="gap-1.5 text-xs"
+   550→          onClick={() => handleQuickAction('MEDICATION_REMINDER', 'Set Medication Reminder', 'Daily medication reminder for prescribed treatment.')}
+   551→        >
+   552→          <Pill className="h-3.5 w-3.5" />
+   553→          Set Medication Reminder
+   554→        </Button>
+   555→        <Button
+   556→          variant="outline"
+   557→          size="sm"
+   558→          className="gap-1.5 text-xs"
+   559→          onClick={() => handleQuickAction('LAB_REMINDER', 'Order Lab Tests', 'Remind patient about pending lab orders.')}
+   560→        >
+   561→          <FlaskConical className="h-3.5 w-3.5" />
+   562→          Order Lab Tests
+   563→        </Button>
+   564→        <Button
+   565→          variant="outline"
+   566→          size="sm"
+   567→          className="gap-1.5 text-xs"
+   568→          onClick={() => handleQuickAction('VACCINATION_DUE', 'Vaccination Due', 'Vaccination is due as per immunization schedule.')}
+   569→        >
+   570→          <Syringe className="h-3.5 w-3.5" />
+   571→          Schedule Vaccination
+   572→        </Button>
+   573→      </div>
+   574→
+   575→      {/* ── Overdue Alerts ── */}
+   576→      {overdueReminders.length > 0 && (
+   577→        <Card className="border-red-300 dark:border-red-700">
+   578→          <CardHeader className="pb-2">
+   579→            <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-400">
+   580→              <CalendarX className="h-5 w-5" />
+   581→              Overdue Reminders
+   582→              <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+   583→                {overdueReminders.length}
+   584→              </Badge>
+   585→            </CardTitle>
+   586→            <CardDescription className="text-red-600/70 dark:text-red-400/70">
+   587→              These reminders have passed their scheduled date and need attention
+   588→            </CardDescription>
+   589→          </CardHeader>
+   590→          <CardContent>
+   591→            <div className="space-y-2 max-h-48 overflow-y-auto">
+   592→              {overdueReminders.map((rem) => {
+   593→                const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+   594→                const TypeIcon = typeCfg.icon
+   595→                return (
+   596→                  <div
+   597→                    key={rem.id}
+   598→                    className="flex items-center gap-3 p-3 rounded-lg bg-red-50/50 border border-red-200 dark:bg-red-950/20 dark:border-red-800"
+   599→                  >
+   600→                    <TypeIcon className={`h-4 w-4 shrink-0 ${typeCfg.color}`} />
+   601→                    <div className="flex-1 min-w-0">
+   602→                      <span className="text-sm font-medium text-red-800 dark:text-red-200">{rem.title}</span>
+   603→                      <p className="text-xs text-red-600 dark:text-red-400">
+   604→                        {rem.patientName} &middot; Due: {new Date(`${rem.scheduledDate}T${rem.scheduledTime}`).toLocaleString()}
+   605→                      </p>
+   606→                    </div>
+   607→                    <Button
+   608→                      size="sm"
+   609→                      variant="outline"
+   610→                      className="gap-1 text-xs shrink-0"
+   611→                      onClick={() => handleComplete(rem.id)}
+   612→                    >
+   613→                      <CheckCircle2 className="h-3 w-3" />
+   614→                      Complete
+   615→                    </Button>
+   616→                  </div>
+   617→                )
+   618→              })}
+   619→            </div>
+   620→          </CardContent>
+   621→        </Card>
+   622→      )}
+   623→
+   624→      {/* ── Calendar View + Reminder List ── */}
+   625→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   626→        {/* Calendar */}
+   627→        <Card className="lg:col-span-1">
+   628→          <CardHeader className="pb-2">
+   629→            <CardTitle className="text-base flex items-center gap-2">
+   630→              <Calendar className="h-5 w-5" />
+   631→              Calendar View
+   632→            </CardTitle>
+   633→          </CardHeader>
+   634→          <CardContent className="flex flex-col items-center">
+   635→            <CalendarPicker
+   636→              mode="single"
+   637→              selected={calendarDate}
+   638→              onSelect={setCalendarDate}
+   639→              className="rounded-md"
+   640→              modifiers={{
+   641→                hasReminder: (date) => reminderDates.has(fmt(date)),
+   642→              }}
+   643→              modifiersStyles={{
+   644→                hasReminder: { fontWeight: 'bold', textDecoration: 'underline', textDecorationColor: 'var(--color-primary)' },
+   645→              }}
+   646→            />
+   647→            {calendarDate && selectedDateReminders.length > 0 && (
+   648→              <div className="w-full mt-4 space-y-2">
+   649→                <p className="text-xs font-semibold text-muted-foreground">
+   650→                  {calendarDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+   651→                </p>
+   652→                {selectedDateReminders.map((rem) => {
+   653→                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+   654→                  const TypeIcon = typeCfg.icon
+   655→                  return (
+   656→                    <div key={rem.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
+   657→                      <TypeIcon className={`h-3.5 w-3.5 shrink-0 ${typeCfg.color}`} />
+   658→                      <span className="truncate">{rem.title}</span>
+   659→                      <span className="text-xs text-muted-foreground ml-auto shrink-0">{rem.scheduledTime}</span>
+   660→                    </div>
+   661→                  )
+   662→                })}
+   663→              </div>
+   664→            )}
+   665→            {calendarDate && selectedDateReminders.length === 0 && (
+   666→              <p className="text-xs text-muted-foreground mt-4">No reminders for this date</p>
+   667→            )}
+   668→          </CardContent>
+   669→        </Card>
+   670→
+   671→        {/* Upcoming & All Reminders */}
+   672→        <Card className="lg:col-span-2">
+   673→          <CardHeader className="pb-2">
+   674→            <CardTitle className="text-base flex items-center gap-2">
+   675→              <ListChecks className="h-5 w-5" />
+   676→              Upcoming Reminders
+   677→              <Badge variant="outline" className="text-xs">{upcomingReminders.length} next 7 days</Badge>
+   678→            </CardTitle>
+   679→            <CardDescription>Reminders scheduled in the next 7 days</CardDescription>
+   680→          </CardHeader>
+   681→          <CardContent>
+   682→            {upcomingReminders.length === 0 ? (
+   683→              <div className="text-center py-8 text-muted-foreground">
+   684→                <CalendarCheck className="h-8 w-8 mx-auto mb-2 opacity-40" />
+   685→                <p className="text-sm">No upcoming reminders</p>
+   686→              </div>
+   687→            ) : (
+   688→              <div className="max-h-96 overflow-y-auto">
+   689→                <Table>
+   690→                  <TableHeader>
+   691→                    <TableRow>
+   692→                      <TableHead className="w-8"></TableHead>
+   693→                      <TableHead>Reminder</TableHead>
+   694→                      <TableHead className="hidden sm:table-cell">Patient</TableHead>
+   695→                      <TableHead className="hidden md:table-cell">Schedule</TableHead>
+   696→                      <TableHead className="hidden md:table-cell">Channel</TableHead>
+   697→                      <TableHead className="text-right">Action</TableHead>
+   698→                    </TableRow>
+   699→                  </TableHeader>
+   700→                  <TableBody>
+   701→                    {upcomingReminders.map((rem) => {
+   702→                      const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+   703→                      const TypeIcon = typeCfg.icon
+   704→                      const chanCfg = CHANNEL_CONFIG[rem.channel]
+   705→                      const ChanIcon = chanCfg.icon
+   706→                      const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus]
+   707→                      const recCfg = RECURRENCE_CONFIG[rem.recurrence]
+   708→                      const overdue = isOverdue(rem)
+   709→                      const dueToday = isDueToday(rem)
+   710→
+   711→                      return (
+   712→                        <TableRow key={rem.id} className={overdue ? 'bg-red-50/50 dark:bg-red-950/20' : ''}>
+   713→                          <TableCell>
+   714→                            <div className={`p-1.5 rounded-md ${typeCfg.bgColor}`}>
+   715→                              <TypeIcon className={`h-4 w-4 ${typeCfg.color}`} />
+   716→                            </div>
+   717→                          </TableCell>
+   718→                          <TableCell>
+   719→                            <div className="space-y-1">
+   720→                              <div className="flex items-center gap-1.5 flex-wrap">
+   721→                                <span className="font-medium text-sm">{rem.title}</span>
+   722→                                {dueToday && (
+   723→                                  <Badge className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+   724→                                    Due Today
+   725→                                  </Badge>
+   726→                                )}
+   727→                                {overdue && (
+   728→                                  <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+   729→                                    Overdue
+   730→                                  </Badge>
+   731→                                )}
+   732→                              </div>
+   733→                              <p className="text-xs text-muted-foreground line-clamp-1">{rem.description}</p>
+   734→                              <div className="flex items-center gap-1.5 flex-wrap">
+   735→                                <Badge variant="outline" className="text-xs">{typeCfg.label}</Badge>
+   736→                                <Badge variant="outline" className="text-xs">{recCfg.label}</Badge>
+   737→                                <Badge variant="outline" className={`text-xs ${delCfg.className}`}>{delCfg.label}</Badge>
+   738→                              </div>
+   739→                            </div>
+   740→                          </TableCell>
+   741→                          <TableCell className="hidden sm:table-cell text-sm">{rem.patientName}</TableCell>
+   742→                          <TableCell className="hidden md:table-cell">
+   743→                            <div className="text-sm">
+   744→                              {new Date(rem.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+   745→                            </div>
+   746→                            <div className="text-xs text-muted-foreground">{rem.scheduledTime}</div>
+   747→                          </TableCell>
+   748→                          <TableCell className="hidden md:table-cell">
+   749→                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   750→                              <ChanIcon className="h-3 w-3" />
+   751→                              {chanCfg.label}
+   752→                            </div>
+   753→                          </TableCell>
+   754→                          <TableCell className="text-right">
+   755→                            <Button
+   756→                              size="sm"
+   757→                              variant="outline"
+   758→                              className="gap-1"
+   759→                              onClick={() => handleComplete(rem.id)}
+   760→                            >
+   761→                              <CheckCircle2 className="h-3 w-3" />
+   762→                              <span className="hidden sm:inline">Done</span>
+   763→                            </Button>
+   764→                          </TableCell>
+   765→                        </TableRow>
+   766→                      )
+   767→                    })}
+   768→                  </TableBody>
+   769→                </Table>
+   770→              </div>
+   771→            )}
+   772→          </CardContent>
+   773→        </Card>
+   774→      </div>
+   775→
+   776→      {/* ── All Reminders (Complete List) ── */}
+   777→      <Card>
+   778→        <CardHeader className="pb-2">
+   779→          <CardTitle className="text-base flex items-center gap-2">
+   780→            <Bell className="h-5 w-5" />
+   781→            All Reminders
+   782→            <Badge variant="outline" className="text-xs">{reminders.length}</Badge>
+   783→          </CardTitle>
+   784→          <CardDescription>Complete list of all reminders across all statuses</CardDescription>
+   785→        </CardHeader>
+   786→        <CardContent>
+   787→          <div className="max-h-80 overflow-y-auto">
+   788→            <Table>
+   789→              <TableHeader>
+   790→                <TableRow>
+   791→                  <TableHead className="w-8"></TableHead>
+   792→                  <TableHead>Title</TableHead>
+   793→                  <TableHead className="hidden sm:table-cell">Patient</TableHead>
+   794→                  <TableHead className="hidden md:table-cell">Date</TableHead>
+   795→                  <TableHead>Status</TableHead>
+   796→                  <TableHead className="hidden md:table-cell">Delivery</TableHead>
+   797→                  <TableHead className="text-right">Action</TableHead>
+   798→                </TableRow>
+   799→              </TableHeader>
+   800→              <TableBody>
+   801→                {reminders.map((rem) => {
+   802→                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+   803→                  const TypeIcon = typeCfg.icon
+   804→                  const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus]
+   805→                  const overdue = isOverdue(rem)
+   806→
+   807→                  return (
+   808→                    <TableRow
+   809→                      key={rem.id}
+   810→                      className={`${overdue ? 'bg-red-50/50 dark:bg-red-950/20' : ''} ${rem.status === 'COMPLETED' ? 'opacity-50' : ''}`}
+   811→                    >
+   812→                      <TableCell>
+   813→                        <TypeIcon className={`h-4 w-4 ${typeCfg.color}`} />
+   814→                      </TableCell>
+   815→                      <TableCell>
+   816→                        <div>
+   817→                          <span className={`text-sm font-medium ${rem.status === 'COMPLETED' ? 'line-through' : ''}`}>
+   818→                            {rem.title}
+   819→                          </span>
+   820→                          {rem.recurrence !== 'ONCE' && (
+   821→                            <Badge variant="outline" className="text-xs ml-1.5">
+   822→                              <Repeat className="h-2.5 w-2.5 mr-0.5" />
+   823→                              {rem.recurrence}
+   824→                            </Badge>
+   825→                          )}
+   826→                        </div>
+   827→                      </TableCell>
+   828→                      <TableCell className="hidden sm:table-cell text-sm">{rem.patientName}</TableCell>
+   829→                      <TableCell className="hidden md:table-cell text-sm">
+   830→                        {new Date(rem.scheduledDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} {rem.scheduledTime}
+   831→                      </TableCell>
+   832→                      <TableCell>
+   833→                        {rem.status === 'COMPLETED' ? (
+   834→                          <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Completed</Badge>
+   835→                        ) : rem.status === 'EXPIRED' ? (
+   836→                          <Badge className="text-xs bg-muted text-muted-foreground">Expired</Badge>
+   837→                        ) : overdue ? (
+   838→                          <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Overdue</Badge>
+   839→                        ) : (
+   840→                          <Badge className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Active</Badge>
+   841→                        )}
+   842→                      </TableCell>
+   843→                      <TableCell className="hidden md:table-cell">
+   844→                        <Badge variant="outline" className={`text-xs ${delCfg.className}`}>{delCfg.label}</Badge>
+   845→                      </TableCell>
+   846→                      <TableCell className="text-right">
+   847→                        {rem.status === 'ACTIVE' && (
+   848→                          <Button
+   849→                            size="sm"
+   850→                            variant="outline"
+   851→                            className="gap-1"
+   852→                            onClick={() => handleComplete(rem.id)}
+   853→                          >
+   854→                            <CheckCircle2 className="h-3 w-3" />
+   855→                            <span className="hidden sm:inline">Complete</span>
+   856→                          </Button>
+   857→                        )}
+   858→                      </TableCell>
+   859→                    </TableRow>
+   860→                  )
+   861→                })}
+   862→              </TableBody>
+   863→            </Table>
+   864→          </div>
+   865→        </CardContent>
+   866→      </Card>
+   867→
+   868→      {/* ── Create Reminder Dialog ── */}
+   869→      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); resetCreateForm() }}}>
+   870→        <DialogContent className="sm:max-w-lg">
+   871→          <DialogHeader>
+   872→            <DialogTitle className="flex items-center gap-2">
+   873→              <Plus className="h-5 w-5" />
+   874→              Create New Reminder
+   875→            </DialogTitle>
+   876→            <DialogDescription>
+   877→              Schedule a new reminder for patient follow-up, medication, lab, or vaccination
+   878→            </DialogDescription>
+   879→          </DialogHeader>
+   880→          <div className="space-y-4 py-2">
+   881→            <div className="space-y-2">
+   882→              <Label>Title <span className="text-red-500">*</span></Label>
+   883→              <Input
+   884→                placeholder="e.g., Diabetes follow-up appointment"
+   885→                value={newTitle}
+   886→                onChange={(e) => setNewTitle(e.target.value)}
+   887→              />
+   888→            </div>
+   889→            <div className="space-y-2">
+   890→              <Label>Description</Label>
+   891→              <Textarea
+   892→                placeholder="Additional details about this reminder..."
+   893→                value={newDesc}
+   894→                onChange={(e) => setNewDesc(e.target.value)}
+   895→                rows={2}
+   896→              />
+   897→            </div>
+   898→            <div className="grid grid-cols-2 gap-4">
+   899→              <div className="space-y-2">
+   900→                <Label>Scheduled Date</Label>
+   901→                <Input
+   902→                  type="date"
+   903→                  value={newDate}
+   904→                  onChange={(e) => setNewDate(e.target.value)}
+   905→                />
+   906→              </div>
+   907→              <div className="space-y-2">
+   908→                <Label>Time</Label>
+   909→                <Input
+   910→                  type="time"
+   911→                  value={newTime}
+   912→                  onChange={(e) => setNewTime(e.target.value)}
+   913→                />
+   914→              </div>
+   915→            </div>
+   916→            <div className="grid grid-cols-3 gap-4">
+   917→              <div className="space-y-2">
+   918→                <Label>Type</Label>
+   919→                <Select value={newType} onValueChange={(v) => setNewType(v as ReminderType)}>
+   920→                  <SelectTrigger>
+   921→                    <SelectValue />
+   922→                  </SelectTrigger>
+   923→                  <SelectContent>
+   924→                    {Object.entries(REMINDER_TYPE_CONFIG).map(([key, cfg]) => (
+   925→                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+   926→                    ))}
+   927→                  </SelectContent>
+   928→                </Select>
+   929→              </div>
+   930→              <div className="space-y-2">
+   931→                <Label>Recurrence</Label>
+   932→                <Select value={newRecurrence} onValueChange={(v) => setNewRecurrence(v as RecurrenceType)}>
+   933→                  <SelectTrigger>
+   934→                    <SelectValue />
+   935→                  </SelectTrigger>
+   936→                  <SelectContent>
+   937→                    {Object.entries(RECURRENCE_CONFIG).map(([key, cfg]) => (
+   938→                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+   939→                    ))}
+   940→                  </SelectContent>
+   941→                </Select>
+   942→              </div>
+   943→              <div className="space-y-2">
+   944→                <Label>Channel</Label>
+   945→                <Select value={newChannel} onValueChange={(v) => setNewChannel(v as ChannelType)}>
+   946→                  <SelectTrigger>
+   947→                    <SelectValue />
+   948→                  </SelectTrigger>
+   949→                  <SelectContent>
+   950→                    {Object.entries(CHANNEL_CONFIG).map(([key, cfg]) => (
+   951→                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+   952→                    ))}
+   953→                  </SelectContent>
+   954→                </Select>
+   955→              </div>
+   956→            </div>
+   957→          </div>
+   958→          <DialogFooter>
+   959→            <Button variant="outline" onClick={() => { setCreateOpen(false); resetCreateForm() }}>
+   960→              Cancel
+   961→            </Button>
+   962→            <Button onClick={handleCreate} disabled={createSubmitting || !newTitle.trim()} className="gap-1.5">
+   963→              {createSubmitting ? 'Creating...' : (
+   964→                <>
+   965→                  <Bell className="h-4 w-4" />
+   966→                  Create Reminder
+   967→                </>
+   968→              )}
+   969→            </Button>
+   970→          </DialogFooter>
+   971→        </DialogContent>
+   972→      </Dialog>
+   973→
+   974→      {/* ── Compliance Note ── */}
+   975→      <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-muted">
+   976→        <Clock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+   977→        <p className="text-xs text-muted-foreground">
+   978→          <span className="font-semibold">Reminder Compliance:</span>{' '}
+   979→          Follow-up reminders align with NICE NG28, ADA Standards of Care, and ICMR clinical guidelines.
+   980→          Delivery channels comply with India&lsquo;s DPDPA data privacy regulations.
+   981→          All reminder actions are audit-logged for NABH accreditation compliance.
+   982→        </p>
+   983→      </div>
+   984→    </motion.div>
+   985→  )
+   986→}
+   987→

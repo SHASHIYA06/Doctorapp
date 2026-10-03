@@ -1,0 +1,867 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  FileText, PenLine, Lock, Unlock, Brain, Heart, Activity, Stethoscope,
+     7→  Plus, Search, Check, ChevronRight, X, Sparkles, Save, Clock, User
+     8→} from 'lucide-react'
+     9→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    10→import { Button } from '@/components/ui/button'
+    11→import { Input } from '@/components/ui/input'
+    12→import { Label } from '@/components/ui/label'
+    13→import { Textarea } from '@/components/ui/textarea'
+    14→import { Badge } from '@/components/ui/badge'
+    15→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+    16→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    17→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    18→import { Skeleton } from '@/components/ui/skeleton'
+    19→import { ScrollArea } from '@/components/ui/scroll-area'
+    20→import { Separator } from '@/components/ui/separator'
+    21→import { useAppStore, type Modality } from '@/lib/store'
+    22→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    23→import { toast } from '@/hooks/use-toast'
+    24→
+    25→// ── Types ────────────────────────────────────────────────────────────────
+    26→
+    27→type NoteType = 'SOAP' | 'PROGRESS' | 'DISCHARGE' | 'REFERRAL' | 'PROCEDURE'
+    28→
+    29→interface VitalSigns {
+    30→  bp?: string
+    31→  hr?: string
+    32→  temp?: string
+    33→  spo2?: string
+    34→  rr?: string
+    35→  weight?: string
+    36→}
+    37→
+    38→interface SOAPData {
+    39→  subjective: string
+    40→  objective: string
+    41→  assessment: string
+    42→  plan: string
+    43→}
+    44→
+    45→interface ClinicalNote {
+    46→  id: string
+    47→  patientId: string
+    48→  patientName: string
+    49→  type: NoteType
+    50→  modality: Modality
+    51→  soap: SOAPData
+    52→  vitals: VitalSigns
+    53→  signed: boolean
+    54→  signedBy: string | null
+    55→  signedAt: string | null
+    56→  practitionerName: string
+    57→  summary: string | null
+    58→  createdAt: string
+    59→  updatedAt: string
+    60→}
+    61→
+    62→interface Patient {
+    63→  id: string
+    64→  firstName: string
+    65→  lastName: string
+    66→}
+    67→
+    68→// ── Config ───────────────────────────────────────────────────────────────
+    69→
+    70→const NOTE_TYPES: NoteType[] = ['SOAP', 'PROGRESS', 'DISCHARGE', 'REFERRAL', 'PROCEDURE']
+    71→
+    72→const SOAP_COLORS = {
+    73→  subjective: 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20',
+    74→  objective: 'border-l-green-500 bg-green-50/50 dark:bg-green-950/20',
+    75→  assessment: 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20',
+    76→  plan: 'border-l-teal-500 bg-teal-50/50 dark:bg-teal-950/20',
+    77→}
+    78→
+    79→const SOAP_LABELS = {
+    80→  subjective: { letter: 'S', label: 'Subjective', color: 'text-blue-700 dark:text-blue-300', icon: User },
+    81→  objective: { letter: 'O', label: 'Objective', color: 'text-green-700 dark:text-green-300', icon: Activity },
+    82→  assessment: { letter: 'A', label: 'Assessment', color: 'text-amber-700 dark:text-amber-300', icon: Stethoscope },
+    83→  plan: { letter: 'P', label: 'Plan', color: 'text-teal-700 dark:text-teal-300', icon: Heart },
+    84→}
+    85→
+    86→const VITAL_FIELDS: { key: keyof VitalSigns; label: string; unit: string; placeholder: string }[] = [
+    87→  { key: 'bp', label: 'BP', unit: 'mmHg', placeholder: '120/80' },
+    88→  { key: 'hr', label: 'HR', unit: 'bpm', placeholder: '72' },
+    89→  { key: 'temp', label: 'Temp', unit: '°C', placeholder: '37.0' },
+    90→  { key: 'spo2', label: 'SpO2', unit: '%', placeholder: '98' },
+    91→  { key: 'rr', label: 'RR', unit: '/min', placeholder: '16' },
+    92→  { key: 'weight', label: 'Weight', unit: 'kg', placeholder: '70' },
+    93→]
+    94→
+    95→const COMMON_DIAGNOSES = [
+    96→  'Hypertension', 'Type 2 Diabetes', 'Acute Bronchitis', 'Migraine',
+    97→  'Gastroesophageal Reflux', 'Anxiety Disorder', 'Osteoarthritis', 'Asthma',
+    98→  'Urinary Tract Infection', 'Iron Deficiency Anemia',
+    99→]
+   100→
+   101→const fadeSlide = {
+   102→  initial: { opacity: 0, y: 12 },
+   103→  animate: { opacity: 1, y: 0 },
+   104→  transition: { duration: 0.3 },
+   105→}
+   106→
+   107→// ── Component ────────────────────────────────────────────────────────────
+   108→
+   109→export function ClinicalNotesSection() {
+   110→  const { activeModality, selectedPatientId } = useAppStore()
+   111→
+   112→  // Data
+   113→  const [notes, setNotes] = useState<ClinicalNote[]>([])
+   114→  const [patients, setPatients] = useState<Patient[]>([])
+   115→  const [loading, setLoading] = useState(true)
+   116→
+   117→  // Modality filter
+   118→  const [modalityFilter, setModalityFilter] = useState<Modality>(activeModality)
+   119→
+   120→  // Search & filter
+   121→  const [searchQuery, setSearchQuery] = useState('')
+   122→  const [typeFilter, setTypeFilter] = useState<NoteType | 'ALL'>('ALL')
+   123→
+   124→  // New note form
+   125→  const [isCreating, setIsCreating] = useState(false)
+   126→  const [formPatientId, setFormPatientId] = useState(selectedPatientId ?? '')
+   127→  const [formType, setFormType] = useState<NoteType>('SOAP')
+   128→  const [formModality, setFormModality] = useState<Modality>(activeModality)
+   129→  const [formSOAP, setFormSOAP] = useState<SOAPData>({ subjective: '', objective: '', assessment: '', plan: '' })
+   130→  const [formVitals, setFormVitals] = useState<VitalSigns>({})
+   131→  const [formPractitioner, setFormPractitioner] = useState('Dr. Sharma')
+   132→  const [formSubmitting, setFormSubmitting] = useState(false)
+   133→
+   134→  // AI summary
+   135→  const [aiGenerating, setAiGenerating] = useState(false)
+   136→
+   137→  // Detail view
+   138→  const [selectedNote, setSelectedNote] = useState<ClinicalNote | null>(null)
+   139→
+   140→  // Sign dialog
+   141→  const [signDialogNote, setSignDialogNote] = useState<ClinicalNote | null>(null)
+   142→  const [signSubmitting, setSignSubmitting] = useState(false)
+   143→
+   144→  // Diagnosis suggestions
+   145→  const [showDiagnosisSuggestions, setShowDiagnosisSuggestions] = useState(false)
+   146→
+   147→  // ── Load Data ──────────────────────────────────────────────────────────
+   148→
+   149→  const loadData = useCallback(async () => {
+   150→    try {
+   151→      const [notesRes, patRes] = await Promise.all([
+   152→        fetch('/api/clinical-notes').then((r) => r.json()),
+   153→        fetch('/api/patients').then((r) => r.json()),
+   154→      ])
+   155→      const noteList = (notesRes.data ?? notesRes.notes ?? []).map((n: Record<string, unknown>) => ({
+   156→        id: n.id as string,
+   157→        patientId: (n.patientId ?? '') as string,
+   158→        patientName: (n.patientName ?? (n.patient ? `${(n.patient as Record<string, string>).firstName} ${(n.patient as Record<string, string>).lastName}` : 'Unknown')) as string,
+   159→        type: (n.type ?? 'SOAP') as NoteType,
+   160→        modality: (n.modality ?? 'ALLOPATHY') as Modality,
+   161→        soap: (n.soap ?? { subjective: '', objective: '', assessment: '', plan: '' }) as SOAPData,
+   162→        vitals: (n.vitals ?? {}) as VitalSigns,
+   163→        signed: (n.signed ?? false) as boolean,
+   164→        signedBy: (n.signedBy ?? null) as string | null,
+   165→        signedAt: (n.signedAt ?? null) as string | null,
+   166→        practitionerName: (n.practitionerName ?? 'Unknown') as string,
+   167→        summary: (n.summary ?? null) as string | null,
+   168→        createdAt: (n.createdAt ?? new Date().toISOString()) as string,
+   169→        updatedAt: (n.updatedAt ?? new Date().toISOString()) as string,
+   170→      }))
+   171→      setNotes(noteList)
+   172→      setPatients(patRes.data ?? patRes.patients ?? [])
+   173→    } catch {
+   174→      toast({ title: 'Error', description: 'Failed to load clinical notes', variant: 'destructive' })
+   175→    } finally {
+   176→      setLoading(false)
+   177→    }
+   178→  }, [])
+   179→
+   180→  useEffect(() => { loadData() }, [loadData])
+   181→
+   182→  // ── Filtered Notes ─────────────────────────────────────────────────────
+   183→
+   184→  const filteredNotes = useMemo(() => {
+   185→    let list = notes.filter((n) => n.modality === modalityFilter)
+   186→
+   187→    if (typeFilter !== 'ALL') {
+   188→      list = list.filter((n) => n.type === typeFilter)
+   189→    }
+   190→
+   191→    if (searchQuery.trim()) {
+   192→      const q = searchQuery.toLowerCase()
+   193→      list = list.filter(
+   194→        (n) =>
+   195→          n.patientName.toLowerCase().includes(q) ||
+   196→          n.soap.subjective.toLowerCase().includes(q) ||
+   197→          n.soap.assessment.toLowerCase().includes(q) ||
+   198→          n.practitionerName.toLowerCase().includes(q)
+   199→      )
+   200→    }
+   201→
+   202→    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+   203→  }, [notes, modalityFilter, typeFilter, searchQuery])
+   204→
+   205→  // ── SOAP Update Helper ─────────────────────────────────────────────────
+   206→
+   207→  const updateSOAP = (field: keyof SOAPData, value: string) => {
+   208→    setFormSOAP((prev) => ({ ...prev, [field]: value }))
+   209→  }
+   210→
+   211→  const updateVital = (key: keyof VitalSigns, value: string) => {
+   212→    setFormVitals((prev) => ({ ...prev, [key]: value }))
+   213→  }
+   214→
+   215→  // ── AI Summary ─────────────────────────────────────────────────────────
+   216→
+   217→  const handleAISummary = async () => {
+   218→    if (!formSOAP.subjective && !formSOAP.objective && !formSOAP.assessment) {
+   219→      toast({ title: 'No Content', description: 'Add some clinical content first', variant: 'destructive' })
+   220→      return
+   221→    }
+   222→    setAiGenerating(true)
+   223→    try {
+   224→      const res = await fetch('/api/ai-draft', {
+   225→        method: 'POST',
+   226→        headers: { 'Content-Type': 'application/json' },
+   227→        body: JSON.stringify({
+   228→          type: 'CLINICAL_SUMMARY',
+   229→          context: {
+   230→            subjective: formSOAP.subjective,
+   231→            objective: formSOAP.objective,
+   232→            assessment: formSOAP.assessment,
+   233→            plan: formSOAP.plan,
+   234→            vitals: formVitals,
+   235→            modality: formModality,
+   236→          },
+   237→        }),
+   238→      })
+   239→      if (res.ok) {
+   240→        const data = await res.json()
+   241→        const summary = data.summary ?? data.content ?? ''
+   242→        if (summary) {
+   243→          // Append AI summary to the plan field
+   244→          updateSOAP('plan', formSOAP.plan ? `${formSOAP.plan}\n\n[AI Summary]: ${summary}` : `[AI Summary]: ${summary}`)
+   245→          toast({ title: 'AI Summary Generated', description: 'Added to Plan section' })
+   246→        }
+   247→      } else {
+   248→        toast({ title: 'AI Error', description: 'Failed to generate summary', variant: 'destructive' })
+   249→      }
+   250→    } catch {
+   251→      // Fallback: generate a local summary
+   252→      const localSummary = `Patient presents with ${formSOAP.subjective.slice(0, 100) || 'reported symptoms'}. Assessment: ${formSOAP.assessment.slice(0, 100) || 'pending'}.`
+   253→      updateSOAP('plan', formSOAP.plan ? `${formSOAP.plan}\n\n[AI Summary]: ${localSummary}` : `[AI Summary]: ${localSummary}`)
+   254→      toast({ title: 'AI Summary (Local)', description: 'Generated locally as fallback' })
+   255→    } finally {
+   256→      setAiGenerating(false)
+   257→    }
+   258→  }
+   259→
+   260→  // ── Save Note ──────────────────────────────────────────────────────────
+   261→
+   262→  const handleSave = async () => {
+   263→    if (!formPatientId) {
+   264→      toast({ title: 'Validation', description: 'Select a patient', variant: 'destructive' })
+   265→      return
+   266→    }
+   267→    setFormSubmitting(true)
+   268→    try {
+   269→      const patient = patients.find((p) => p.id === formPatientId)
+   270→      const res = await fetch('/api/clinical-notes', {
+   271→        method: 'POST',
+   272→        headers: { 'Content-Type': 'application/json' },
+   273→        body: JSON.stringify({
+   274→          patientId: formPatientId,
+   275→          patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+   276→          type: formType,
+   277→          modality: formModality,
+   278→          soap: formSOAP,
+   279→          vitals: formVitals,
+   280→          practitionerName: formPractitioner,
+   281→        }),
+   282→      })
+   283→      if (res.ok) {
+   284→        toast({ title: 'Note Saved', description: `${formType} note created` })
+   285→        resetForm()
+   286→        loadData()
+   287→      } else {
+   288→        const err = await res.json()
+   289→        toast({ title: 'Error', description: err.error ?? 'Failed to save note', variant: 'destructive' })
+   290→      }
+   291→    } catch {
+   292→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   293→    } finally {
+   294→      setFormSubmitting(false)
+   295→    }
+   296→  }
+   297→
+   298→  // ── Sign Note ──────────────────────────────────────────────────────────
+   299→
+   300→  const handleSign = async () => {
+   301→    if (!signDialogNote) return
+   302→    setSignInSubmitting(true)
+   303→    try {
+   304→      const res = await fetch(`/api/clinical-notes/${signDialogNote.id}`, {
+   305→        method: 'PATCH',
+   306→        headers: { 'Content-Type': 'application/json' },
+   307→        body: JSON.stringify({
+   308→          signed: true,
+   309→          signedBy: signDialogNote.practitionerName,
+   310→          signedAt: new Date().toISOString(),
+   311→        }),
+   312→      })
+   313→      if (res.ok) {
+   314→        toast({ title: 'Note Signed', description: 'Note is now locked' })
+   315→        setSignDialogNote(null)
+   316→        setSelectedNote(null)
+   317→        loadData()
+   318→      } else {
+   319→        toast({ title: 'Error', description: 'Failed to sign note', variant: 'destructive' })
+   320→      }
+   321→    } catch {
+   322→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   323→    } finally {
+   324→      setSignInSubmitting(false)
+   325→    }
+   326→  }
+   327→
+   328→  // ── Reset Form ─────────────────────────────────────────────────────────
+   329→
+   330→  const resetForm = () => {
+   331→    setIsCreating(false)
+   332→    setFormPatientId(selectedPatientId ?? '')
+   333→    setFormType('SOAP')
+   334→    setFormModality(activeModality)
+   335→    setFormSOAP({ subjective: '', objective: '', assessment: '', plan: '' })
+   336→    setFormVitals({})
+   337→    setFormPractitioner('Dr. Sharma')
+   338→    setShowDiagnosisSuggestions(false)
+   339→  }
+   340→
+   341→  // ── Loading ────────────────────────────────────────────────────────────
+   342→
+   343→  if (loading) {
+   344→    return (
+   345→      <div className="space-y-4">
+   346→        <Skeleton className="h-10 w-full max-w-sm" />
+   347→        <div className="grid gap-4 lg:grid-cols-3">
+   348→          <div className="lg:col-span-2 space-y-3">
+   349→            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)}
+   350→          </div>
+   351→          <Skeleton className="h-64 rounded-lg" />
+   352→        </div>
+   353→      </div>
+   354→    )
+   355→  }
+   356→
+   357→  // ── Render ─────────────────────────────────────────────────────────────
+   358→
+   359→  return (
+   360→    <motion.div {...fadeSlide} className="space-y-4">
+   361→      {/* Header */}
+   362→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   363→        <div className="flex items-center gap-2">
+   364→          <FileText className="h-5 w-5" />
+   365→          <h2 className="text-lg font-semibold">Clinical Notes</h2>
+   366→        </div>
+   367→        <div className="flex items-center gap-2 flex-wrap">
+   368→          <div className="relative">
+   369→            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+   370→            <Input
+   371→              placeholder="Search notes..."
+   372→              value={searchQuery}
+   373→              onChange={(e) => setSearchQuery(e.target.value)}
+   374→              className="pl-8 h-8 w-48"
+   375→            />
+   376→          </div>
+   377→          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as NoteType | 'ALL')}>
+   378→            <SelectTrigger className="h-8 w-32">
+   379→              <SelectValue />
+   380→            </SelectTrigger>
+   381→            <SelectContent>
+   382→              <SelectItem value="ALL">All Types</SelectItem>
+   383→              {NOTE_TYPES.map((t) => (
+   384→                <SelectItem key={t} value={t}>{t}</SelectItem>
+   385→              ))}
+   386→            </SelectContent>
+   387→          </Select>
+   388→          <Button size="sm" className="gap-1.5" onClick={() => { setIsCreating(true); resetForm(); setIsCreating(true) }}>
+   389→            <Plus className="h-4 w-4" />
+   390→            New Note
+   391→          </Button>
+   392→        </div>
+   393→      </div>
+   394→
+   395→      {/* Modality Tabs (NEVER merge) */}
+   396→      <div className="flex gap-2">
+   397→        {(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as Modality[]).map((m) => (
+   398→          <Button
+   399→            key={m}
+   400→            variant={modalityFilter === m ? 'default' : 'outline'}
+   401→            size="sm"
+   402→            onClick={() => setModalityFilter(m)}
+   403→            className="gap-1.5"
+   404→          >
+   405→            <ModalityBadge modality={m} className="border-0 p-0" />
+   406→          </Button>
+   407→        ))}
+   408→      </div>
+   409→
+   410→      {/* Main Layout */}
+   411→      <div className="grid gap-4 lg:grid-cols-3">
+   412→        {/* Left: Note List or Create Form */}
+   413→        <div className={selectedNote ? 'lg:col-span-2' : 'lg:col-span-3'}>
+   414→          {isCreating ? (
+   415→            /* ── Create Form ─────────────────────────────────────────────── */
+   416→            <Card>
+   417→              <CardHeader>
+   418→                <div className="flex items-center justify-between">
+   419→                  <CardTitle className="text-base flex items-center gap-2">
+   420→                    <PenLine className="h-4 w-4" />
+   421→                    New Clinical Note
+   422→                  </CardTitle>
+   423→                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetForm}>
+   424→                    <X className="h-4 w-4" />
+   425→                  </Button>
+   426→                </div>
+   427→              </CardHeader>
+   428→              <CardContent className="space-y-5">
+   429→                {/* Patient, Type, Modality Row */}
+   430→                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   431→                  <div className="space-y-2">
+   432→                    <Label>Patient *</Label>
+   433→                    <Select value={formPatientId} onValueChange={setFormPatientId}>
+   434→                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+   435→                      <SelectContent>
+   436→                        {patients.map((p) => (
+   437→                          <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
+   438→                        ))}
+   439→                      </SelectContent>
+   440→                    </Select>
+   441→                  </div>
+   442→                  <div className="space-y-2">
+   443→                    <Label>Note Type</Label>
+   444→                    <Select value={formType} onValueChange={(v) => setFormType(v as NoteType)}>
+   445→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   446→                      <SelectContent>
+   447→                        {NOTE_TYPES.map((t) => (
+   448→                          <SelectItem key={t} value={t}>{t}</SelectItem>
+   449→                        ))}
+   450→                      </SelectContent>
+   451→                    </Select>
+   452→                  </div>
+   453→                  <div className="space-y-2">
+   454→                    <Label>Care Modality</Label>
+   455→                    <div className="flex gap-2 flex-wrap h-9 items-center">
+   456→                      {(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as Modality[]).map((m) => (
+   457→                        <Button
+   458→                          key={m}
+   459→                          type="button"
+   460→                          variant={formModality === m ? 'default' : 'outline'}
+   461→                          size="sm"
+   462→                          onClick={() => setFormModality(m)}
+   463→                        >
+   464→                          <ModalityBadge modality={m} className="border-0 p-0" />
+   465→                        </Button>
+   466→                      ))}
+   467→                    </div>
+   468→                  </div>
+   469→                </div>
+   470→
+   471→                {/* Practitioner */}
+   472→                <div className="space-y-2">
+   473→                  <Label>Practitioner</Label>
+   474→                  <Input
+   475→                    value={formPractitioner}
+   476→                    onChange={(e) => setFormPractitioner(e.target.value)}
+   477→                    placeholder="Dr. Name"
+   478→                    className="max-w-xs"
+   479→                  />
+   480→                </div>
+   481→
+   482→                <Separator />
+   483→
+   484→                {/* Vital Signs Quick-Add (in Objective section) */}
+   485→                <div>
+   486→                  <div className="flex items-center gap-2 mb-3">
+   487→                    <Activity className="h-4 w-4 text-green-600" />
+   488→                    <Label className="text-sm font-semibold">Vital Signs</Label>
+   489→                  </div>
+   490→                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+   491→                    {VITAL_FIELDS.map(({ key, label, unit, placeholder }) => (
+   492→                      <div key={key} className="space-y-1">
+   493→                        <Label className="text-xs text-muted-foreground">{label} ({unit})</Label>
+   494→                        <Input
+   495→                          placeholder={placeholder}
+   496→                          value={formVitals[key] ?? ''}
+   497→                          onChange={(e) => updateVital(key, e.target.value)}
+   498→                          className="h-8 text-sm"
+   499→                        />
+   500→                      </div>
+   501→                    ))}
+   502→                  </div>
+   503→                </div>
+   504→
+   505→                <Separator />
+   506→
+   507→                {/* SOAP Fields */}
+   508→                {(['subjective', 'objective', 'assessment', 'plan'] as const).map((field) => {
+   509→                  const config = SOAP_LABELS[field]
+   510→                  const IconComp = config.icon
+   511→                  return (
+   512→                    <div
+   513→                      key={field}
+   514→                      className={`border-l-4 rounded-r-md p-4 ${SOAP_COLORS[field]}`}
+   515→                    >
+   516→                      <div className="flex items-center justify-between mb-2">
+   517→                        <div className="flex items-center gap-2">
+   518→                          <span className={`text-lg font-bold ${config.color}`}>{config.letter}</span>
+   519→                          <span className={`text-sm font-semibold ${config.color}`}>
+   520→                            {config.label}
+   521→                          </span>
+   522→                          <IconComp className={`h-4 w-4 ${config.color}`} />
+   523→                        </div>
+   524→                        {field === 'assessment' && (
+   525→                          <Button
+   526→                            type="button"
+   527→                            variant="ghost"
+   528→                            size="sm"
+   529→                            className="h-6 text-xs gap-1"
+   530→                            onClick={() => setShowDiagnosisSuggestions(!showDiagnosisSuggestions)}
+   531→                          >
+   532→                            <Sparkles className="h-3 w-3" />
+   533→                            {showDiagnosisSuggestions ? 'Hide' : 'Suggestions'}
+   534→                          </Button>
+   535→                        )}
+   536→                      </div>
+   537→                      <Textarea
+   538→                        placeholder={
+   539→                          field === 'subjective'
+   540→                            ? 'Patient reports...'
+   541→                            : field === 'objective'
+   542→                            ? 'Physical exam findings, vitals...'
+   543→                            : field === 'assessment'
+   544→                            ? 'Diagnosis, clinical impression...'
+   545→                            : 'Treatment plan, orders, referrals...'
+   546→                        }
+   547→                        value={formSOAP[field]}
+   548→                        onChange={(e) => updateSOAP(field, e.target.value)}
+   549→                        rows={field === 'subjective' || field === 'plan' ? 4 : 3}
+   550→                        className="bg-white dark:bg-gray-950"
+   551→                      />
+   552→                      {/* Diagnosis Suggestions */}
+   553→                      {field === 'assessment' && showDiagnosisSuggestions && (
+   554→                        <div className="mt-2 p-2 border rounded-md bg-white dark:bg-gray-950">
+   555→                          <p className="text-xs font-medium text-muted-foreground mb-1.5">Common Diagnoses</p>
+   556→                          <div className="flex flex-wrap gap-1">
+   557→                            {COMMON_DIAGNOSES.map((d) => (
+   558→                              <button
+   559→                                key={d}
+   560→                                type="button"
+   561→                                className="text-xs px-2 py-0.5 rounded-full border hover:bg-muted transition-colors"
+   562→                                onClick={() => {
+   563→                                  const current = formSOAP.assessment
+   564→                                  updateSOAP('assessment', current ? `${current}, ${d}` : d)
+   565→                                  setShowDiagnosisSuggestions(false)
+   566→                                }}
+   567→                              >
+   568→                                {d}
+   569→                              </button>
+   570→                            ))}
+   571→                          </div>
+   572→                        </div>
+   573→                      )}
+   574→                      {/* Objective field shows vitals inline */}
+   575→                      {field === 'objective' && Object.values(formVitals).some((v) => v) && (
+   576→                        <div className="mt-2 flex flex-wrap gap-2">
+   577→                          {VITAL_FIELDS.map(({ key, label, unit }) => {
+   578→                            const val = formVitals[key]
+   579→                            if (!val) return null
+   580→                            return (
+   581→                              <Badge key={key} variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+   582→                                {label}: {val} {unit}
+   583→                              </Badge>
+   584→                            )
+   585→                          })}
+   586→                        </div>
+   587→                      )}
+   588→                    </div>
+   589→                  )
+   590→                })}
+   591→
+   592→                <Separator />
+   593→
+   594→                {/* Actions Row */}
+   595→                <div className="flex items-center justify-between flex-wrap gap-2">
+   596→                  <div className="flex gap-2">
+   597→                    <Button
+   598→                      variant="outline"
+   599→                      size="sm"
+   600→                      className="gap-1.5"
+   601→                      onClick={handleAISummary}
+   602→                      disabled={aiGenerating}
+   603→                    >
+   604→                      <Brain className="h-4 w-4" />
+   605→                      {aiGenerating ? 'Generating...' : 'AI Summary'}
+   606→                    </Button>
+   607→                  </div>
+   608→                  <div className="flex gap-2">
+   609→                    <Button variant="outline" size="sm" onClick={resetForm}>Cancel</Button>
+   610→                    <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={formSubmitting}>
+   611→                      <Save className="h-4 w-4" />
+   612→                      {formSubmitting ? 'Saving...' : 'Save Note'}
+   613→                    </Button>
+   614→                  </div>
+   615→                </div>
+   616→              </CardContent>
+   617→            </Card>
+   618→          ) : (
+   619→            /* ── Notes List ──────────────────────────────────────────────── */
+   620→            <div className="space-y-3">
+   621→              {filteredNotes.length === 0 ? (
+   622→                <Card>
+   623→                  <CardContent className="py-8 text-center text-muted-foreground">
+   624→                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+   625→                    <p>No clinical notes found</p>
+   626→                    <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => { setIsCreating(true) }}>
+   627→                      <Plus className="h-4 w-4" /> Create First Note
+   628→                    </Button>
+   629→                  </CardContent>
+   630→                </Card>
+   631→              ) : (
+   632→                filteredNotes.map((note, i) => (
+   633→                  <motion.div
+   634→                    key={note.id}
+   635→                    initial={{ opacity: 0, y: 10 }}
+   636→                    animate={{ opacity: 1, y: 0 }}
+   637→                    transition={{ delay: i * 0.04 }}
+   638→                  >
+   639→                    <Card
+   640→                      className={`hover:shadow-md transition-shadow cursor-pointer ${
+   641→                        selectedNote?.id === note.id ? 'ring-1 ring-primary' : ''
+   642→                      }`}
+   643→                      onClick={() => setSelectedNote(selectedNote?.id === note.id ? null : note)}
+   644→                    >
+   645→                      <CardContent className="p-4">
+   646→                        <div className="flex items-start justify-between gap-3">
+   647→                          <div className="min-w-0 flex-1">
+   648→                            <div className="flex items-center gap-2 flex-wrap mb-1">
+   649→                              <span className="font-medium">{note.patientName}</span>
+   650→                              <ModalityBadge modality={note.modality} />
+   651→                              <Badge variant="outline" className="text-xs">{note.type}</Badge>
+   652→                              {note.signed ? (
+   653→                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 gap-1 text-xs">
+   654→                                  <Lock className="h-3 w-3" /> Signed
+   655→                                </Badge>
+   656→                              ) : (
+   657→                                <Badge variant="outline" className="text-xs gap-1">
+   658→                                  <Unlock className="h-3 w-3" /> Draft
+   659→                                </Badge>
+   660→                              )}
+   661→                            </div>
+   662→                            <p className="text-sm text-muted-foreground truncate">
+   663→                              {note.soap.subjective
+   664→                                ? `S: ${note.soap.subjective.substring(0, 80)}`
+   665→                                : 'No subjective data'
+   666→                              }
+   667→                            </p>
+   668→                            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+   669→                              <span className="flex items-center gap-1">
+   670→                                <User className="h-3 w-3" /> {note.practitionerName}
+   671→                              </span>
+   672→                              <span className="flex items-center gap-1">
+   673→                                <Clock className="h-3 w-3" /> {new Date(note.createdAt).toLocaleDateString()}
+   674→                              </span>
+   675→                            </div>
+   676→                          </div>
+   677→                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+   678→                        </div>
+   679→                      </CardContent>
+   680→                    </Card>
+   681→                  </motion.div>
+   682→                ))
+   683→              )}
+   684→            </div>
+   685→          )}
+   686→        </div>
+   687→
+   688→        {/* ── Detail Panel ───────────────────────────────────────────────── */}
+   689→        <AnimatePresence>
+   690→          {selectedNote && (
+   691→            <motion.div
+   692→              initial={{ opacity: 0, x: 20 }}
+   693→              animate={{ opacity: 1, x: 0 }}
+   694→              exit={{ opacity: 0, x: 20 }}
+   695→              className="lg:col-span-1"
+   696→            >
+   697→              <Card className="sticky top-4">
+   698→                <CardHeader className="pb-3">
+   699→                  <div className="flex items-center justify-between">
+   700→                    <CardTitle className="text-base flex items-center gap-2">
+   701→                      {selectedNote.type} Note
+   702→                      <ModalityBadge modality={selectedNote.modality} className="text-[10px]" />
+   703→                    </CardTitle>
+   704→                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedNote(null)}>
+   705→                      <X className="h-4 w-4" />
+   706→                    </Button>
+   707→                  </div>
+   708→                  <CardDescription className="flex items-center gap-2">
+   709→                    {selectedNote.patientName}
+   710→                    {selectedNote.signed ? (
+   711→                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 gap-0.5 text-[10px]">
+   712→                        <Lock className="h-2.5 w-2.5" /> Locked
+   713→                      </Badge>
+   714→                    ) : (
+   715→                      <Badge variant="outline" className="text-[10px] gap-0.5">
+   716→                        <Unlock className="h-2.5 w-2.5" /> Editable
+   717→                      </Badge>
+   718→                    )}
+   719→                  </CardDescription>
+   720→                </CardHeader>
+   721→                <CardContent>
+   722→                  <ScrollArea className="max-h-[28rem]">
+   723→                    <div className="space-y-3">
+   724→                      {/* Vital Signs */}
+   725→                      {selectedNote.vitals && Object.values(selectedNote.vitals).some((v) => v) && (
+   726→                        <div>
+   727→                          <p className="text-xs font-semibold text-muted-foreground mb-1.5">Vital Signs</p>
+   728→                          <div className="flex flex-wrap gap-1.5">
+   729→                            {VITAL_FIELDS.map(({ key, label, unit }) => {
+   730→                              const val = selectedNote.vitals[key]
+   731→                              if (!val) return null
+   732→                              return (
+   733→                                <Badge key={key} variant="outline" className="text-xs bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+   734→                                  {label}: {val} {unit}
+   735→                                </Badge>
+   736→                              )
+   737→                            })}
+   738→                          </div>
+   739→                        </div>
+   740→                      )}
+   741→
+   742→                      {/* SOAP Sections */}
+   743→                      {(['subjective', 'objective', 'assessment', 'plan'] as const).map((field) => {
+   744→                        const config = SOAP_LABELS[field]
+   745→                        const value = selectedNote.soap[field]
+   746→                        const IconComp = config.icon
+   747→                        return (
+   748→                          <div
+   749→                            key={field}
+   750→                            className={`border-l-4 rounded-r-md p-3 ${SOAP_COLORS[field]}`}
+   751→                          >
+   752→                            <div className="flex items-center gap-1.5 mb-1">
+   753→                              <span className={`text-sm font-bold ${config.color}`}>{config.letter}</span>
+   754→                              <span className={`text-xs font-semibold ${config.color}`}>{config.label}</span>
+   755→                              <IconComp className={`h-3 w-3 ${config.color}`} />
+   756→                            </div>
+   757→                            <p className="text-sm whitespace-pre-wrap">
+   758→                              {value || <span className="text-muted-foreground italic">Not documented</span>}
+   759→                            </p>
+   760→                          </div>
+   761→                        )
+   762→                      })}
+   763→
+   764→                      {/* AI Summary */}
+   765→                      {selectedNote.summary && (
+   766→                        <>
+   767→                          <Separator />
+   768→                          <div>
+   769→                            <p className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+   770→                              <Brain className="h-3 w-3" /> AI Summary
+   771→                            </p>
+   772→                            <p className="text-sm">{selectedNote.summary}</p>
+   773→                          </div>
+   774→                        </>
+   775→                      )}
+   776→
+   777→                      <Separator />
+   778→
+   779→                      {/* Attribution & Timestamp */}
+   780→                      <div className="text-xs text-muted-foreground space-y-1">
+   781→                        <p className="flex items-center gap-1">
+   782→                          <User className="h-3 w-3" /> {selectedNote.practitionerName}
+   783→                        </p>
+   784→                        <p className="flex items-center gap-1">
+   785→                          <Clock className="h-3 w-3" /> Created: {new Date(selectedNote.createdAt).toLocaleString()}
+   786→                        </p>
+   787→                        {selectedNote.signedAt && (
+   788→                          <p className="flex items-center gap-1">
+   789→                            <Lock className="h-3 w-3" /> Signed: {new Date(selectedNote.signedAt).toLocaleString()} by {selectedNote.signedBy}
+   790→                          </p>
+   791→                        )}
+   792→                      </div>
+   793→
+   794→                      {/* Actions */}
+   795→                      {!selectedNote.signed && (
+   796→                        <>
+   797→                          <Separator />
+   798→                          <div className="flex gap-2">
+   799→                            <Button
+   800→                              size="sm"
+   801→                              variant="outline"
+   802→                              className="gap-1.5 w-full"
+   803→                              onClick={() => setSignDialogNote(selectedNote)}
+   804→                            >
+   805→                              <Lock className="h-3.5 w-3.5" />
+   806→                              Sign & Lock
+   807→                            </Button>
+   808→                          </div>
+   809→                        </>
+   810→                      )}
+   811→                    </div>
+   812→                  </ScrollArea>
+   813→                </CardContent>
+   814→              </Card>
+   815→            </motion.div>
+   816→          )}
+   817→        </AnimatePresence>
+   818→      </div>
+   819→
+   820→      {/* ── Sign/Lock Dialog ────────────────────────────────────────────── */}
+   821→      <Dialog open={!!signDialogNote} onOpenChange={(open) => { if (!open) setSignDialogNote(null) }}>
+   822→        <DialogContent className="sm:max-w-sm">
+   823→          <DialogHeader>
+   824→            <DialogTitle className="flex items-center gap-2">
+   825→              <Lock className="h-5 w-5" />
+   826→              Sign & Lock Note
+   827→            </DialogTitle>
+   828→            <DialogDescription>
+   829→              This will digitally sign and lock the note. It cannot be edited after signing.
+   830→            </DialogDescription>
+   831→          </DialogHeader>
+   832→          {signDialogNote && (
+   833→            <div className="py-4 text-sm">
+   834→              <div className="space-y-2">
+   835→                <div className="flex items-center justify-between">
+   836→                  <span className="text-muted-foreground">Patient</span>
+   837→                  <span className="font-medium">{signDialogNote.patientName}</span>
+   838→                </div>
+   839→                <div className="flex items-center justify-between">
+   840→                  <span className="text-muted-foreground">Type</span>
+   841→                  <span className="font-medium">{signDialogNote.type}</span>
+   842→                </div>
+   843→                <div className="flex items-center justify-between">
+   844→                  <span className="text-muted-foreground">Practitioner</span>
+   845→                  <span className="font-medium">{signDialogNote.practitionerName}</span>
+   846→                </div>
+   847→                <Separator />
+   848→                <p className="text-muted-foreground text-xs">
+   849→                  Signing as <strong>{signDialogNote.practitionerName}</strong> on{' '}
+   850→                  {new Date().toLocaleString()}
+   851→                </p>
+   852→              </div>
+   853→            </div>
+   854→          )}
+   855→          <DialogFooter>
+   856→            <Button variant="outline" onClick={() => setSignDialogNote(null)}>Cancel</Button>
+   857→            <Button onClick={handleSign} disabled={signSubmitting} className="gap-1.5">
+   858→              <Check className="h-4 w-4" />
+   859→              {signSubmitting ? 'Signing...' : 'Confirm & Sign'}
+   860→            </Button>
+   861→          </DialogFooter>
+   862→        </DialogContent>
+   863→      </Dialog>
+   864→    </motion.div>
+   865→  )
+   866→}
+   867→

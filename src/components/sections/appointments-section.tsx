@@ -224,25 +224,41 @@ export function AppointmentsSection() {
         fetch('/api/appointments').then((r) => r.json()),
         fetch('/api/patients').then((r) => r.json()),
       ])
-      const apptList = (apptRes.data ?? apptRes.appointments ?? []).map((a: Record<string, unknown>) => ({
-        id: a.id as string,
-        patientId: (a.patientId ?? '') as string,
-        patientName: (a.patientName ?? (a.patient ? `${(a.patient as Record<string, string>).firstName} ${(a.patient as Record<string, string>).lastName}` : 'Unknown')) as string,
-        practitionerId: (a.practitionerId ?? '') as string,
-        practitionerName: (a.practitionerName ?? 'Dr. Unknown') as string,
-        type: (a.type ?? 'CONSULTATION') as AppointmentType,
-        modality: (a.modality ?? 'ALLOPATHY') as Modality,
-        status: (a.status ?? 'SCHEDULED') as AppointmentStatus,
-        date: (a.date ?? formatDate(new Date())) as string,
-        startTime: (a.startTime ?? '09:00') as string,
-        endTime: (a.endTime ?? '09:30') as string,
-        duration: (a.duration ?? 30) as TimeSlot,
-        urgent: (a.urgent ?? false) as boolean,
-        notes: (a.notes ?? null) as string | null,
-        cancelReason: (a.cancelReason ?? null) as string | null,
-        createdAt: (a.createdAt ?? new Date().toISOString()) as string,
-        updatedAt: (a.updatedAt ?? new Date().toISOString()) as string,
-      }))
+      const rawAppts = apptRes.data ?? apptRes.appointments ?? []
+      const apptList = rawAppts.map((a: Record<string, unknown>) => {
+        const patient = a.patient as Record<string, string> | undefined
+        const practitioner = a.practitioner as Record<string, string> | undefined
+        const scheduledAt = a.scheduledAt ? new Date(a.scheduledAt as string) : new Date()
+        const dateStr = formatDate(scheduledAt)
+        const hours = scheduledAt.getHours()
+        const mins = scheduledAt.getMinutes()
+        const startStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+        const duration = (a.duration ?? 30) as number
+        const endMinutes = hours * 60 + mins + duration
+        const endH = Math.floor(endMinutes / 60)
+        const endM = endMinutes % 60
+        const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+
+        return {
+          id: a.id as string,
+          patientId: (a.patientId ?? '') as string,
+          patientName: (patient ? `${patient.firstName} ${patient.lastName}` : (a.patientName ?? 'Unknown')) as string,
+          practitionerId: (a.practitionerId ?? '') as string,
+          practitionerName: (practitioner ? practitioner.name : (a.practitionerName ?? 'Dr. Unknown')) as string,
+          type: (a.type ?? 'CONSULTATION') as AppointmentType,
+          modality: (a.modality ?? 'ALLOPATHY') as Modality,
+          status: (a.status ?? 'SCHEDULED') as AppointmentStatus,
+          date: dateStr,
+          startTime: startStr,
+          endTime: endStr,
+          duration: duration as TimeSlot,
+          urgent: (a.isUrgent ?? a.urgent ?? false) as boolean,
+          notes: (a.notes ?? null) as string | null,
+          cancelReason: (a.cancelledReason ?? a.cancelReason ?? null) as string | null,
+          createdAt: (a.createdAt ?? new Date().toISOString()) as string,
+          updatedAt: (a.updatedAt ?? new Date().toISOString()) as string,
+        }
+      })
       setAppointments(apptList)
       setPatients(patRes.data ?? patRes.patients ?? [])
 

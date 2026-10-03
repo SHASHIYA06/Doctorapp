@@ -307,7 +307,7 @@ export function PatientTimelineSection() {
       if (res.ok) {
         const json = await res.json()
         const list = json.data ?? json.events ?? []
-        setEvents(list.length > 0 ? list : SAMPLE_EVENTS)
+        setEvents(Array.isArray(list) && list.length > 0 ? list : SAMPLE_EVENTS)
       } else {
         setEvents(SAMPLE_EVENTS)
       }

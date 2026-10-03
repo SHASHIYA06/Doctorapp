@@ -142,7 +142,9 @@ export function ReferralsSection() {
         setPatients(list)
         if (list.length > 0) setFormPatientId(list[0].id)
       })
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+      })
   }, [])
 
   useEffect(() => {
@@ -151,7 +153,9 @@ export function ReferralsSection() {
       .then((d) => {
         setPractitioners(d.practitioners ?? [])
       })
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to load practitioners', variant: 'destructive' })
+      })
   }, [])
 
   const loadReferrals = useCallback(async () => {

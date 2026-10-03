@@ -215,12 +215,19 @@ export function DischargeSummarySection() {
         const res = await fetch('/api/discharge-summary')
         if (res.ok) {
           const data = await res.json()
-          setSummaries(data.summaries || mockSummaries)
+          const summaries = data.data ?? data.summaries
+          if (Array.isArray(summaries) && summaries.length > 0) {
+            setSummaries(summaries)
+          } else {
+            setSummaries(mockSummaries)
+          }
         } else {
           setSummaries(mockSummaries)
+          toast({ title: 'Error', description: 'Failed to load discharge summaries', variant: 'destructive' })
         }
       } catch {
         setSummaries(mockSummaries)
+        toast({ title: 'Error', description: 'Failed to load discharge summaries', variant: 'destructive' })
       } finally {
         setLoading(false)
       }

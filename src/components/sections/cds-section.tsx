@@ -545,8 +545,8 @@ export function CDSSection() {
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               <AnimatePresence mode="popLayout">
                 {filteredAlerts.map((alert, i) => {
-                  const typeCfg = ALERT_TYPE_CONFIG[alert.type]
-                  const sevCfg = SEVERITY_CONFIG[alert.severity]
+                  const typeCfg = ALERT_TYPE_CONFIG[alert.type as CDSAlertType] ?? ALERT_TYPE_CONFIG.GUIDELINE
+                  const sevCfg = SEVERITY_CONFIG[alert.severity as CDSSeverity] ?? SEVERITY_CONFIG.INFO
                   const TypeIcon = typeCfg.icon
 
                   return (

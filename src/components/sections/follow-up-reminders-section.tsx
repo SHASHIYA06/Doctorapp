@@ -322,7 +322,10 @@ export function FollowUpRemindersSection() {
         if (Array.isArray(list) && list.length > 0) setPatients(list)
         else setPatients(DEMO_PATIENTS)
       })
-      .catch(() => setPatients(DEMO_PATIENTS))
+      .catch(() => {
+        setPatients(DEMO_PATIENTS)
+        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+      })
   }, [])
 
   useEffect(() => {
@@ -590,7 +593,7 @@ export function FollowUpRemindersSection() {
           <CardContent>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {overdueReminders.map((rem) => {
-                const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+                const typeCfg = REMINDER_TYPE_CONFIG[rem.type as ReminderType] ?? REMINDER_TYPE_CONFIG.FOLLOW_UP
                 const TypeIcon = typeCfg.icon
                 return (
                   <div
@@ -650,7 +653,7 @@ export function FollowUpRemindersSection() {
                   {calendarDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
                 {selectedDateReminders.map((rem) => {
-                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type as ReminderType] ?? REMINDER_TYPE_CONFIG.FOLLOW_UP
                   const TypeIcon = typeCfg.icon
                   return (
                     <div key={rem.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">
@@ -699,11 +702,11 @@ export function FollowUpRemindersSection() {
                   </TableHeader>
                   <TableBody>
                     {upcomingReminders.map((rem) => {
-                      const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+                      const typeCfg = REMINDER_TYPE_CONFIG[rem.type as ReminderType] ?? REMINDER_TYPE_CONFIG.FOLLOW_UP
                       const TypeIcon = typeCfg.icon
                       const chanCfg = CHANNEL_CONFIG[rem.channel]
                       const ChanIcon = chanCfg.icon
-                      const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus]
+                      const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus as DeliveryStatus] ?? DELIVERY_STATUS_CONFIG.PENDING
                       const recCfg = RECURRENCE_CONFIG[rem.recurrence]
                       const overdue = isOverdue(rem)
                       const dueToday = isDueToday(rem)
@@ -799,9 +802,9 @@ export function FollowUpRemindersSection() {
               </TableHeader>
               <TableBody>
                 {reminders.map((rem) => {
-                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type]
+                  const typeCfg = REMINDER_TYPE_CONFIG[rem.type as ReminderType] ?? REMINDER_TYPE_CONFIG.FOLLOW_UP
                   const TypeIcon = typeCfg.icon
-                  const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus]
+                  const delCfg = DELIVERY_STATUS_CONFIG[rem.deliveryStatus as DeliveryStatus] ?? DELIVERY_STATUS_CONFIG.PENDING
                   const overdue = isOverdue(rem)
 
                   return (

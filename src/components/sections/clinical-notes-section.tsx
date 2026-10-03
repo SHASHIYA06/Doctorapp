@@ -152,22 +152,32 @@ export function ClinicalNotesSection() {
         fetch('/api/clinical-notes').then((r) => r.json()),
         fetch('/api/patients').then((r) => r.json()),
       ])
-      const noteList = (notesRes.data ?? notesRes.notes ?? []).map((n: Record<string, unknown>) => ({
-        id: n.id as string,
-        patientId: (n.patientId ?? '') as string,
-        patientName: (n.patientName ?? (n.patient ? `${(n.patient as Record<string, string>).firstName} ${(n.patient as Record<string, string>).lastName}` : 'Unknown')) as string,
-        type: (n.type ?? 'SOAP') as NoteType,
-        modality: (n.modality ?? 'ALLOPATHY') as Modality,
-        soap: (n.soap ?? { subjective: '', objective: '', assessment: '', plan: '' }) as SOAPData,
-        vitals: (n.vitals ?? {}) as VitalSigns,
-        signed: (n.signed ?? false) as boolean,
-        signedBy: (n.signedBy ?? null) as string | null,
-        signedAt: (n.signedAt ?? null) as string | null,
-        practitionerName: (n.practitionerName ?? 'Unknown') as string,
-        summary: (n.summary ?? null) as string | null,
-        createdAt: (n.createdAt ?? new Date().toISOString()) as string,
-        updatedAt: (n.updatedAt ?? new Date().toISOString()) as string,
-      }))
+      const rawNotes = notesRes.data ?? notesRes.notes ?? []
+      const noteList = rawNotes.map((n: Record<string, unknown>) => {
+        const patient = n.patient as Record<string, string> | undefined
+        const practitioner = n.practitioner as Record<string, string> | undefined
+        return {
+          id: n.id as string,
+          patientId: (n.patientId ?? '') as string,
+          patientName: (patient ? `${patient.firstName} ${patient.lastName}` : (n.patientName ?? 'Unknown')) as string,
+          type: ((n.noteType ?? n.type ?? 'SOAP') as string) as NoteType,
+          modality: (n.modality ?? 'ALLOPATHY') as Modality,
+          soap: {
+            subjective: ((n.subjective ?? (n.soap as Record<string, string>)?.subjective ?? '') as string),
+            objective: ((n.objective ?? (n.soap as Record<string, string>)?.objective ?? '') as string),
+            assessment: ((n.assessment ?? (n.soap as Record<string, string>)?.assessment ?? '') as string),
+            plan: ((n.plan ?? (n.soap as Record<string, string>)?.plan ?? '') as string),
+          } as SOAPData,
+          vitals: (n.vitals ?? {}) as VitalSigns,
+          signed: (n.isSigned ?? n.signed ?? false) as boolean,
+          signedBy: (n.signedBy ?? (practitioner ? practitioner.name : null)) as string | null,
+          signedAt: (n.signedAt ?? null) as string | null,
+          practitionerName: (practitioner ? practitioner.name : (n.practitionerName ?? 'Unknown')) as string,
+          summary: (n.summary ?? null) as string | null,
+          createdAt: (n.createdAt ?? new Date().toISOString()) as string,
+          updatedAt: (n.updatedAt ?? new Date().toISOString()) as string,
+        }
+      })
       setNotes(noteList)
       setPatients(patRes.data ?? patRes.patients ?? [])
     } catch {

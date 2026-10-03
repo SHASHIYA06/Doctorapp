@@ -222,7 +222,9 @@ export function LabOrdersSection() {
     fetch('/api/patients')
       .then((r) => r.json())
       .then((d) => setPatients(d.data ?? d.patients ?? []))
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+      })
   }, [])
 
   // ─── Fetch lab orders ─────────────────────────────────────────────
@@ -235,7 +237,29 @@ export function LabOrdersSection() {
       if (selectedPatientId) params.set('patientId', selectedPatientId)
       const res = await fetch(`/api/lab-orders?${params.toString()}`)
       const json = await res.json()
-      setLabOrders((json.data ?? json.labOrders ?? []) as LabOrder[])
+      const raw = json.data ?? json.labOrders ?? []
+      const mapped = raw.map((o: Record<string, unknown>) => {
+        const patient = o.patient as { id: string; firstName: string; lastName: string } | undefined
+        const practitioner = o.practitioner as { id: string; name: string } | undefined
+        const tests = (Array.isArray(o.tests) ? o.tests : []) as LabTest[]
+        return {
+          id: o.id as string,
+          orderNumber: (o.orderNumber ?? '') as string,
+          patientId: (o.patientId ?? '') as string,
+          patient,
+          practitioner,
+          status: (o.status ?? 'ORDERED') as LabOrderStatus,
+          priority: (o.priority ?? 'ROUTINE') as LabPriority,
+          modality: (o.modality ?? 'ALLOPATHY') as string,
+          notes: (o.notes ?? null) as string | null,
+          orderedAt: (o.orderedAt ?? o.createdAt ?? new Date().toISOString()) as string,
+          sampleCollectedAt: (o.sampleCollectedAt ?? null) as string | null,
+          completedAt: (o.completedAt ?? null) as string | null,
+          createdAt: (o.createdAt ?? new Date().toISOString()) as string,
+          tests,
+        } as LabOrder
+      })
+      setLabOrders(mapped)
     } catch {
       toast({ title: 'Error', description: 'Failed to load lab orders', variant: 'destructive' })
     } finally {

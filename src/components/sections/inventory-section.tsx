@@ -159,12 +159,19 @@ export function InventorySection() {
         const res = await fetch('/api/inventory')
         if (res.ok) {
           const data = await res.json()
-          setInventory(data.items || mockInventory)
+          const items = data.data ?? data.items
+          if (Array.isArray(items) && items.length > 0) {
+            setInventory(items)
+          } else {
+            setInventory(mockInventory)
+          }
         } else {
           setInventory(mockInventory)
+          toast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
         }
       } catch {
         setInventory(mockInventory)
+        toast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
       } finally {
         setLoading(false)
       }

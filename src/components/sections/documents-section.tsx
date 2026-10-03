@@ -138,7 +138,9 @@ export function DocumentsSection() {
         setPatients(list)
         if (list.length > 0) setFormPatientId(list[0].id)
       })
-      .catch(() => {})
+      .catch(() => {
+        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+      })
   }, [])
 
   const loadDocuments = useCallback(async () => {

@@ -514,6 +514,33 @@ export function DashboardSection() {
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a)))
   }, [])
 
+  // ─── New Feature KPIs ────────────────────────────────────────
+  const [newKpis, setNewKpis] = useState({ prescriptions: 0, labOrders: 0, appointments: 0, cdsAlerts: 0, reminders: 0, notifications: 0 })
+
+  useEffect(() => {
+    async function fetchNewKpis() {
+      try {
+        const [rxRes, labRes, aptRes, cdsRes, remRes, notifRes] = await Promise.allSettled([
+          fetch('/api/prescriptions').then(r => r.json()),
+          fetch('/api/lab-orders').then(r => r.json()),
+          fetch('/api/appointments').then(r => r.json()),
+          fetch('/api/cds').then(r => r.json()),
+          fetch('/api/follow-up-reminders').then(r => r.json()),
+          fetch('/api/notifications').then(r => r.json()),
+        ])
+        setNewKpis({
+          prescriptions: rxRes.status === 'fulfilled' ? (rxRes.value?.data?.length ?? 0) : 0,
+          labOrders: labRes.status === 'fulfilled' ? (labRes.value?.data?.length ?? 0) : 0,
+          appointments: aptRes.status === 'fulfilled' ? (aptRes.value?.data?.length ?? 0) : 0,
+          cdsAlerts: cdsRes.status === 'fulfilled' ? (cdsRes.value?.data?.length ?? 0) : 0,
+          reminders: remRes.status === 'fulfilled' ? (remRes.value?.data?.length ?? 0) : 0,
+          notifications: notifRes.status === 'fulfilled' ? (notifRes.value?.data?.length ?? 0) : 0,
+        })
+      } catch { /* ignore */ }
+    }
+    fetchNewKpis()
+  }, [])
+
   if (loading) return <DashboardSkeleton />
 
   const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged)
@@ -620,6 +647,24 @@ export function DashboardSection() {
         delay={0.25}
       />
     </div>
+  )
+
+  // ─── Row 1b: New Feature KPI Cards ────────────────────────────────
+
+  const newKpiRow = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.15 }}
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4"
+    >
+      <StatCard icon={Pill} iconBg="bg-teal-100 dark:bg-teal-950" iconColor="text-teal-600 dark:text-teal-400" title="Prescriptions" value={newKpis.prescriptions} subtitle="Active & recent Rx" delay={0.16} />
+      <StatCard icon={FlaskConical} iconBg="bg-emerald-100 dark:bg-emerald-950" iconColor="text-emerald-600 dark:text-emerald-400" title="Lab Orders" value={newKpis.labOrders} subtitle="Tests ordered & pending" delay={0.18} />
+      <StatCard icon={Stethoscope} iconBg="bg-amber-100 dark:bg-amber-950" iconColor="text-amber-600 dark:text-amber-400" title="Appointments" value={newKpis.appointments} subtitle="Scheduled & upcoming" delay={0.20} />
+      <StatCard icon={AlertTriangle} iconBg="bg-red-100 dark:bg-red-950" iconColor="text-red-600 dark:text-red-400" title="CDS Alerts" value={newKpis.cdsAlerts} subtitle="Clinical decision support" delay={0.22} />
+      <StatCard icon={Clock} iconBg="bg-violet-100 dark:bg-violet-950" iconColor="text-violet-600 dark:text-violet-400" title="Reminders" value={newKpis.reminders} subtitle="Follow-ups & meds" delay={0.24} />
+      <StatCard icon={FileWarning} iconBg="bg-sky-100 dark:bg-sky-950" iconColor="text-sky-600 dark:text-sky-400" title="Notifications" value={newKpis.notifications} subtitle="Unread alerts" delay={0.26} />
+    </motion.div>
   )
 
   // ─── Row 2: Analytics Charts ───────────────────────────────────────
@@ -984,6 +1029,7 @@ export function DashboardSection() {
   return (
     <div className="space-y-6">
       {statCards}
+      {newKpiRow}
       {analyticsRow}
       {wingOverview}
       {safetyRecallsRow}

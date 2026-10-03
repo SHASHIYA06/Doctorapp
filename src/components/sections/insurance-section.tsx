@@ -388,9 +388,25 @@ export function InsuranceSection() {
       const res = await fetch(`/api/insurance?patientId=${localPatientId}`)
       if (res.ok) {
         const json = await res.json()
-        const data = json.data ?? {}
-        setPolicies(data.policies ?? SAMPLE_POLICIES)
-        setClaims(data.claims ?? SAMPLE_CLAIMS)
+        const raw = json.data ?? json.policies
+        if (Array.isArray(raw) && raw.length > 0) {
+          setPolicies(raw)
+        } else {
+          setPolicies(SAMPLE_POLICIES)
+        }
+        // Load claims separately
+        try {
+          const claimsRes = await fetch(`/api/insurance?subroute=claims&patientId=${localPatientId}`)
+          if (claimsRes.ok) {
+            const claimsJson = await claimsRes.json()
+            const claimsRaw = claimsJson.data ?? claimsJson.claims
+            setClaims(Array.isArray(claimsRaw) && claimsRaw.length > 0 ? claimsRaw : SAMPLE_CLAIMS)
+          } else {
+            setClaims(SAMPLE_CLAIMS)
+          }
+        } catch {
+          setClaims(SAMPLE_CLAIMS)
+        }
       } else {
         setPolicies(SAMPLE_POLICIES)
         setClaims(SAMPLE_CLAIMS)
@@ -411,8 +427,12 @@ export function InsuranceSection() {
       const res = await fetch(`/api/billing?patientId=${localPatientId}`)
       if (res.ok) {
         const json = await res.json()
-        const data = json.data ?? {}
-        setInvoices(data.invoices ?? SAMPLE_INVOICES)
+        const raw = json.data ?? json.invoices
+        if (Array.isArray(raw) && raw.length > 0) {
+          setInvoices(raw)
+        } else {
+          setInvoices(SAMPLE_INVOICES)
+        }
       } else {
         setInvoices(SAMPLE_INVOICES)
       }
