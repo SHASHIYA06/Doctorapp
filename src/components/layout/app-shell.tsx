@@ -26,6 +26,16 @@ import {
   GitCompare,
   Clock,
   Syringe,
+  FlaskConical,
+  Activity,
+  Shield,
+  ArrowRightLeft,
+  Upload,
+  Video,
+  Package,
+  Bell,
+  Calendar,
+  PenLine,
 } from 'lucide-react'
 import {
   SidebarProvider,
@@ -72,6 +82,20 @@ import { ExpiryTrackerSection } from '@/components/sections/expiry-tracker-secti
 import { MedicineCompareSection } from '@/components/sections/medicine-compare-section'
 import { DosageTrackerSection } from '@/components/sections/dosage-tracker-section'
 import { VaccinationSection } from '@/components/sections/vaccination-section'
+import { CDSSection } from '@/components/sections/cds-section'
+import { FollowUpRemindersSection } from '@/components/sections/follow-up-reminders-section'
+import { PrescriptionsSection } from '@/components/sections/prescriptions-section'
+import { LabOrdersSection } from '@/components/sections/lab-orders-section'
+import { PatientTimelineSection } from '@/components/sections/patient-timeline-section'
+import { InsuranceSection } from '@/components/sections/insurance-section'
+import { ReferralsSection } from '@/components/sections/referrals-section'
+import { DocumentsSection } from '@/components/sections/documents-section'
+import { TelemedicineSection } from '@/components/sections/telemedicine-section'
+import { InventorySection } from '@/components/sections/inventory-section'
+import { DischargeSummarySection } from '@/components/sections/discharge-summary-section'
+import { NotificationsSection } from '@/components/sections/notifications-section'
+import { AppointmentsSection } from '@/components/sections/appointments-section'
+import { ClinicalNotesSection } from '@/components/sections/clinical-notes-section'
 
 interface NavItem {
   id: Section
@@ -100,7 +124,23 @@ const navItems: NavItem[] = [
   { id: 'safety', label: 'Safety', icon: AlertTriangle, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'clinician-queue', label: 'Clinician Queue', icon: Stethoscope, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'care-plans', label: 'Care Plans', icon: FileText, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'prescriptions', label: 'Prescriptions', icon: Pill, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'lab-orders', label: 'Lab Orders', icon: FlaskConical, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'appointments', label: 'Appointments', icon: Calendar, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'clinical-notes', label: 'Clinical Notes', icon: PenLine, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
   { id: 'vaccination', label: 'Vaccination', icon: Syringe, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'cds', label: 'CDS Alerts', icon: AlertTriangle, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'follow-up-reminders', label: 'Reminders', icon: CalendarClock, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'patient-timeline', label: 'Timeline', icon: Activity, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  { id: 'discharge-summary', label: 'Discharge Summary', icon: FileText, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical' },
+  // Clinical Workflow
+  { id: 'referrals', label: 'Referrals', icon: ArrowRightLeft, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical Workflow' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical Workflow' },
+  { id: 'documents', label: 'Documents', icon: Upload, roles: ['CLINICIAN', 'ADMIN'], group: 'Clinical Workflow' },
+  { id: 'telemedicine', label: 'Telemedicine', icon: Video, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Clinical Workflow' },
+  // Finance
+  { id: 'insurance', label: 'Insurance & Billing', icon: Shield, roles: ['CLINICIAN', 'ADMIN'], group: 'Finance' },
+  { id: 'inventory', label: 'Inventory', icon: Package, roles: ['CLINICIAN', 'ADMIN'], group: 'Finance' },
   // Intelligence
   { id: 'voice', label: 'Voice Triage', icon: Mic, roles: ['PATIENT', 'CLINICIAN', 'ADMIN'], group: 'Intelligence' },
   { id: 'analytics', label: 'District Analytics', icon: BarChart3, roles: ['CLINICIAN', 'ADMIN'], group: 'Intelligence' },
@@ -140,6 +180,20 @@ const sectionComponents: Record<Section, React.ComponentType> = {
   'medicine-compare': MedicineCompareSection,
   'dosage-tracker': DosageTrackerSection,
   vaccination: VaccinationSection,
+  cds: CDSSection,
+  'follow-up-reminders': FollowUpRemindersSection,
+  prescriptions: PrescriptionsSection,
+  'lab-orders': LabOrdersSection,
+  'patient-timeline': PatientTimelineSection,
+  insurance: InsuranceSection,
+  referrals: ReferralsSection,
+  documents: DocumentsSection,
+  telemedicine: TelemedicineSection,
+  inventory: InventorySection,
+  'discharge-summary': DischargeSummarySection,
+  notifications: NotificationsSection,
+  appointments: AppointmentsSection,
+  'clinical-notes': ClinicalNotesSection,
   admin: AdminSection,
 }
 
@@ -203,7 +257,7 @@ export function AppShell() {
             <Separator className="mb-2" />
             <div className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
               <p className="font-medium">Role: {activeRole}</p>
-              <p className="text-[10px]">v4.0 • ABHA + CDSCO + LASA</p>
+              <p className="text-[10px]">v5.0 • Full Hospital SaaS</p>
             </div>
           </SidebarFooter>
           <SidebarRail />

@@ -940,6 +940,12 @@ export function DashboardSection() {
               { icon: GitCompare, label: 'Drug Check', section: 'drug-interactions' as const, color: 'rose' },
               { icon: FileWarning, label: 'View Recalls', section: 'safety' as const, color: 'red' },
               { icon: Mic, label: 'Voice Triage', section: 'intake' as const, color: 'violet' },
+              { icon: Pill, label: 'Prescriptions', section: 'prescriptions' as const, color: 'teal' },
+              { icon: FlaskConical, label: 'Lab Orders', section: 'lab-orders' as const, color: 'emerald' },
+              { icon: Stethoscope, label: 'Appointments', section: 'appointments' as const, color: 'amber' },
+              { icon: Brain, label: 'CDS Alerts', section: 'cds' as const, color: 'red' },
+              { icon: ShieldCheck, label: 'Insurance', section: 'insurance' as const, color: 'violet' },
+              { icon: Activity, label: 'Timeline', section: 'patient-timeline' as const, color: 'teal' },
             ].map((action, idx) => {
               const colorMap: Record<string, { bg: string; hover: string; text: string }> = {
                 teal: { bg: 'bg-teal-50 dark:bg-teal-950', hover: 'hover:bg-teal-100 dark:hover:bg-teal-900', text: 'text-teal-700 dark:text-teal-300' },

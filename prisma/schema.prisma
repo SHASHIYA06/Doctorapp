@@ -82,6 +82,15 @@ model Practitioner {
   tenant         Tenant          @relation(fields: [tenantId], references: [id])
   encounters     Encounter[]
   signedCarePlans SignedCarePlan[]
+  prescriptions  Prescription[]
+  labOrders      LabOrder[]
+  appointments   Appointment[]
+  clinicalNotes  ClinicalNote[]
+  dischargeSummaries DischargeSummary[]
+  sentReferrals  Referral[]       @relation("FromPractitioner")
+  receivedReferrals Referral[]    @relation("ToPractitioner")
+  telemedicineSessions TelemedicineSession[]
+  documents      DocumentUpload[]
 }
 
 // ============================================================
@@ -117,6 +126,19 @@ model Patient {
   signedCarePlans     SignedCarePlan[]
   followUps           FollowUp[]
   adverseEvents       AdverseEvent[]
+  prescriptions       Prescription[]
+  labOrders           LabOrder[]
+  appointments        Appointment[]
+  clinicalNotes       ClinicalNote[]
+  insurancePolicies   InsurancePolicy[]
+  insuranceClaims     InsuranceClaim[]
+  billingRecords      BillingRecord[]
+  dischargeSummaries  DischargeSummary[]
+  referrals           Referral[]
+  timelineEvents      PatientTimelineEvent[]
+  telemedicineSessions TelemedicineSession[]
+  followUpReminders   FollowUpReminder[]
+  documents           DocumentUpload[]
 }
 
 // ============================================================
@@ -472,16 +494,25 @@ model VoiceSession {
 // ============================================================
 
 model Appointment {
-  id             String    @id @default(cuid())
-  patientId      String
-  practitionerId String?
-  scheduledAt    DateTime
-  duration       Int       @default(30)
-  modality       String    @default("ALLOPATHY")
-  status         String    @default("SCHEDULED")
-  notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  appointmentNo   String    @unique
+  type            String    @default("CONSULTATION") // CONSULTATION, FOLLOW_UP, TELEMEDICINE, PROCEDURE, CHECKUP
+  modality        String    @default("ALLOPATHY")
+  status          String    @default("SCHEDULED") // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+  scheduledAt     DateTime
+  duration        Int       @default(15) // minutes
+  reason          String?
+  notes           String?
+  isUrgent        Boolean   @default(false)
+  reminderSent    Boolean   @default(false)
+  cancelledReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
 }
 
 // ============================================================
@@ -1171,4 +1202,406 @@ model UserPoints {
   level      Int      @default(1)
   badges     String?  // JSON array of badge IDs
   updatedAt  DateTime @updatedAt
+}
+
+// ============================================================
+// E-PRESCRIPTION SYSTEM (CDSCO Compliant)
+// ============================================================
+
+model Prescription {
+  id              String   @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  encounterId     String?
+  prescriptionNo  String   @unique // Auto-generated Rx number
+  modality        String   @default("ALLOPATHY") // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  status          String   @default("DRAFT") // DRAFT, ACTIVE, DISPENSED, EXPIRED, CANCELLED
+  diagnosis       String?
+  notes           String?
+  qrCodeData      String?  // QR code payload for verification
+  digitalSignature String? // Base64 digital signature
+  isCdScoCompliant Boolean @default(true)
+  validFrom       DateTime @default(now())
+  validUntil      DateTime?
+  dispensedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient      Patient             @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?      @relation(fields: [practitionerId], references: [id])
+  items        PrescriptionItem[]
+}
+
+model PrescriptionItem {
+  id             String   @id @default(cuid())
+  prescriptionId String
+  medicineId     String?
+  medicineName   String
+  dosage         String   // e.g., "1 tablet", "10ml"
+  frequency      String   // ONCE_DAILY, TWICE_DAILY, THRICE_DAILY, AS_NEEDED, STAT
+  duration       String?  // e.g., "7 days", "1 month"
+  route          String?  // ORAL, IV, IM, SC, TOPICAL, INHALATION
+  instructions   String?  // before food, after food, etc.
+  isSubstitutable Boolean @default(false)
+  scheduleType   String?  // OTC, SCHEDULE_H, SCHEDULE_H1, SCHEDULE_X, NARCOTIC
+  quantity       Int?
+  refills        Int      @default(0)
+  sequence       Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+}
+
+// ============================================================
+// LAB ORDERS & DIAGNOSTICS
+// ============================================================
+
+model LabOrder {
+  id             String   @id @default(cuid())
+  patientId      String
+  practitionerId String?
+  orderNumber    String   @unique
+  status         String   @default("ORDERED") // ORDERED, SAMPLE_COLLECTED, PROCESSING, COMPLETED, CANCELLED
+  priority       String   @default("ROUTINE") // ROUTINE, URGENT, STAT
+  modality       String   @default("ALLOPATHY")
+  notes          String?
+  orderedAt      DateTime @default(now())
+  sampleCollectedAt DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  tests        LabTest[]
+}
+
+model LabTest {
+  id            String   @id @default(cuid())
+  labOrderId    String
+  testName      String   // e.g., "Complete Blood Count", "HbA1c"
+  testCode      String?  // LOINC code
+  category      String?  // HEMATOLOGY, BIOCHEMISTRY, MICROBIOLOGY, RADIOLOGY, PATHOLOGY
+  status        String   @default("ORDERED") // ORDERED, PROCESSING, COMPLETED, CANCELLED
+  resultValue   String?
+  resultUnit    String?  // mg/dL, g%, etc.
+  referenceRange String?
+  isAbnormal    Boolean  @default(false)
+  remarks       String?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  labOrder LabOrder @relation(fields: [labOrderId], references: [id])
+}
+
+// ============================================================
+// CLINICAL NOTES (SOAP Format)
+// ============================================================
+
+model ClinicalNote {
+  id              String   @id @default(cuid())
+  patientId       String
+  encounterId     String?
+  practitionerId  String?
+  noteType        String   @default("SOAP") // SOAP, PROGRESS, DISCHARGE, REFERRAL, PROCEDURE
+  modality        String   @default("ALLOPATHY")
+  subjective      String?  // Patient's symptoms, complaints
+  objective       String?  // Vitals, physical exam findings
+  assessment      String?  // Diagnosis, clinical impression
+  plan            String?  // Treatment plan, orders
+  summary         String?  // AI-generated summary
+  isSigned        Boolean  @default(false)
+  signedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+}
+
+// ============================================================
+// INSURANCE & BILLING
+// ============================================================
+
+model InsurancePolicy {
+  id              String   @id @default(cuid())
+  patientId       String
+  providerName    String   // e.g., "Star Health", "ICICI Lombard"
+  policyNumber    String
+  groupNumber     String?
+  planType        String   // INDIVIDUAL, FAMILY, GROUP, CORPORATE
+  coverageType    String   // CASHLESS, REIMBURSEMENT
+  abhaLinked      Boolean  @default(false)
+  isAyushmanBharat Boolean @default(false) // PM-JAY scheme
+  validFrom       DateTime
+  validUntil      DateTime?
+  coPayPercentage Float    @default(0)
+  maxCoverage     Float?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient Patient           @relation(fields: [patientId], references: [id])
+  claims  InsuranceClaim[]
+}
+
+model InsuranceClaim {
+  id              String   @id @default(cuid())
+  policyId        String
+  patientId       String
+  encounterId     String?
+  claimNumber     String   @unique
+  claimType       String   // CASHLESS, REIMBURSEMENT
+  status          String   @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, APPROVED, PARTIALLY_APPROVED, REJECTED, SETTLED
+  amountClaimed   Float
+  amountApproved  Float?
+  amountSettled   Float?
+  denialReason    String?
+  documents       String?  // JSON array of document IDs
+  submittedAt     DateTime @default(now())
+  processedAt     DateTime?
+  settledAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  policy InsurancePolicy @relation(fields: [policyId], references: [id])
+  patient Patient       @relation(fields: [patientId], references: [id])
+}
+
+model BillingRecord {
+  id              String   @id @default(cuid())
+  patientId       String
+  encounterId     String?
+  invoiceNumber   String   @unique
+  modality        String   @default("ALLOPATHY")
+  status          String   @default("PENDING") // PENDING, PAID, PARTIALLY_PAID, OVERDUE, CANCELLED
+  consultationFee Float    @default(0)
+  medicineCharges Float    @default(0)
+  labCharges      Float    @default(0)
+  procedureCharges Float   @default(0)
+  otherCharges    Float    @default(0)
+  totalAmount     Float    @default(0)
+  discount        Float    @default(0)
+  tax             Float    @default(0)
+  netAmount       Float    @default(0)
+  paidAmount      Float    @default(0)
+  paymentMethod   String?  // CASH, UPI, CARD, INSURANCE
+  paymentRef      String?
+  dueDate         DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// DISCHARGE SUMMARY (AI-Generated)
+// ============================================================
+
+model DischargeSummary {
+  id              String   @id @default(cuid())
+  patientId       String
+  encounterId     String?
+  practitionerId  String?
+  summaryNumber   String   @unique
+  admissionDate   DateTime
+  dischargeDate   DateTime @default(now())
+  modality        String   @default("ALLOPATHY")
+  admittingDiagnosis String?
+  dischargeDiagnosis String?
+  chiefComplaints String?  // JSON array
+  investigations  String?  // JSON array of lab results
+  treatmentGiven  String?
+  conditionAtDischarge String? // STABLE, IMPROVED, CRITICAL, EXPIRED
+  medicationsOnDischarge String? // JSON array
+  followUpInstructions String?
+  dietAdvice      String?
+  restrictions    String?  // Activity restrictions
+  aiGeneratedSummary String? // AI-generated full summary
+  isSigned        Boolean  @default(false)
+  signedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+}
+
+// ============================================================
+// REFERRAL SYSTEM
+// ============================================================
+
+model Referral {
+  id               String   @id @default(cuid())
+  patientId        String
+  fromPractitionerId String
+  toPractitionerId  String?
+  referralNumber   String   @unique
+  modality         String   @default("ALLOPATHY")
+  targetModality   String?  // For cross-modality referral
+  reason           String
+  clinicalSummary  String?
+  urgency          String   @default("ROUTINE") // ROUTINE, URGENT, EMERGENCY
+  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, COMPLETED, CANCELLED
+  referredSpeciality String? // e.g., "Cardiology", "Neurology"
+  notes            String?
+  respondedAt      DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  patient          Patient      @relation(fields: [patientId], references: [id])
+  fromPractitioner Practitioner @relation("FromPractitioner", fields: [fromPractitionerId], references: [id])
+  toPractitioner   Practitioner? @relation("ToPractitioner", fields: [toPractitionerId], references: [id])
+}
+
+// ============================================================
+// UNIFIED NOTIFICATIONS
+// ============================================================
+
+model AppNotification {
+  id          String   @id @default(cuid())
+  userId      String?
+  patientId   String?
+  type        String   // PRESCRIPTION, APPOINTMENT, RECALL, SAFETY, LAB_RESULT, FOLLOW_UP, REFERRAL, BILLING, SYSTEM
+  category    String   @default("INFO") // INFO, WARNING, URGENT, CRITICAL
+  title       String
+  message     String
+  actionUrl   String?  // Deep link to relevant section
+  actionLabel String?  // Button label
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  channel     String   @default("IN_APP") // IN_APP, SMS, WHATSAPP, PUSH, EMAIL
+  sentAt      DateTime @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// DOCUMENT UPLOAD + OCR
+// ============================================================
+
+model DocumentUpload {
+  id            String   @id @default(cuid())
+  patientId     String?
+  practitionerId String?
+  documentType  String   // PRESCRIPTION, LAB_REPORT, ID_PROOF, INSURANCE_CARD, DISCHARGE_SUMMARY, REFERRAL_LETTER, OTHER
+  fileName      String
+  fileSize      Int?     // bytes
+  mimeType      String?
+  storageUrl    String?  // S3/OSS URL
+  ocrExtracted  String?  // OCR text result
+  ocrConfidence Float?   // 0-1
+  aiSummary     String?  // AI-generated summary of document
+  isVerified    Boolean  @default(false)
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  uploadedAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient      Patient?       @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+}
+
+// ============================================================
+// TELEMEDICINE SESSIONS
+// ============================================================
+
+model TelemedicineSession {
+  id              String   @id @default(cuid())
+  patientId       String
+  practitionerId  String?
+  appointmentId   String?
+  sessionToken    String?  // Video call session token
+  modality        String   @default("ALLOPATHY")
+  status          String   @default("SCHEDULED") // SCHEDULED, WAITING, IN_PROGRESS, COMPLETED, CANCELLED, FAILED
+  platform        String   @default("BUILT_IN") // BUILT_IN, JITSI, WHEREBY
+  patientUrl      String?  // Patient join URL
+  practitionerUrl String?  // Practitioner join URL
+  recordingUrl    String?
+  duration        Int?     // seconds
+  notes           String?
+  prescriptionId  String?  // Post-consultation prescription
+  rating          Int?     // 1-5 patient rating
+  feedback        String?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient      Patient        @relation(fields: [patientId], references: [id])
+  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+}
+
+// ============================================================
+// CLINICAL DECISION SUPPORT (CDS) ALERTS
+// ============================================================
+
+model CDSAlert {
+  id             String   @id @default(cuid())
+  patientId      String?
+  practitionerId String?
+  encounterId    String?
+  alertType      String   // DRUG_INTERACTION, ALLERGY, DUPLICATE, DOSAGE, CONTRAINDICATION, LAB_ALERT, RECALL, GUIDELINE
+  severity       String   @default("INFO") // INFO, WARNING, CRITICAL
+  title          String
+  description    String
+  evidence       String?  // Reference/guideline
+  suggestedAction String?
+  isOverrideable Boolean  @default(true)
+  isAcknowledged Boolean  @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  overrideReason String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================================
+// FOLLOW-UP REMINDERS
+// ============================================================
+
+model FollowUpReminder {
+  id             String   @id @default(cuid())
+  patientId      String
+  practitionerId String?
+  type           String   // FOLLOW_UP, MEDICATION_REMINDER, LAB_REMINDER, VACCINATION_DUE, CHECKUP
+  title          String
+  description    String?
+  scheduledAt    DateTime
+  isCompleted    Boolean  @default(false)
+  completedAt    DateTime?
+  reminderSent   Boolean  @default(false)
+  reminderSentAt DateTime?
+  channel        String   @default("IN_APP") // IN_APP, SMS, WHATSAPP, PUSH
+  recurrence     String?  // ONCE, DAILY, WEEKLY, MONTHLY
+  nextRecurrence DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+// ============================================================
+// PATIENT TIMELINE EVENTS
+// ============================================================
+
+model PatientTimelineEvent {
+  id          String   @id @default(cuid())
+  patientId   String
+  eventType   String   // ENCOUNTER, PRESCRIPTION, LAB_RESULT, VACCINATION, REFERRAL, ADMISSION, DISCHARGE, NOTE, FOLLOW_UP
+  eventDate   DateTime
+  title       String
+  description String?
+  data        String?  // JSON - event-specific data
+  modality    String?  // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  referenceId String?  // ID of the related entity
+  isSignificant Boolean @default(false) // Highlights important events
+  createdAt   DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
 }

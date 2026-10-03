@@ -28,6 +28,21 @@ export type Section =
   | 'medicine-compare'
   | 'dosage-tracker'
   | 'vaccination'
+  | 'prescriptions'
+  | 'lab-orders'
+  | 'appointments'
+  | 'clinical-notes'
+  | 'patient-timeline'
+  | 'insurance'
+  | 'billing'
+  | 'inventory'
+  | 'discharge-summary'
+  | 'notifications'
+  | 'referrals'
+  | 'documents'
+  | 'telemedicine'
+  | 'cds'
+  | 'follow-up-reminders'
 
 export type Modality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
 
@@ -71,6 +86,10 @@ interface AppState {
   setSelectedPharmacyId: (id: string | null) => void
   selectedRecallId: string | null
   setSelectedRecallId: (id: string | null) => void
+  selectedPrescriptionId: string | null
+  setSelectedPrescriptionId: (id: string | null) => void
+  selectedAppointmentId: string | null
+  setSelectedAppointmentId: (id: string | null) => void
   isVoiceActive: boolean
   setIsVoiceActive: (active: boolean) => void
   scanResult: any | null
@@ -81,6 +100,8 @@ interface AppState {
   setSidebarCollapsed: (collapsed: boolean) => void
   isAbhaLinked: boolean
   setIsAbhaLinked: (linked: boolean) => void
+  unreadNotificationCount: number
+  setUnreadNotificationCount: (count: number) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -114,4 +135,10 @@ export const useAppStore = create<AppState>((set) => ({
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   isAbhaLinked: false,
   setIsAbhaLinked: (linked) => set({ isAbhaLinked: linked }),
+  selectedPrescriptionId: null,
+  setSelectedPrescriptionId: (id) => set({ selectedPrescriptionId: id }),
+  selectedAppointmentId: null,
+  setSelectedAppointmentId: (id) => set({ selectedAppointmentId: id }),
+  unreadNotificationCount: 0,
+  setUnreadNotificationCount: (count) => set({ unreadNotificationCount: count }),
 }))
