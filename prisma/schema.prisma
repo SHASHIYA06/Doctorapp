@@ -1,13 +1,17 @@
+// ================================================================
 // Clinician-Governed Multi-Modality Healthcare SaaS
-// Three Care Tracks: ALLOPATHY, AYURVEDA, HOMEOPATHY
+// Three Care Tracks: ALLOPATHY, AYURVEDA, HOMEOPATHY (NEVER MERGED)
+// Database: PostgreSQL (Neon Serverless)
+// ================================================================
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ============================================================
@@ -15,44 +19,44 @@ datasource db {
 // ============================================================
 
 model Tenant {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique
-  jurisdiction String  @default("IN")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  jurisdiction String   @default("IN")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  users       User[]
-  patients    Patient[]
-  practitioners Practitioner[]
+  users            User[]
+  patients         Patient[]
+  practitioners    Practitioner[]
   knowledgeSources KnowledgeSource[]
-  auditEvents AuditEvent[]
+  auditEvents      AuditEvent[]
 }
 
 model Role {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  permissions String   // JSON array of permission strings
+  permissions String   // JSON array
   createdAt   DateTime @default(now())
 
   users User[]
 }
 
 model User {
-  id         String   @id @default(cuid())
-  tenantId   String
-  email      String
-  name       String
-  role       String   @default("PATIENT") // PATIENT, CLINICIAN, ADMIN, KNOWLEDGE_CURATOR, SAFETY_REVIEWER
-  roleId     String?
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  name      String
+  role      String   @default("PATIENT")
+  roleId    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  roleRef    Role?    @relation(fields: [roleId], references: [id])
+  tenant  Tenant @relation(fields: [tenantId], references: [id])
+  roleRef Role?  @relation(fields: [roleId], references: [id])
 
   @@unique([tenantId, email])
 }
@@ -62,18 +66,18 @@ model User {
 // ============================================================
 
 model Practitioner {
-  id              String   @id @default(cuid())
-  tenantId        String
-  userId          String?
-  name            String
-  specialization  String
-  modality        String   @default("ALLOPATHY") // ALLOPATHY, AYURVEDA, HOMEOPATHY
-  licenseNumber   String?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String?
+  name           String
+  specialization String
+  modality       String   @default("ALLOPATHY")
+  licenseNumber  String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
   encounters     Encounter[]
   signedCarePlans SignedCarePlan[]
 }
@@ -83,34 +87,34 @@ model Practitioner {
 // ============================================================
 
 model Patient {
-  id            String   @id @default(cuid())
-  tenantId      String
-  userId        String?
-  firstName     String
-  lastName      String
-  dateOfBirth   String?
-  gender        String?
-  phone         String?
-  email         String?
-  address       String?   // JSON
-  bloodGroup    String?
-  emergencyContact String? // JSON
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String?
+  firstName        String
+  lastName         String
+  dateOfBirth      String?
+  gender           String?
+  phone            String?
+  email            String?
+  address          String?
+  bloodGroup       String?
+  emergencyContact String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  consents      Consent[]
-  encounters    Encounter[]
-  allergies     Allergy[]
+  tenant              Tenant              @relation(fields: [tenantId], references: [id])
+  consents            Consent[]
+  encounters          Encounter[]
+  allergies           Allergy[]
   medicationStatements MedicationStatement[]
-  symptoms      Symptom[]
-  conditions    Condition[]
-  safetyAlerts  SafetyAlert[]
-  clinicalDrafts ClinicalDraft[]
-  signedCarePlans SignedCarePlan[]
-  followUps     FollowUp[]
-  adverseEvents AdverseEvent[]
+  symptoms            Symptom[]
+  conditions          Condition[]
+  safetyAlerts        SafetyAlert[]
+  clinicalDrafts      ClinicalDraft[]
+  signedCarePlans     SignedCarePlan[]
+  followUps           FollowUp[]
+  adverseEvents       AdverseEvent[]
 }
 
 // ============================================================
@@ -118,19 +122,19 @@ model Patient {
 // ============================================================
 
 model Consent {
-  id          String   @id @default(cuid())
-  patientId   String
-  type        String   // TREATMENT, DATA_SHARING, AI_ASSISTED, RESEARCH
-  modality    String   @default("ALLOPATHY")
-  status      String   @default("PENDING") // PENDING, GRANTED, REVOKED, EXPIRED
-  grantedAt   DateTime?
-  revokedAt   DateTime?
-  expiresAt   DateTime?
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  patientId String
+  type      String    // TREATMENT, DATA_SHARING, AI_ASSISTED, RESEARCH
+  modality  String    @default("ALLOPATHY")
+  status    String    @default("PENDING")
+  grantedAt DateTime?
+  revokedAt DateTime?
+  expiresAt DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 // ============================================================
@@ -138,40 +142,40 @@ model Consent {
 // ============================================================
 
 model Encounter {
-  id              String   @id @default(cuid())
-  patientId       String
-  practitionerId  String?
-  tenantId        String
-  modality        String   @default("ALLOPATHY")
-  status          String   @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
-  priority        String   @default("ROUTINE") // EMERGENCY, URGENT, ROUTINE
-  reason          String?
-  startedAt       DateTime?
-  endedAt         DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String    @id @default(cuid())
+  patientId      String
+  practitionerId String?
+  tenantId       String
+  modality       String    @default("ALLOPATHY")
+  status         String    @default("PLANNED")
+  priority       String    @default("ROUTINE")
+  reason         String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  patient         Patient  @relation(fields: [patientId], references: [id])
-  practitioner    Practitioner? @relation(fields: [practitionerId], references: [id])
-  intake          Intake?
+  patient          Patient          @relation(fields: [patientId], references: [id])
+  practitioner     Practitioner?    @relation(fields: [practitionerId], references: [id])
+  intake           Intake?
   triageAssessment TriageAssessment?
-  clinicalDrafts  ClinicalDraft[]
+  clinicalDrafts   ClinicalDraft[]
 }
 
 // ============================================================
-// INTAKE (Symptom capture)
+// INTAKE
 // ============================================================
 
 model Intake {
-  id            String   @id @default(cuid())
-  encounterId   String   @unique
-  chiefComplaint String
+  id                      String   @id @default(cuid())
+  encounterId             String   @unique
+  chiefComplaint          String
   historyOfPresentIllness String?
-  reviewOfSystems String?  // JSON
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  reviewOfSystems         String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  encounter     Encounter @relation(fields: [encounterId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
 }
 
 // ============================================================
@@ -183,56 +187,56 @@ model Symptom {
   patientId   String
   encounterId String?
   name        String
-  severity    String   @default("MODERATE") // MILD, MODERATE, SEVERE
+  severity    String   @default("MODERATE")
   onset       String?
   duration    String?
   notes       String?
   createdAt   DateTime @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 model Condition {
-  id          String   @id @default(cuid())
-  patientId   String
-  code        String   // ICD-10 or modality-specific code
-  name        String
-  modality    String   @default("ALLOPATHY")
-  status      String   @default("ACTIVE") // ACTIVE, RESOLVED, CHRONIC
-  onsetDate   String?
-  notes       String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  patientId String
+  code      String
+  name      String
+  modality  String   @default("ALLOPATHY")
+  status    String   @default("ACTIVE")
+  onsetDate String?
+  notes     String?
+  createdAt DateTime @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 model Allergy {
-  id          String   @id @default(cuid())
-  patientId   String
-  substance   String
-  reaction    String?
-  severity    String   @default("MODERATE") // MILD, MODERATE, SEVERE, LIFE_THREATENING
-  verified    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  patientId String
+  substance String
+  reaction  String?
+  severity  String   @default("MODERATE")
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 model MedicationStatement {
-  id          String   @id @default(cuid())
-  patientId   String
-  medication  String
-  dosage      String?
-  frequency   String?
-  route       String?
-  startDate   String?
-  endDate     String?
-  modality    String   @default("ALLOPATHY")
-  isActive    Boolean  @default(true)
-  notes       String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  patientId String
+  medication String
+  dosage    String?
+  frequency String?
+  route     String?
+  startDate String?
+  endDate   String?
+  modality  String   @default("ALLOPATHY")
+  isActive  Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 // ============================================================
@@ -240,42 +244,42 @@ model MedicationStatement {
 // ============================================================
 
 model TriageRule {
-  id          String   @id @default(cuid())
-  name        String
-  modality    String   @default("ALLOPATHY")
-  condition   String   // JSON condition spec
-  priority    String   // EMERGENCY, URGENT, ROUTINE
-  action      String   // ESCALATE, QUEUE, NOTIFY
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  modality  String   @default("ALLOPATHY")
+  condition String
+  priority  String
+  action    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 model TriageAssessment {
   id          String   @id @default(cuid())
   encounterId String   @unique
-  priority    String   @default("ROUTINE") // EMERGENCY, URGENT, ROUTINE
-  ruleIds     String?  // JSON array of triggered rule IDs
+  priority    String   @default("ROUTINE")
+  ruleIds     String?
   reasoning   String?
   assessedAt  DateTime @default(now())
 
-  encounter   Encounter @relation(fields: [encounterId], references: [id])
+  encounter Encounter @relation(fields: [encounterId], references: [id])
 }
 
 model SafetyAlert {
-  id          String   @id @default(cuid())
-  patientId   String
-  encounterId String?
-  type        String   // ALLERGY, INTERACTION, CONTRAINDICATION, RED_FLAG, DOSAGE, RECALL
-  severity    String   @default("WARNING") // INFO, WARNING, CRITICAL, EMERGENCY
-  message     String
-  source      String   // DETERMINISTIC, AI, MANUAL
-  status      String   @default("ACTIVE") // ACTIVE, ACKNOWLEDGED, RESOLVED
-  acknowledgedBy String?
-  acknowledgedAt DateTime?
-  metadata    String?  // JSON
-  createdAt   DateTime @default(now())
+  id              String    @id @default(cuid())
+  patientId       String
+  encounterId     String?
+  type            String
+  severity        String    @default("WARNING")
+  message         String
+  source          String
+  status          String    @default("ACTIVE")
+  acknowledgedBy  String?
+  acknowledgedAt  DateTime?
+  metadata        String?
+  createdAt       DateTime  @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 // ============================================================
@@ -292,57 +296,57 @@ model CareTrack {
 }
 
 model ClinicalDraft {
-  id            String   @id @default(cuid())
-  patientId     String
-  encounterId   String?
+  id             String    @id @default(cuid())
+  patientId      String
+  encounterId    String?
   practitionerId String?
-  modality      String   @default("ALLOPATHY")
-  content       String   // JSON - the draft care plan
-  aiGenerated   Boolean  @default(false)
-  citations     String?  // JSON array of citation objects
-  safetyFlags   String?  // JSON array of safety flag IDs
-  status        String   @default("DRAFT") // DRAFT, UNDER_REVIEW, SIGNED, REJECTED
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  reviewNotes   String?
-  signedBy      String?
-  signedAt      DateTime?
-  version       Int      @default(1)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  modality       String    @default("ALLOPATHY")
+  content        String
+  aiGenerated    Boolean   @default(false)
+  citations      String?
+  safetyFlags    String?
+  status         String    @default("DRAFT")
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  signedBy       String?
+  signedAt       DateTime?
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  patient       Patient  @relation(fields: [patientId], references: [id])
-  encounter     Encounter? @relation(fields: [encounterId], references: [id])
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  encounter Encounter? @relation(fields: [encounterId], references: [id])
 }
 
 model SignedCarePlan {
-  id              String   @id @default(cuid())
-  patientId       String
-  practitionerId  String?
-  draftId         String?
-  modality        String   @default("ALLOPATHY")
-  content         String   // JSON - the signed care plan
-  patientSummary  String?  // Patient-safe version
-  signedBy        String
-  signedAt        DateTime @default(now())
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  patientId      String
+  practitionerId String?
+  draftId        String?
+  modality       String   @default("ALLOPATHY")
+  content        String
+  patientSummary String?
+  signedBy       String
+  signedAt       DateTime @default(now())
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
 
-  patient         Patient  @relation(fields: [patientId], references: [id])
-  practitioner    Practitioner? @relation(fields: [practitionerId], references: [id])
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  practitioner Practitioner? @relation(fields: [practitionerId], references: [id])
 }
 
 model FollowUp {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   patientId   String
   carePlanId  String?
-  type        String   // CHECKUP, LAB_REVIEW, MEDICATION_REVIEW, SYMPTOM_CHECK
+  type        String
   scheduledAt DateTime
-  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, MISSED, CANCELLED
+  status      String    @default("SCHEDULED")
   notes       String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 model AdverseEvent {
@@ -355,7 +359,7 @@ model AdverseEvent {
   reportedAt  DateTime @default(now())
   createdAt   DateTime @default(now())
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 }
 
 // ============================================================
@@ -363,39 +367,39 @@ model AdverseEvent {
 // ============================================================
 
 model KnowledgeSource {
-  id          String   @id @default(cuid())
-  tenantId    String
-  name        String
-  modality    String   @default("ALLOPATHY")
-  sourceType  String   // TEXTBOOK, GUIDELINE, MONOGRAPH, JOURNAL, PHARMACOPIA
-  evidenceLevel String? // APPROVED, REVIEWED, EXPERIMENTAL
-  jurisdiction String  @default("IN")
-  license     String?
-  sourceUrl   String?
-  reviewStatus String  @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED
-  reviewerId  String?
-  effectiveFrom DateTime?
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  modality       String    @default("ALLOPATHY")
+  sourceType     String
+  evidenceLevel  String?
+  jurisdiction   String    @default("IN")
+  license        String?
+  sourceUrl      String?
+  reviewStatus   String    @default("PENDING")
+  reviewerId     String?
+  effectiveFrom  DateTime?
   effectiveUntil DateTime?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
-  documents  SourceDocument[]
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  documents SourceDocument[]
 }
 
 model SourceDocument {
-  id              String   @id @default(cuid())
-  sourceId        String
-  title           String
-  content         String
-  version         Int      @default(1)
-  metadata        String?  // JSON
-  chunkCount      Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(cuid())
+  sourceId   String
+  title      String
+  content    String
+  version    Int      @default(1)
+  metadata   String?
+  chunkCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  source          KnowledgeSource @relation(fields: [sourceId], references: [id])
+  source KnowledgeSource @relation(fields: [sourceId], references: [id])
 }
 
 // ============================================================
@@ -403,49 +407,47 @@ model SourceDocument {
 // ============================================================
 
 model Supplier {
-  id          String   @id @default(cuid())
-  name        String
+  id            String   @id @default(cuid())
+  name          String
   licenseNumber String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
-  products    Product[]
+  products Product[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  name        String
-  modality    String   @default("ALLOPATHY")
-  supplierId  String?
-  sku         String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String
+  modality   String   @default("ALLOPATHY")
+  supplierId String?
+  sku        String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
-  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
 }
-
-
 
 // ============================================================
 // AUDIT
 // ============================================================
 
 model AuditEvent {
-  id            String   @id @default(cuid())
-  tenantId      String
-  actorId       String?
-  actorRole     String?
-  patientId     String?
-  encounterId   String?
-  action        String
-  resourceType  String
-  resourceId    String?
-  outcome       String   @default("SUCCESS") // SUCCESS, FAILURE, BLOCKED
-  reason        String?
-  metadata      String?  // JSON
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  tenantId     String
+  actorId      String?
+  actorRole    String?
+  patientId    String?
+  encounterId  String?
+  action       String
+  resourceType String
+  resourceId   String?
+  outcome      String   @default("SUCCESS")
+  reason       String?
+  metadata     String?
+  createdAt    DateTime @default(now())
 
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 }
 
 // ============================================================
@@ -453,14 +455,14 @@ model AuditEvent {
 // ============================================================
 
 model VoiceSession {
-  id            String   @id @default(cuid())
-  patientId     String?
-  encounterId   String?
-  transcript    String?  // JSON
-  status        String   @default("ACTIVE") // ACTIVE, ENDED, HANDOFF
-  handoffTo     String?  // Clinician ID for handoff
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id         String   @id @default(cuid())
+  patientId  String?
+  encounterId String?
+  transcript String?
+  status     String   @default("ACTIVE")
+  handoffTo  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ============================================================
@@ -468,14 +470,402 @@ model VoiceSession {
 // ============================================================
 
 model Appointment {
+  id             String    @id @default(cuid())
+  patientId      String
+  practitionerId String?
+  scheduledAt    DateTime
+  duration       Int       @default(30)
+  modality       String    @default("ALLOPATHY")
+  status         String    @default("SCHEDULED")
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ============================================================
+// HEALTH ISSUE TAXONOMY
+// Hierarchical: Body System → Clinical Domain → Symptom Group → Issue → Subtype
+// ============================================================
+
+model HealthIssue {
   id              String   @id @default(cuid())
-  patientId       String
-  practitionerId  String?
-  scheduledAt     DateTime
-  duration        Int      @default(30) // minutes
-  modality        String   @default("ALLOPATHY")
-  status          String   @default("SCHEDULED") // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
-  notes           String?
+  code            String?  // ICD-10 or modality-specific code
+  name            String
+  description     String?
+  bodySystem      String   // RESPIRATORY, CARDIOVASCULAR, GASTROINTESTINAL, etc.
+  clinicalDomain  String   // General Medicine, Pulmonology, Cardiology, etc.
+  symptomGroup    String   // Cough, Chest Pain, Abdominal Pain, etc.
+  severity        String   @default("MODERATE") // MILD, MODERATE, SEVERE, CRITICAL
+  chronicity      String   @default("ACUTE") // ACUTE, CHRONIC, ACUTE_ON_CHRONIC
+  prevalence      String?  // RARE, UNCOMMON, COMMON, VERY_COMMON
+  isSubtype       Boolean  @default(false)
+  parentIssueId   String?
+  isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  aliases       HealthIssueAlias[]
+  translations  HealthIssueTranslation[]
+  wingApproaches HealthIssueWing[]
+  indications   MedicineIndication[]
+  patternIssues TreatmentPatternIssue[]
+}
+
+model HealthIssueAlias {
+  id         String   @id @default(cuid())
+  issueId    String
+  alias      String   // "pet dard", "stomach ache", "abd pain"
+  language   String   @default("en")
+  createdAt  DateTime @default(now())
+
+  issue HealthIssue @relation(fields: [issueId], references: [id])
+
+  @@index([alias])
+  @@index([language])
+}
+
+model HealthIssueTranslation {
+  id          String   @id @default(cuid())
+  issueId     String
+  language    String   // en, hi, bn, ta, te, mr, gu, kn, ml, pa, or, ur
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  issue HealthIssue @relation(fields: [issueId], references: [id])
+
+  @@unique([issueId, language])
+}
+
+model HealthIssueWing {
+  id                String   @id @default(cuid())
+  issueId           String
+  modality          String   // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  approach          String   // Brief clinical approach description
+  commonMedicines   String?  // JSON array of medicine IDs
+  lifestyleAdvice   String?
+  whenToSeeDoctor   String?
+  redFlags          String?  // JSON array of red flag symptoms
+  evidenceLevel     String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  issue HealthIssue @relation(fields: [issueId], references: [id])
+
+  @@unique([issueId, modality])
+}
+
+// ============================================================
+// MEDICINE KNOWLEDGE ENGINE (16 Sub-Models)
+// ============================================================
+
+model Medicine {
+  id              String   @id @default(cuid())
+  name            String
+  genericName     String?
+  modality        String   // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  category        String   // ANALGESIC, ANTIBIOTIC, ANTACID, HERB, DILUTION, etc.
+  subCategory     String?
+  form            String?  // TABLET, CAPSULE, SYRUP, INJECTION, CHURNA, KWATH, etc.
+  strength        String?  // "500mg", "30C", "200CH"
+  packSize        String?  // "10 tablets", "100ml"
+  manufacturer    String?
+  isGeneric       Boolean  @default(false)
+  isOTC           Boolean  @default(false) // Over the counter
+  isPrescription  Boolean  @default(true)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  brands            MedicineBrand[]
+  ingredients       MedicineIngredient[]
+  indications       MedicineIndication[]
+  contraindications MedicineContraindication[]
+  interactions      MedicineInteraction[]
+  warnings          MedicineWarning[]
+  sideEffects       MedicineSideEffect[]
+  ageRules          MedicineAgeRule[]
+  populationRules   MedicinePopulationRule[]
+  timingRules       MedicineTimingRule[]
+  foodInstructions  MedicineFoodInstruction[]
+  durationRules     MedicineDurationRule[]
+  monitoringRules   MedicineMonitoringRule[]
+  recalls           MedicineRecall[]
+  reviews           MedicineReview[]
+  treatmentPatterns MedicineTreatmentPattern[]
+}
+
+model MedicineBrand {
+  id          String   @id @default(cuid())
+  medicineId  String
+  brandName   String
+  manufacturer String
+  mrp         Float?
+  packSize    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineIngredient {
+  id          String   @id @default(cuid())
+  medicineId  String
+  ingredient  String
+  quantity    String?  // "500mg", "10mg", "2 drops"
+  role        String   @default("ACTIVE") // ACTIVE, EXCIPIENT, PRESERVATIVE, FLAVOURING
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineIndication {
+  id              String   @id @default(cuid())
+  medicineId      String
+  issueId         String?
+  indication      String   // "Relief of headache", "Treatment of hypertension"
+  whyToUse        String?  // Clinical reasoning for this indication
+  whenToUse       String?  // When this medicine is appropriate vs alternatives
+  howToUseDaily   String?  // "Take 1 tablet twice daily after meals"
+  medianDose      String?  // "500mg 2-3 times daily"
+  duration        String?  // "5-7 days", "Until symptoms resolve"
+  priority        Int      @default(1) // 1=Primary, 2=Secondary, 3=Tertiary
+  evidenceLevel   String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+  createdAt       DateTime @default(now())
+
+  medicine Medicine    @relation(fields: [medicineId], references: [id])
+  issue    HealthIssue? @relation(fields: [issueId], references: [id])
+}
+
+model MedicineContraindication {
+  id                String   @id @default(cuid())
+  medicineId        String
+  contraindication  String   // "Pregnancy", "Peptic ulcer", "Hypersensitivity"
+  reason            String?  // Why this is contraindicated
+  severity          String   @default("ABSOLUTE") // ABSOLUTE, RELATIVE
+  population        String?  // PREGNANT, PEDIATRIC, ELDERLY, RENAL_IMPAIRMENT, HEPATIC_IMPAIRMENT
+  createdAt         DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineInteraction {
+  id                String   @id @default(cuid())
+  medicineId        String
+  interactingWith   String   // Medicine name or class
+  interactionType   String   // DRUG_DRUG, DRUG_FOOD, DRUG_DISEASE, DRUG_HERB
+  severity          String   @default("MODERATE") // MINOR, MODERATE, MAJOR, SEVERE
+  effect            String   // "Increased risk of bleeding", "Reduced efficacy"
+  recommendation    String?  // "Avoid combination", "Monitor closely"
+  mechanism         String?  // Pharmacological mechanism
+  createdAt         DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineWarning {
+  id          String   @id @default(cuid())
+  medicineId  String
+  warning     String
+  category    String   // BLACK_BOX, PRESCRIBING, PATIENT, PREGNANCY, LACTATION
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineSideEffect {
+  id          String   @id @default(cuid())
+  medicineId  String
+  sideEffect  String
+  frequency   String?  // VERY_COMMON, COMMON, UNCOMMON, RARE, VERY_RARE
+  severity    String   @default("MILD") // MILD, MODERATE, SEVERE, LIFE_THREATENING
+  isReversible Boolean @default(true)
+  management  String?  // "Take with food", "Reduce dose"
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineAgeRule {
+  id           String   @id @default(cuid())
+  medicineId   String
+  minAge       Int?     // in months
+  maxAge       Int?     // in months
+  ageGroup     String?  // NEONATE, INFANT, CHILD, ADOLESCENT, ADULT, ELDERLY
+  doseAdjustment String? // "Half adult dose", "0.1mg/kg"
+  caution      String?
+  isContraindicated Boolean @default(false)
+  createdAt    DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicinePopulationRule {
+  id           String   @id @default(cuid())
+  medicineId   String
+  population   String   // PREGNANT, LACTATING, RENAL_IMPAIRMENT, HEPATIC_IMPAIRMENT, DIABETIC
+  safetyCategory String @default("CAUTION") // SAFE, CAUTION, AVOID, CONTRAINDICATED
+  trimester    String?  // FIRST, SECOND, THIRD (for pregnancy)
+  doseAdjustment String?
+  rationale    String?
+  createdAt    DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineTimingRule {
+  id          String   @id @default(cuid())
+  medicineId  String
+  timing      String   // BEFORE_MEAL, WITH_MEAL, AFTER_MEAL, EMPTY_STOMACH, BEDTIME
+  instruction String?  // "Take 30 minutes before food"
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineFoodInstruction {
+  id          String   @id @default(cuid())
+  medicineId  String
+  food        String   // "Milk", "Grapefruit juice", "Alcohol"
+  instruction String   // AVOID, TAKE_WITH, SEPARATE_BY_2H
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineDurationRule {
+  id             String   @id @default(cuid())
+  medicineId     String
+  minDuration    String?  // "3 days"
+  maxDuration    String?  // "14 days"
+  defaultDuration String? // "7 days"
+  condition      String?  // "Acute infection", "Chronic management"
+  reviewBy       String?  // "Review after 5 days"
+  createdAt      DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineMonitoringRule {
+  id             String   @id @default(cuid())
+  medicineId     String
+  parameter      String   // "Liver function", "Kidney function", "Blood glucose"
+  frequency      String?  // "Before starting", "Every 3 months", "Weekly for first month"
+  threshold      String?  // "ALT > 3x ULN"
+  action         String?  // "Discontinue", "Reduce dose", "Refer to specialist"
+  createdAt      DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineRecall {
+  id          String    @id @default(cuid())
+  medicineId  String
+  batchNumber String?
+  reason      String
+  severity    String    @default("MODERATE")
+  initiatedBy String?
+  recallDate  DateTime  @default(now())
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model MedicineReview {
+  id          String   @id @default(cuid())
+  medicineId  String
+  reviewerId  String?
+  reviewerName String?
+  rating      Int?     // 1-5
+  efficacy    String?  // EXCELLENT, GOOD, MODERATE, POOR
+  safety      String?  // EXCELLENT, GOOD, MODERATE, POOR
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+// ============================================================
+// TREATMENT PATTERNS & CLINICAL CONSENSUS
+// ============================================================
+
+model TreatmentPattern {
+  id              String   @id @default(cuid())
+  name            String
+  modality        String
+  description     String?
+  frequency       Int      @default(0) // How often this pattern is used
+  evidenceLevel   String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  medicines MedicineTreatmentPattern[]
+  issues    TreatmentPatternIssue[]
+}
+
+model MedicineTreatmentPattern {
+  id               String   @id @default(cuid())
+  treatmentPatternId String
+  medicineId       String
+  sequence         Int      @default(1)
+  isPrimary        Boolean  @default(false)
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  treatmentPattern TreatmentPattern @relation(fields: [treatmentPatternId], references: [id])
+  medicine         Medicine         @relation(fields: [medicineId], references: [id])
+
+  @@unique([treatmentPatternId, medicineId])
+}
+
+model TreatmentPatternIssue {
+  id               String   @id @default(cuid())
+  treatmentPatternId String
+  issueId          String
+  relevance        Int      @default(5) // 1-10 relevance score
+  createdAt        DateTime @default(now())
+
+  treatmentPattern TreatmentPattern @relation(fields: [treatmentPatternId], references: [id])
+  issue            HealthIssue      @relation(fields: [issueId], references: [id])
+
+  @@unique([treatmentPatternId, issueId])
+}
+
+// ============================================================
+// AI CONTEXT & DECISION TRACES
+// ============================================================
+
+model AIContextPacket {
+  id              String   @id @default(cuid())
+  patientId       String?
+  encounterId     String?
+  issueId         String?
+  modality        String   @default("ALLOPATHY")
+  contextType     String   // SYMPTOM_ANALYSIS, DRUG_RECOMMENDATION, SAFETY_CHECK, DIFFERENTIAL
+  inputSummary    String   // JSON - what went into the AI
+  outputSummary   String   // JSON - what the AI produced
+  evidenceCited   String?  // JSON array of evidence references
+  confidenceScore Float?
+  safetyFlags     String?  // JSON
+  createdAt       DateTime @default(now())
+
+  decisionTraces AIDecisionTrace[]
+}
+
+model AIDecisionTrace {
+  id              String   @id @default(cuid())
+  contextPacketId String
+  step            Int
+  decisionType    String   // RETRIEVAL, REASONING, FILTERING, RANKING, SAFETY_CHECK
+  input           String   // JSON
+  output          String   // JSON
+  reasoning       String?  // Human-readable explanation
+  duration        Int?     // ms
+  createdAt       DateTime @default(now())
+
+  contextPacket AIContextPacket @relation(fields: [contextPacketId], references: [id])
 }

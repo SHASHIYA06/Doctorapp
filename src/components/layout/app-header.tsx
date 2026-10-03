@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Stethoscope } from 'lucide-react'
+import { Bell, Stethoscope, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useAppStore, type Modality, type Role } from '@/lib/store'
+import { useAppStore, type Modality, type Role, type Language, LANGUAGE_LABELS } from '@/lib/store'
 
 const modalityColors: Record<Modality, string> = {
   ALLOPATHY: 'bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800',
@@ -35,6 +35,8 @@ export function AppHeader() {
     setActiveModality,
     activeRole,
     setActiveRole,
+    activeLanguage,
+    setActiveLanguage,
     notificationCount,
   } = useAppStore()
 
@@ -75,6 +77,30 @@ export function AppHeader() {
           </Button>
         ))}
       </div>
+
+      {/* Language Selector */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 gap-1.5">
+            <Globe className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline text-xs">{LANGUAGE_LABELS[activeLanguage]}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          {(Object.entries(LANGUAGE_LABELS) as [Language, string][]).map(([code, label]) => (
+            <DropdownMenuItem
+              key={code}
+              onClick={() => setActiveLanguage(code)}
+              className={activeLanguage === code ? 'font-semibold bg-accent' : ''}
+            >
+              <span className="flex-1">{label}</span>
+              {activeLanguage === code && (
+                <Badge variant="secondary" className="text-[9px] px-1 ml-1">{code}</Badge>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Role Switcher */}
       <DropdownMenu>

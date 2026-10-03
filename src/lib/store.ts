@@ -5,6 +5,10 @@ import { create } from 'zustand'
 export type Section =
   | 'dashboard'
   | 'patients'
+  | 'health-issues'
+  | 'medicines'
+  | 'symptom-checker'
+  | 'drug-interactions'
   | 'consent'
   | 'intake'
   | 'safety'
@@ -18,25 +22,42 @@ export type Modality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
 
 export type Role = 'PATIENT' | 'CLINICIAN' | 'ADMIN'
 
+export type Language = 'en' | 'hi' | 'bn' | 'ta' | 'te' | 'mr' | 'gu' | 'kn' | 'ml' | 'pa' | 'or' | 'ur'
+
+export const LANGUAGE_LABELS: Record<Language, string> = {
+  en: 'English',
+  hi: 'हिन्दी',
+  bn: 'বাংলা',
+  ta: 'தமிழ்',
+  te: 'తెలుగు',
+  mr: 'मराठी',
+  gu: 'ગુજરાતી',
+  kn: 'ಕನ್ನಡ',
+  ml: 'മലയാളം',
+  pa: 'ਪੰਜਾਬੀ',
+  or: 'ଓଡ଼ିଆ',
+  ur: 'اردو',
+}
+
 interface AppState {
   activeSection: Section
   setActiveSection: (section: Section) => void
-
   activeModality: Modality
   setActiveModality: (modality: Modality) => void
-
   activeRole: Role
   setActiveRole: (role: Role) => void
-
+  activeLanguage: Language
+  setActiveLanguage: (lang: Language) => void
   selectedPatientId: string | null
   setSelectedPatientId: (id: string | null) => void
-
   selectedEncounterId: string | null
   setSelectedEncounterId: (id: string | null) => void
-
+  selectedIssueId: string | null
+  setSelectedIssueId: (id: string | null) => void
+  selectedMedicineId: string | null
+  setSelectedMedicineId: (id: string | null) => void
   notificationCount: number
   setNotificationCount: (count: number) => void
-
   sidebarCollapsed: boolean
   setSidebarCollapsed: (collapsed: boolean) => void
 }
@@ -44,22 +65,22 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   activeSection: 'dashboard',
   setActiveSection: (section) => set({ activeSection: section }),
-
   activeModality: 'ALLOPATHY',
   setActiveModality: (modality) => set({ activeModality: modality }),
-
   activeRole: 'CLINICIAN',
   setActiveRole: (role) => set({ activeRole: role }),
-
+  activeLanguage: 'en',
+  setActiveLanguage: (lang) => set({ activeLanguage: lang }),
   selectedPatientId: null,
   setSelectedPatientId: (id) => set({ selectedPatientId: id }),
-
   selectedEncounterId: null,
   setSelectedEncounterId: (id) => set({ selectedEncounterId: id }),
-
+  selectedIssueId: null,
+  setSelectedIssueId: (id) => set({ selectedIssueId: id }),
+  selectedMedicineId: null,
+  setSelectedMedicineId: (id) => set({ selectedMedicineId: id }),
   notificationCount: 3,
   setNotificationCount: (count) => set({ notificationCount: count }),
-
   sidebarCollapsed: false,
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 }))
