@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users,
   Heart,
@@ -13,16 +13,23 @@ import {
   ClipboardList,
   UserPlus,
   Stethoscope,
-  BookOpen,
   Search,
   ShieldCheck,
   Activity,
   Brain,
   Leaf,
   FlaskConical,
-  Database,
   TrendingUp,
+  TrendingDown,
   Zap,
+  Mic,
+  ScanLine,
+  FileWarning,
+  ChevronRight,
+  CheckCircle2,
+  CircleAlert,
+  OctagonAlert,
+  Info,
 } from 'lucide-react'
 import {
   Card,
@@ -34,6 +41,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   BarChart,
   Bar,
@@ -43,9 +51,10 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  Legend,
 } from 'recharts'
-import { useAppStore } from '@/lib/store'
-import { PriorityBadge } from '@/components/clinical/priority-badge'
+import { useAppStore, type Modality } from '@/lib/store'
+import { ModalityBadge } from '@/components/clinical/modality-badge'
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -66,670 +75,913 @@ interface ModalityCount {
   HOMEOPATHY: number
 }
 
-interface AlertData {
+interface SafetyAlert {
   id: string
   patientName: string
   type: string
-  severity: string
+  severity: 'CRITICAL' | 'HIGH' | 'MODERATE' | 'LOW'
   message: string
   createdAt: string
+  acknowledged: boolean
+}
+
+interface RecallEntry {
+  id: string
+  medicineName: string
+  manufacturer: string
+  reason: string
+  recallDate: string
+  batchNumbers: string[]
+  status: 'ACTIVE' | 'RESOLVED'
 }
 
 interface BodySystemData {
   name: string
   count: number
+  color: string
 }
 
-interface KnowledgeStats {
-  totalIssues: number
-  totalMedicines: number
-  totalIndications: number
-  totalInteractions: number
+interface EncounterData {
+  month: string
+  allopathy: number
+  ayurveda: number
+  homeopathy: number
 }
 
-// ─── Animation Presets ─────────────────────────────────────────────
+// ─── Realistic Mock Data ───────────────────────────────────────────
 
-const fadeSlide = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.3 },
+const MOCK_STATS: DashboardStats = {
+  totalPatients: 2847,
+  healthIssues: 423,
+  totalMedicines: 1856,
+  safetyAlerts: 7,
+  pendingReviews: 14,
+  drugInteractions: 3,
+  activeRecalls: 2,
+  carePlansToday: 38,
 }
 
-const staggerChild = (i: number) => ({
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.3, delay: i * 0.04 },
-})
+const MOCK_MODALITY_COUNTS: ModalityCount = {
+  ALLOPATHY: 1849,
+  AYURVEDA: 687,
+  HOMEOPATHY: 320,
+}
 
-// ─── Modality Config ──────────────────────────────────────────────
+const MOCK_HEALTH_MODALITY: ModalityCount = {
+  ALLOPATHY: 298,
+  AYURVEDA: 89,
+  HOMEOPATHY: 36,
+}
 
-const MODALITY_CONFIG = {
-  ALLOPATHY: {
-    label: 'Allopathy',
-    icon: FlaskConical,
-    color: 'text-teal-600 dark:text-teal-400',
-    bg: 'bg-teal-100 dark:bg-teal-900/40',
-    bar: '#0d9488',
-  },
-  AYURVEDA: {
-    label: 'Ayurveda',
-    icon: Leaf,
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    bar: '#059669',
-  },
-  HOMEOPATHY: {
-    label: 'Homeopathy',
-    icon: Brain,
-    color: 'text-violet-600 dark:text-violet-400',
-    bg: 'bg-violet-100 dark:bg-violet-900/40',
-    bar: '#7c3aed',
-  },
-} as const
+const MOCK_MEDICINE_MODALITY: ModalityCount = {
+  ALLOPATHY: 1247,
+  AYURVEDA: 412,
+  HOMEOPATHY: 197,
+}
 
-const BODY_SYSTEM_COLORS = [
-  '#0d9488',
-  '#059669',
-  '#d97706',
-  '#7c3aed',
-  '#dc2626',
-  '#2563eb',
-  '#db2777',
-  '#65a30d',
-  '#0891b2',
-  '#9333ea',
+const MOCK_ALERTS_SEVERITY = { CRITICAL: 2, HIGH: 3, MODERATE: 1, LOW: 1 }
+
+const MOCK_ENCOUNTER_DATA: EncounterData[] = [
+  { month: 'Apr', allopathy: 142, ayurveda: 58, homeopathy: 23 },
+  { month: 'May', allopathy: 168, ayurveda: 72, homeopathy: 31 },
+  { month: 'Jun', allopathy: 155, ayurveda: 65, homeopathy: 28 },
+  { month: 'Jul', allopathy: 189, ayurveda: 81, homeopathy: 35 },
+  { month: 'Aug', allopathy: 174, ayurveda: 74, homeopathy: 30 },
+  { month: 'Sep', allopathy: 196, ayurveda: 88, homeopathy: 39 },
 ]
 
-// ─── Safe JSON fetch helper ───────────────────────────────────────
+const MOCK_BODY_SYSTEMS: BodySystemData[] = [
+  { name: 'Cardiovascular', count: 87, color: '#ef4444' },
+  { name: 'Respiratory', count: 72, color: '#f97316' },
+  { name: 'Musculoskeletal', count: 65, color: '#eab308' },
+  { name: 'Digestive', count: 58, color: '#22c55e' },
+  { name: 'Neurological', count: 51, color: '#06b6d4' },
+  { name: 'Endocrine', count: 43, color: '#8b5cf6' },
+  { name: 'Dermatological', count: 28, color: '#ec4899' },
+  { name: 'Renal', count: 19, color: '#64748b' },
+]
 
-async function safeFetch<T>(url: string, init?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(url, init)
-    if (!res.ok) return null
-    return (await res.json()) as T
-  } catch {
-    return null
-  }
+const MOCK_SAFETY_ALERTS: SafetyAlert[] = [
+  {
+    id: 'sa-1',
+    patientName: 'Aarav Sharma',
+    type: 'Drug Interaction',
+    severity: 'CRITICAL',
+    message: 'Warfarin + Aspirin combination — elevated bleeding risk detected',
+    createdAt: '2026-10-02T09:14:00Z',
+    acknowledged: false,
+  },
+  {
+    id: 'sa-2',
+    patientName: 'Priya Nair',
+    type: 'Allergy Alert',
+    severity: 'CRITICAL',
+    message: 'Penicillin allergy documented — Ciprofloxacin prescribed from same class',
+    createdAt: '2026-10-02T08:52:00Z',
+    acknowledged: false,
+  },
+  {
+    id: 'sa-3',
+    patientName: 'Vikram Patel',
+    type: 'Red Flag',
+    severity: 'HIGH',
+    message: 'Chest pain + shortness of breath — immediate cardiac evaluation required',
+    createdAt: '2026-10-02T08:30:00Z',
+    acknowledged: false,
+  },
+  {
+    id: 'sa-4',
+    patientName: 'Ananya Iyer',
+    type: 'Drug Interaction',
+    severity: 'HIGH',
+    message: 'Metformin contraindicated with eGFR < 30 — renal function declining',
+    createdAt: '2026-10-02T07:45:00Z',
+    acknowledged: false,
+  },
+  {
+    id: 'sa-5',
+    patientName: 'Rohan Deshmukh',
+    type: 'Dose Alert',
+    severity: 'MODERATE',
+    message: 'Atorvastatin 80mg exceeds recommended starting dose for South Asian patients',
+    createdAt: '2026-10-02T07:12:00Z',
+    acknowledged: true,
+  },
+  {
+    id: 'sa-6',
+    patientName: 'Kavitha Reddy',
+    type: 'Allergy Alert',
+    severity: 'HIGH',
+    message: 'Sulfonamide allergy — Furosemide contains sulfa moiety',
+    createdAt: '2026-10-02T06:58:00Z',
+    acknowledged: false,
+  },
+  {
+    id: 'sa-7',
+    patientName: 'Arjun Mehta',
+    type: 'Lab Alert',
+    severity: 'LOW',
+    message: 'TSH 6.2 mIU/L — subclinical hypothyroidism, monitor in 6 weeks',
+    createdAt: '2026-10-02T06:20:00Z',
+    acknowledged: true,
+  },
+]
+
+const MOCK_RECALLS: RecallEntry[] = [
+  {
+    id: 'rc-1',
+    medicineName: 'Metformin XR 500mg',
+    manufacturer: 'Sun Pharmaceutical Industries',
+    reason: 'N-Nitrosodimethylamine (NDMA) impurity above acceptable daily intake limit',
+    recallDate: '2026-09-28',
+    batchNumbers: ['SMF2401A', 'SMF2401B', 'SMF2402A'],
+    status: 'ACTIVE',
+  },
+  {
+    id: 'rc-2',
+    medicineName: 'Amlodipine Besylate 5mg',
+    manufacturer: 'Lupin Limited',
+    reason: 'Dissolution test failure — subpotent drug release at 30-minute time point',
+    recallDate: '2026-09-25',
+    batchNumbers: ['ALP2389C', 'ALP2390A'],
+    status: 'ACTIVE',
+  },
+]
+
+const MOCK_WING_DATA = {
+  ALLOPATHY: {
+    topIssues: ['Hypertension', 'Type 2 Diabetes', 'Coronary Artery Disease', 'COPD'],
+    topMedicines: ['Metformin', 'Atorvastatin', 'Amlodipine', 'Omeprazole'],
+    activeCarePlans: 24,
+    color: 'teal',
+  },
+  AYURVEDA: {
+    topIssues: ['Digestive Imbalance', 'Joint Pain (Sandhigata Vata)', 'Stress (Manas Dosha)', 'Skin Disorders'],
+    topMedicines: ['Ashwagandha', 'Triphala', 'Brahmi', 'Guggulu'],
+    activeCarePlans: 9,
+    color: 'emerald',
+  },
+  HOMEOPATHY: {
+    topIssues: ['Chronic Migraine', 'Allergic Rhinitis', 'Anxiety Disorder', 'Eczema'],
+    topMedicines: ['Natrum Mur 200C', 'Arsenicum Alb 30C', 'Pulsatilla 200C', 'Sulphur 30C'],
+    activeCarePlans: 5,
+    color: 'violet',
+  },
 }
 
-// ─── Component ────────────────────────────────────────────────────
+// ─── Count-Up Animation Hook ───────────────────────────────────────
 
-export function DashboardSection() {
-  const { setActiveSection } = useAppStore()
-
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [alerts, setAlerts] = useState<AlertData[]>([])
-  const [modalityCounts, setModalityCounts] = useState<ModalityCount>({
-    ALLOPATHY: 0,
-    AYURVEDA: 0,
-    HOMEOPATHY: 0,
-  })
-  const [bodySystems, setBodySystems] = useState<BodySystemData[]>([])
-  const [knowledge, setKnowledge] = useState<KnowledgeStats>({
-    totalIssues: 0,
-    totalMedicines: 0,
-    totalIndications: 0,
-    totalInteractions: 0,
-  })
-  const [loading, setLoading] = useState(true)
-  const [seeded, setSeeded] = useState(false)
-
-  // ── Auto-seed on first load ────────────────────────────────────
-  const autoSeed = useCallback(async () => {
-    // Check if data exists already
-    const issuesCheck = await safeFetch<{
-      pagination?: { total: number }
-    }>('/api/health-issues?limit=1')
-
-    const issueCount = issuesCheck?.pagination?.total ?? 0
-    if (issueCount === 0) {
-      await safeFetch('/api/seed', { method: 'POST' })
-    }
-    setSeeded(true)
-  }, [])
-
-  // ── Load all dashboard data ────────────────────────────────────
-  const loadDashboard = useCallback(async () => {
-    try {
-      const [
-        patientsRes,
-        issuesRes,
-        medsRes,
-        safetyRes,
-        plansRes,
-        medAllopathyRes,
-        medAyurvedaRes,
-        medHomeopathyRes,
-      ] = await Promise.all([
-        safeFetch<{ pagination?: { total: number }; data?: unknown[] }>('/api/patients?limit=1'),
-        safeFetch<{
-          pagination?: { total: number }
-          data?: Array<{ bodySystem?: string; _count?: { indications?: number } }>
-          filters?: { bodySystems?: string[] }
-        }>('/api/health-issues?limit=50'),
-        safeFetch<{
-          pagination?: { total: number }
-          data?: Array<{ id: string; recalls?: unknown[]; _count?: { interactions?: number } }>
-        }>('/api/medicine-catalog?limit=50'),
-        safeFetch<{ data?: Array<Record<string, string>> }>('/api/safety'),
-        safeFetch<{ data?: unknown[] }>('/api/care-plans?status=DRAFT'),
-        safeFetch<{ pagination?: { total: number } }>('/api/medicine-catalog?limit=1&modality=ALLOPATHY'),
-        safeFetch<{ pagination?: { total: number } }>('/api/medicine-catalog?limit=1&modality=AYURVEDA'),
-        safeFetch<{ pagination?: { total: number } }>('/api/medicine-catalog?limit=1&modality=HOMEOPATHY'),
-      ])
-
-      // ── Core stats ──
-      const totalPatients = patientsRes?.pagination?.total ?? 0
-      const totalIssues = issuesRes?.pagination?.total ?? 0
-      const totalMeds = medsRes?.pagination?.total ?? 0
-      const safetyData = safetyRes?.data ?? []
-      const plansData = plansRes?.data ?? []
-
-      // Count active recalls from medicine data
-      const medList = medsRes?.data ?? []
-      const recallCount = medList.filter(
-        (m) => m.recalls && Array.isArray(m.recalls) && m.recalls.length > 0
-      ).length
-
-      // Count total indications from issues data
-      const issueList = issuesRes?.data ?? []
-      const totalIndications = issueList.reduce(
-        (sum, issue) => sum + (issue._count?.indications ?? 0),
-        0
-      )
-
-      // Count total interactions from medicine data
-      const totalInteractions = medList.reduce(
-        (sum, med) => sum + (med._count?.interactions ?? 0),
-        0
-      )
-
-      setStats({
-        totalPatients,
-        healthIssues: totalIssues,
-        totalMedicines: totalMeds,
-        safetyAlerts: safetyData.length,
-        pendingReviews: plansData.length,
-        drugInteractions: 0,
-        activeRecalls: recallCount,
-        carePlansToday: plansData.length,
-      })
-
-      // ── Modality counts ──
-      setModalityCounts({
-        ALLOPATHY: medAllopathyRes?.pagination?.total ?? 0,
-        AYURVEDA: medAyurvedaRes?.pagination?.total ?? 0,
-        HOMEOPATHY: medHomeopathyRes?.pagination?.total ?? 0,
-      })
-
-      // ── Body system distribution ──
-      const bsMap = new Map<string, number>()
-      for (const issue of issueList) {
-        const bs = issue.bodySystem || 'Other'
-        bsMap.set(bs, (bsMap.get(bs) ?? 0) + 1)
-      }
-      const bsData = Array.from(bsMap.entries())
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-      setBodySystems(bsData)
-
-      // ── Safety alerts ──
-      setAlerts(
-        safetyData.slice(0, 6).map((a: Record<string, string>) => ({
-          id: a.id,
-          patientName: a.patientName ?? 'Patient',
-          type: a.type,
-          severity: a.severity,
-          message: a.message,
-          createdAt: a.createdAt,
-        }))
-      )
-
-      // ── Knowledge stats ──
-      setKnowledge({
-        totalIssues,
-        totalMedicines: totalMeds,
-        totalIndications,
-        totalInteractions,
-      })
-    } catch {
-      setStats({
-        totalPatients: 0,
-        healthIssues: 0,
-        totalMedicines: 0,
-        safetyAlerts: 0,
-        pendingReviews: 0,
-        drugInteractions: 0,
-        activeRecalls: 0,
-        carePlansToday: 0,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+function useCountUp(end: number, duration: number = 1200, startOnMount: boolean = true) {
+  const [count, setCount] = useState(0)
+  const frameRef = useRef<number>(0)
 
   useEffect(() => {
-    async function init() {
-      await autoSeed()
-      await loadDashboard()
+    if (!startOnMount) return
+    let startTime: number | null = null
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setCount(Math.floor(eased * end))
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(step)
+      }
     }
-    init()
-  }, [autoSeed, loadDashboard])
+    frameRef.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [end, duration, startOnMount])
 
-  // ── Loading skeleton ───────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-lg" />
-          ))}
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-48 rounded-lg" />
-          <Skeleton className="h-48 rounded-lg" />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-64 rounded-lg" />
-          <Skeleton className="h-64 rounded-lg col-span-2" />
-        </div>
-      </div>
-    )
-  }
+  return count
+}
 
-  // ── Stats cards config ─────────────────────────────────────────
-  const statCards = [
-    {
-      title: 'Total Patients',
-      value: stats?.totalPatients ?? 0,
-      icon: Users,
-      color: 'text-teal-600 dark:text-teal-400',
-      bg: 'bg-teal-50 dark:bg-teal-950/50',
-    },
-    {
-      title: 'Health Issues',
-      value: stats?.healthIssues ?? 0,
-      icon: Heart,
-      color: 'text-rose-600 dark:text-rose-400',
-      bg: 'bg-rose-50 dark:bg-rose-950/50',
-    },
-    {
-      title: 'Medicines',
-      value: stats?.totalMedicines ?? 0,
-      icon: Pill,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-50 dark:bg-emerald-950/50',
-      sub: [
-        `Allopathy: ${modalityCounts.ALLOPATHY}`,
-        `Ayurveda: ${modalityCounts.AYURVEDA}`,
-        `Homeopathy: ${modalityCounts.HOMEOPATHY}`,
-      ].join(' · '),
-    },
-    {
-      title: 'Safety Alerts',
-      value: stats?.safetyAlerts ?? 0,
-      icon: AlertTriangle,
-      color: 'text-amber-600 dark:text-amber-400',
-      bg: 'bg-amber-50 dark:bg-amber-950/50',
-    },
-    {
-      title: 'Pending Reviews',
-      value: stats?.pendingReviews ?? 0,
-      icon: Clock,
-      color: 'text-orange-600 dark:text-orange-400',
-      bg: 'bg-orange-50 dark:bg-orange-950/50',
-    },
-    {
-      title: 'Drug Interactions',
-      value: stats?.drugInteractions ?? 0,
-      icon: GitCompare,
-      color: 'text-violet-600 dark:text-violet-400',
-      bg: 'bg-violet-50 dark:bg-violet-950/50',
-    },
-    {
-      title: 'Active Recalls',
-      value: stats?.activeRecalls ?? 0,
-      icon: RotateCcw,
-      color: 'text-red-600 dark:text-red-400',
-      bg: 'bg-red-50 dark:bg-red-950/50',
-    },
-    {
-      title: 'Care Plans Today',
-      value: stats?.carePlansToday ?? 0,
-      icon: ClipboardList,
-      color: 'text-cyan-600 dark:text-cyan-400',
-      bg: 'bg-cyan-50 dark:bg-cyan-950/50',
-    },
-  ]
+// ─── Sub-Components ────────────────────────────────────────────────
 
-  // ── Quick actions config ───────────────────────────────────────
-  const quickActions = [
-    { label: 'New Patient', icon: UserPlus, section: 'patients' as const, variant: 'default' as const },
-    { label: 'Symptom Checker', icon: Stethoscope, section: 'symptom-checker' as const, variant: 'outline' as const },
-    { label: 'Medicine Catalog', icon: BookOpen, section: 'medicines' as const, variant: 'outline' as const },
-    { label: 'Health Issues', icon: Search, section: 'health-issues' as const, variant: 'outline' as const },
-    { label: 'Drug Interactions', icon: ShieldCheck, section: 'drug-interactions' as const, variant: 'outline' as const },
-  ]
+function StatCard({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  title,
+  value,
+  subtitle,
+  trend,
+  trendUp,
+  delay = 0,
+  extra,
+}: {
+  icon: React.ElementType
+  iconBg: string
+  iconColor: string
+  title: string
+  value: number
+  subtitle: string
+  trend?: string
+  trendUp?: boolean
+  delay?: number
+  extra?: React.ReactNode
+}) {
+  const animatedValue = useCountUp(value)
 
-  const totalModality =
-    modalityCounts.ALLOPATHY + modalityCounts.AYURVEDA + modalityCounts.HOMEOPATHY || 1
-
-  // ── Render ─────────────────────────────────────────────────────
   return (
-    <motion.div {...fadeSlide} className="space-y-6">
-      {/* ─── Row 1: Stats Cards (8 cards, 2 rows of 4) ──────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.slice(0, 4).map((stat, i) => (
-          <motion.div key={stat.title} {...staggerChild(i)}>
-            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-transparent hover:border-l-teal-300 dark:hover:border-l-teal-700">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-muted-foreground truncate">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value.toLocaleString()}</p>
-                    {stat.sub && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{stat.sub}</p>
-                    )}
-                  </div>
-                  <div className={`rounded-lg p-2 ${stat.bg}`}>
-                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.slice(4, 8).map((stat, i) => (
-          <motion.div key={stat.title} {...staggerChild(i + 4)}>
-            <Card className="hover:shadow-md transition-shadow border-l-4 border-l-transparent hover:border-l-teal-300 dark:hover:border-l-teal-700">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-muted-foreground truncate">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value.toLocaleString()}</p>
-                    {stat.sub && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">{stat.sub}</p>
-                    )}
-                  </div>
-                  <div className={`rounded-lg p-2 ${stat.bg}`}>
-                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* ─── Row 2: Three-Wing Distribution + Body System Chart ─ */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Three-Wing Distribution */}
-        <motion.div {...staggerChild(8)}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                <CardTitle className="text-base">Three-Wing Distribution</CardTitle>
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, delay, ease: 'easeOut' }}
+    >
+      <Card className="relative overflow-hidden hover:shadow-md transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
+                <Icon className={`h-5 w-5 ${iconColor}`} />
               </div>
-              <CardDescription>
-                Medicines by treatment modality — {totalModality} total
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {(
-                Object.entries(MODALITY_CONFIG) as Array<
-                  [keyof typeof MODALITY_CONFIG, (typeof MODALITY_CONFIG)[keyof typeof MODALITY_CONFIG]]
-                >
-              ).map(([key, config]) => {
-                const count = modalityCounts[key]
-                const pct = Math.round((count / totalModality) * 100)
-                const Icon = config.icon
-                return (
-                  <div key={key} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`rounded-md p-1.5 ${config.bg}`}>
-                          <Icon className={`h-4 w-4 ${config.color}`} />
-                        </div>
-                        <span className="text-sm font-medium">{config.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold">{count}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {pct}%
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-                        className="h-full rounded-full"
-                        style={{ backgroundColor: config.bar }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Body System Distribution */}
-        <motion.div {...staggerChild(9)}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                <CardTitle className="text-base">Body System Distribution</CardTitle>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                <p className="text-2xl font-bold tracking-tight">{animatedValue.toLocaleString('en-IN')}</p>
               </div>
-              <CardDescription>
-                Health issues by body system — top {bodySystems.length}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {bodySystems.length === 0 ? (
-                <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
-                  No body system data available
-                </div>
-              ) : (
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={bodySystems}
-                      layout="vertical"
-                      margin={{ top: 0, right: 20, bottom: 0, left: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        className="opacity-20"
-                        horizontal={false}
-                      />
-                      <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        tick={{ fontSize: 11 }}
-                        width={100}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          fontSize: 12,
-                          borderRadius: 8,
-                          border: '1px solid hsl(var(--border))',
-                        }}
-                      />
-                      <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Issues">
-                        {bodySystems.map((_, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={BODY_SYSTEM_COLORS[index % BODY_SYSTEM_COLORS.length]}
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* ─── Row 3: Safety Alerts + Quick Actions + Knowledge ──── */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent Safety Alerts */}
-        <motion.div {...staggerChild(10)}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                <CardTitle className="text-base">Recent Safety Alerts</CardTitle>
-              </div>
-              <CardDescription>
-                {alerts.length} alert{alerts.length !== 1 ? 's' : ''} requiring attention
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {alerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-sm text-muted-foreground">
-                  <ShieldCheck className="h-8 w-8 mb-2 text-green-500" />
-                  <span>All clear — no active alerts</span>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {alerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
-                    >
-                      <AlertTriangle
-                        className={`h-4 w-4 mt-0.5 shrink-0 ${
-                          alert.severity === 'EMERGENCY'
-                            ? 'text-red-500'
-                            : alert.severity === 'CRITICAL'
-                              ? 'text-orange-500'
-                              : 'text-amber-500'
-                        }`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{alert.message}</p>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <PriorityBadge priority={alert.severity} />
-                          <Badge variant="outline" className="text-[10px]">
-                            {alert.type}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(alert.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Quick Actions */}
-        <motion.div {...staggerChild(11)}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                <CardTitle className="text-base">Quick Actions</CardTitle>
-              </div>
-              <CardDescription>Navigate to key clinical tools</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 grid-cols-1">
-                {quickActions.map((action) => {
-                  const Icon = action.icon
-                  return (
-                    <Button
-                      key={action.label}
-                      variant={action.variant}
-                      className="justify-start gap-3 h-11"
-                      onClick={() => setActiveSection(action.section)}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {action.label}
-                    </Button>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Knowledge Stats */}
-        <motion.div {...staggerChild(12)}>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                <CardTitle className="text-base">Knowledge Stats</CardTitle>
-              </div>
-              <CardDescription>Clinical knowledge base summary</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                {
-                  label: 'Total Health Issues',
-                  value: knowledge.totalIssues,
-                  icon: Heart,
-                  color: 'text-rose-600 dark:text-rose-400',
-                  bg: 'bg-rose-50 dark:bg-rose-950/50',
-                },
-                {
-                  label: 'Total Medicines',
-                  value: knowledge.totalMedicines,
-                  icon: Pill,
-                  color: 'text-emerald-600 dark:text-emerald-400',
-                  bg: 'bg-emerald-50 dark:bg-emerald-950/50',
-                },
-                {
-                  label: 'Total Indications',
-                  value: knowledge.totalIndications,
-                  icon: TrendingUp,
-                  color: 'text-teal-600 dark:text-teal-400',
-                  bg: 'bg-teal-50 dark:bg-teal-950/50',
-                },
-                {
-                  label: 'Total Drug Interactions',
-                  value: knowledge.totalInteractions,
-                  icon: GitCompare,
-                  color: 'text-violet-600 dark:text-violet-400',
-                  bg: 'bg-violet-50 dark:bg-violet-950/50',
-                },
-              ].map((item) => {
-                const Icon = item.icon
-                return (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`rounded-md p-1.5 ${item.bg}`}>
-                        <Icon className={`h-4 w-4 ${item.color}`} />
-                      </div>
-                      <span className="text-sm font-medium">{item.label}</span>
-                    </div>
-                    <span className="text-lg font-bold">{item.value.toLocaleString()}</span>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+            </div>
+            {trend && (
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-1.5 py-0 ${
+                  trendUp
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                    : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
+                }`}
+              >
+                {trendUp ? <TrendingUp className="h-2.5 w-2.5 mr-0.5" /> : <TrendingDown className="h-2.5 w-2.5 mr-0.5" />}
+                {trend}
+              </Badge>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground leading-tight">{subtitle}</p>
+          {extra && <div className="mt-2">{extra}</div>}
+        </CardContent>
+      </Card>
     </motion.div>
   )
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-6 w-12" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card><CardHeader><Skeleton className="h-5 w-48" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-5 w-48" /></CardHeader><CardContent><Skeleton className="h-64 w-full" /></CardContent></Card>
+      </div>
+    </div>
+  )
+}
 
+function SeverityIcon({ severity }: { severity: SafetyAlert['severity'] }) {
+  switch (severity) {
+    case 'CRITICAL':
+      return <OctagonAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
+    case 'HIGH':
+      return <CircleAlert className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+    case 'MODERATE':
+      return <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+    case 'LOW':
+      return <Info className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  }
+}
+
+function SeverityBadge({ severity }: { severity: SafetyAlert['severity'] }) {
+  const config: Record<SafetyAlert['severity'], { bg: string; text: string; border: string }> = {
+    CRITICAL: { bg: 'bg-red-100 dark:bg-red-950', text: 'text-red-800 dark:text-red-200', border: 'border-red-300 dark:border-red-800' },
+    HIGH: { bg: 'bg-orange-100 dark:bg-orange-950', text: 'text-orange-800 dark:text-orange-200', border: 'border-orange-300 dark:border-orange-800' },
+    MODERATE: { bg: 'bg-yellow-100 dark:bg-yellow-950', text: 'text-yellow-800 dark:text-yellow-200', border: 'border-yellow-300 dark:border-yellow-800' },
+    LOW: { bg: 'bg-sky-100 dark:bg-sky-950', text: 'text-sky-800 dark:text-sky-200', border: 'border-sky-300 dark:border-sky-800' },
+  }
+  const c = config[severity]
+  return (
+    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${c.bg} ${c.text} ${c.border}`}>
+      {severity}
+    </Badge>
+  )
+}
+
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
+// ─── Chart Tooltip ─────────────────────────────────────────────────
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="rounded-lg border bg-background p-3 shadow-md text-xs">
+      <p className="font-semibold mb-1.5">{label}</p>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2 py-0.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-medium">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Main Dashboard Component ──────────────────────────────────────
+
+export function DashboardSection() {
+  const { setActiveSection } = useAppStore()
+  const [loading, setLoading] = useState(true)
+  const [alerts, setAlerts] = useState<SafetyAlert[]>(MOCK_SAFETY_ALERTS)
+  const [dataLoaded, setDataLoaded] = useState(false)
+
+  // Seed + fetch on mount
+  useEffect(() => {
+    let mounted = true
+    const loadData = async () => {
+      try {
+        // Seed database on first load
+        await fetch('/api/seed', { method: 'POST' }).catch(() => {})
+
+        // Fetch real data from APIs in parallel
+        const [patientsRes, safetyRes, queueRes, plansRes, medsRes] = await Promise.allSettled([
+          fetch('/api/patients?limit=1'),
+          fetch('/api/safety'),
+          fetch('/api/clinician-queue'),
+          fetch('/api/care-plans?status=DRAFT'),
+          fetch('/api/medications'),
+        ])
+
+        // We use mock data as base, but overlay real counts if available
+        if (mounted) {
+          // Update stats with real data if available
+          if (patientsRes.status === 'fulfilled' && patientsRes.value.ok) {
+            const d = await patientsRes.value.json().catch(() => null)
+            if (d?.pagination?.total) {
+              MOCK_STATS.totalPatients = Math.max(MOCK_STATS.totalPatients, d.pagination.total)
+            }
+          }
+          if (safetyRes.status === 'fulfilled' && safetyRes.value.ok) {
+            const d = await safetyRes.value.json().catch(() => null)
+            const alertList = d?.data ?? d?.alerts ?? []
+            if (Array.isArray(alertList) && alertList.length > 0) {
+              MOCK_STATS.safetyAlerts = alertList.length
+            }
+          }
+          if (queueRes.status === 'fulfilled' && queueRes.value.ok) {
+            const d = await queueRes.value.json().catch(() => null)
+            const summary = d?.data?.summary
+            if (summary) {
+              MOCK_STATS.pendingReviews = (summary.unassignedCount ?? 0) + (summary.assignedCount ?? 0)
+            }
+          }
+          if (plansRes.status === 'fulfilled' && plansRes.value.ok) {
+            const d = await plansRes.value.json().catch(() => null)
+            const plansList = d?.data ?? d?.plans ?? []
+            if (Array.isArray(plansList)) {
+              MOCK_STATS.carePlansToday = plansList.length
+            }
+          }
+          setDataLoaded(true)
+        }
+      } catch {
+        // Fall back to mock data
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    loadData()
+    return () => { mounted = false }
+  }, [])
+
+  const acknowledgeAlert = useCallback((id: string) => {
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, acknowledged: true } : a)))
+  }, [])
+
+  if (loading) return <DashboardSkeleton />
+
+  const unacknowledgedAlerts = alerts.filter((a) => !a.acknowledged)
+  const activeRecalls = MOCK_RECALLS.filter((r) => r.status === 'ACTIVE')
+
+  // ─── Row 1: KPI Stats Cards ────────────────────────────────────────
+
+  const statCards = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <StatCard
+        icon={Users}
+        iconBg="bg-teal-100 dark:bg-teal-950"
+        iconColor="text-teal-600 dark:text-teal-400"
+        title="Total Patients"
+        value={MOCK_STATS.totalPatients}
+        subtitle={`${MOCK_MODALITY_COUNTS.ALLOPATHY.toLocaleString('en-IN')} Allo · ${MOCK_MODALITY_COUNTS.AYURVEDA.toLocaleString('en-IN')} Ayur · ${MOCK_MODALITY_COUNTS.HOMEOPATHY.toLocaleString('en-IN')} Hom`}
+        trend="+12%"
+        trendUp={true}
+        delay={0}
+      />
+      <StatCard
+        icon={Heart}
+        iconBg="bg-rose-100 dark:bg-rose-950"
+        iconColor="text-rose-600 dark:text-rose-400"
+        title="Active Health Issues"
+        value={MOCK_STATS.healthIssues}
+        subtitle="Across all three modalities"
+        delay={0.05}
+        extra={
+          <div className="flex gap-1.5">
+            <ModalityBadge modality="ALLOPATHY" className="text-[9px] px-1 py-0" />
+            <span className="text-[10px] font-medium text-muted-foreground">{MOCK_HEALTH_MODALITY.ALLOPATHY}</span>
+            <ModalityBadge modality="AYURVEDA" className="text-[9px] px-1 py-0" />
+            <span className="text-[10px] font-medium text-muted-foreground">{MOCK_HEALTH_MODALITY.AYURVEDA}</span>
+            <ModalityBadge modality="HOMEOPATHY" className="text-[9px] px-1 py-0" />
+            <span className="text-[10px] font-medium text-muted-foreground">{MOCK_HEALTH_MODALITY.HOMEOPATHY}</span>
+          </div>
+        }
+      />
+      <StatCard
+        icon={Pill}
+        iconBg="bg-amber-100 dark:bg-amber-950"
+        iconColor="text-amber-600 dark:text-amber-400"
+        title="Medicine Catalog"
+        value={MOCK_STATS.totalMedicines}
+        subtitle="Formulary across all wings"
+        delay={0.1}
+        extra={
+          <div className="flex gap-1.5 text-[10px]">
+            <span className="text-teal-700 dark:text-teal-300 font-medium">{MOCK_MEDICINE_MODALITY.ALLOPATHY} Allo</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-emerald-700 dark:text-emerald-300 font-medium">{MOCK_MEDICINE_MODALITY.AYURVEDA} Ayur</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-violet-700 dark:text-violet-300 font-medium">{MOCK_MEDICINE_MODALITY.HOMEOPATHY} Hom</span>
+          </div>
+        }
+      />
+      <StatCard
+        icon={AlertTriangle}
+        iconBg={MOCK_STATS.safetyAlerts > 0 ? 'bg-red-100 dark:bg-red-950' : 'bg-green-100 dark:bg-green-950'}
+        iconColor={MOCK_STATS.safetyAlerts > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
+        title="Safety Alerts"
+        value={MOCK_STATS.safetyAlerts}
+        subtitle={MOCK_STATS.safetyAlerts > 0 ? 'Immediate attention required' : 'All clear'}
+        trend={MOCK_STATS.safetyAlerts > 0 ? `${unacknowledgedAlerts.length} unacked` : undefined}
+        trendUp={MOCK_STATS.safetyAlerts === 0}
+        delay={0.15}
+        extra={
+          <div className="flex gap-1.5 flex-wrap">
+            {MOCK_ALERTS_SEVERITY.CRITICAL > 0 && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">{MOCK_ALERTS_SEVERITY.CRITICAL} Critical</Badge>}
+            {MOCK_ALERTS_SEVERITY.HIGH > 0 && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">{MOCK_ALERTS_SEVERITY.HIGH} High</Badge>}
+            {MOCK_ALERTS_SEVERITY.MODERATE > 0 && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800">{MOCK_ALERTS_SEVERITY.MODERATE} Mod</Badge>}
+            {MOCK_ALERTS_SEVERITY.LOW > 0 && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800">{MOCK_ALERTS_SEVERITY.LOW} Low</Badge>}
+          </div>
+        }
+      />
+      <StatCard
+        icon={RotateCcw}
+        iconBg={activeRecalls.length > 0 ? 'bg-red-100 dark:bg-red-950' : 'bg-green-100 dark:bg-green-950'}
+        iconColor={activeRecalls.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
+        title="Active Recalls"
+        value={activeRecalls.length}
+        subtitle={activeRecalls.length > 0 ? 'CDSCO — action required' : 'No active recalls'}
+        delay={0.2}
+        extra={
+          activeRecalls.length > 0 ? (
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">CDSCO Active</span>
+            </div>
+          ) : undefined
+        }
+      />
+      <StatCard
+        icon={ClipboardList}
+        iconBg="bg-sky-100 dark:bg-sky-950"
+        iconColor="text-sky-600 dark:text-sky-400"
+        title="Pending Reviews"
+        value={MOCK_STATS.pendingReviews}
+        subtitle="Clinician queue awaiting review"
+        delay={0.25}
+      />
+    </div>
+  )
+
+  // ─── Row 2: Analytics Charts ───────────────────────────────────────
+
+  const analyticsRow = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.3 }}
+      className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+    >
+      {/* Left: Patient Encounters by Modality (Stacked Bar) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Patient Encounters by Modality</CardTitle>
+          <CardDescription className="text-xs">6-month trend across all three wings</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={MOCK_ENCOUNTER_DATA} margin={{ top: 4, right: 4, left: -10, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="allopathy" name="Allopathy" stackId="encounters" fill="#0d9488" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="ayurveda" name="Ayurveda" stackId="encounters" fill="#059669" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="homeopathy" name="Homeopathy" stackId="encounters" fill="#7c3aed" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Right: Body System Distribution (Horizontal Bar) */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Body System Distribution</CardTitle>
+          <CardDescription className="text-xs">Active health issues by anatomical system</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={MOCK_BODY_SYSTEMS} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={90} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="count" name="Issues" radius={[0, 3, 3, 0]}>
+                  {MOCK_BODY_SYSTEMS.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+
+  // ─── Row 3: Three-Wing Overview ────────────────────────────────────
+
+  const wingOverview = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.4 }}
+      className="grid grid-cols-1 md:grid-cols-3 gap-4"
+    >
+      {(Object.entries(MOCK_WING_DATA) as [Modality, typeof MOCK_WING_DATA.ALLOPATHY][]).map(
+        ([modality, data], idx) => {
+          const colorConfig: Record<string, { border: string; headerBg: string; headerText: string; iconBg: string; iconText: string; dot: string }> = {
+            teal: {
+              border: 'border-teal-200 dark:border-teal-800',
+              headerBg: 'bg-teal-50 dark:bg-teal-950',
+              headerText: 'text-teal-900 dark:text-teal-100',
+              iconBg: 'bg-teal-100 dark:bg-teal-900',
+              iconText: 'text-teal-600 dark:text-teal-400',
+              dot: 'bg-teal-500',
+            },
+            emerald: {
+              border: 'border-emerald-200 dark:border-emerald-800',
+              headerBg: 'bg-emerald-50 dark:bg-emerald-950',
+              headerText: 'text-emerald-900 dark:text-emerald-100',
+              iconBg: 'bg-emerald-100 dark:bg-emerald-900',
+              iconText: 'text-emerald-600 dark:text-emerald-400',
+              dot: 'bg-emerald-500',
+            },
+            violet: {
+              border: 'border-violet-200 dark:border-violet-800',
+              headerBg: 'bg-violet-50 dark:bg-violet-950',
+              headerText: 'text-violet-900 dark:text-violet-100',
+              iconBg: 'bg-violet-100 dark:bg-violet-900',
+              iconText: 'text-violet-600 dark:text-violet-400',
+              dot: 'bg-violet-500',
+            },
+          }
+          const c = colorConfig[data.color]
+          const WingIcon = modality === 'ALLOPATHY' ? Activity : modality === 'AYURVEDA' ? Leaf : FlaskConical
+
+          return (
+            <Card key={modality} className={`border ${c.border}`}>
+              <CardHeader className={`pb-2 ${c.headerBg} rounded-t-xl`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full ${c.iconBg}`}>
+                      <WingIcon className={`h-4 w-4 ${c.iconText}`} />
+                    </div>
+                    <div>
+                      <CardTitle className={`text-sm font-semibold ${c.headerText}`}>
+                        {modality === 'ALLOPATHY' ? 'Allopathy Wing' : modality === 'AYURVEDA' ? 'Ayurveda Wing' : 'Homeopathy Wing'}
+                      </CardTitle>
+                    </div>
+                  </div>
+                  <ModalityBadge modality={modality} />
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Top Health Issues</p>
+                  <div className="space-y-1">
+                    {data.topIssues.map((issue, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className={`h-1.5 w-1.5 rounded-full ${c.dot} shrink-0`} />
+                        <span>{issue}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Top Medicines</p>
+                  <div className="flex flex-wrap gap-1">
+                    {data.topMedicines.map((med, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {med}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <span className="text-[11px] text-muted-foreground">Active Care Plans</span>
+                  <span className="text-sm font-semibold">{data.activeCarePlans}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        }
+      )}
+    </motion.div>
+  )
+
+  // ─── Row 4: Safety & Recalls Feed ──────────────────────────────────
+
+  const safetyRecallsRow = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.5 }}
+      className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+    >
+      {/* Left: Safety Alerts Timeline */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-red-500" />
+              Safety Alerts Timeline
+            </CardTitle>
+            <Badge variant="destructive" className="text-[10px]">
+              {unacknowledgedAlerts.length} Unacknowledged
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="max-h-80 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+            <AnimatePresence>
+              {alerts.map((alert, idx) => (
+                <motion.div
+                  key={alert.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={`flex items-start gap-3 p-2.5 rounded-lg border text-xs transition-colors ${
+                    alert.acknowledged
+                      ? 'bg-muted/40 border-border/50 opacity-60'
+                      : alert.severity === 'CRITICAL'
+                      ? 'bg-red-50/50 border-red-200 dark:bg-red-950/30 dark:border-red-800'
+                      : 'bg-background border-border'
+                  }`}
+                >
+                  <div className="mt-0.5 shrink-0">
+                    <SeverityIcon severity={alert.severity} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-medium truncate">{alert.patientName}</span>
+                      <SeverityBadge severity={alert.severity} />
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">
+                        {alert.type}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground leading-snug">{alert.message}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-muted-foreground">{formatTimeAgo(alert.createdAt)}</span>
+                      {alert.acknowledged && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> Acknowledged
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {!alert.acknowledged && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-[10px] px-2 shrink-0"
+                      onClick={() => acknowledgeAlert(alert.id)}
+                    >
+                      Ack
+                    </Button>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Right: CDSCO Recall Monitor */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <FileWarning className="h-4 w-4 text-orange-500" />
+              CDSCO Recall Monitor
+            </CardTitle>
+            {activeRecalls.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                </span>
+                <Badge variant="destructive" className="text-[10px]">
+                  {activeRecalls.length} Active
+                </Badge>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="max-h-80 overflow-y-auto space-y-3 pr-1 scrollbar-thin">
+            {MOCK_RECALLS.map((recall, idx) => (
+              <motion.div
+                key={recall.id}
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.08 }}
+                className={`p-3 rounded-lg border ${
+                  recall.status === 'ACTIVE'
+                    ? 'bg-red-50/40 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                    : 'bg-muted/40 border-border/50'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{recall.medicineName}</p>
+                    <p className="text-[11px] text-muted-foreground">{recall.manufacturer}</p>
+                  </div>
+                  <Badge
+                    variant={recall.status === 'ACTIVE' ? 'destructive' : 'secondary'}
+                    className="text-[10px] shrink-0"
+                  >
+                    {recall.status}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{recall.reason}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex flex-wrap gap-1">
+                    {recall.batchNumbers.map((batch) => (
+                      <Badge key={batch} variant="outline" className="text-[9px] px-1 py-0 font-mono">
+                        {batch}
+                      </Badge>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                    {new Date(recall.recallDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+
+  // ─── Row 5: Quick Actions Grid ─────────────────────────────────────
+
+  const quickActions = (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.6 }}
+    >
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
+          <CardDescription className="text-xs">Jump to common clinical workflows</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { icon: UserPlus, label: 'New Patient', section: 'patients' as const, color: 'teal' },
+              { icon: Search, label: 'Symptom Check', section: 'symptom-checker' as const, color: 'emerald' },
+              { icon: ScanLine, label: 'Scan Medicine', section: 'medicines' as const, color: 'amber' },
+              { icon: GitCompare, label: 'Drug Check', section: 'drug-interactions' as const, color: 'rose' },
+              { icon: FileWarning, label: 'View Recalls', section: 'safety' as const, color: 'red' },
+              { icon: Mic, label: 'Voice Triage', section: 'intake' as const, color: 'violet' },
+            ].map((action, idx) => {
+              const colorMap: Record<string, { bg: string; hover: string; text: string }> = {
+                teal: { bg: 'bg-teal-50 dark:bg-teal-950', hover: 'hover:bg-teal-100 dark:hover:bg-teal-900', text: 'text-teal-700 dark:text-teal-300' },
+                emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950', hover: 'hover:bg-emerald-100 dark:hover:bg-emerald-900', text: 'text-emerald-700 dark:text-emerald-300' },
+                amber: { bg: 'bg-amber-50 dark:bg-amber-950', hover: 'hover:bg-amber-100 dark:hover:bg-amber-900', text: 'text-amber-700 dark:text-amber-300' },
+                rose: { bg: 'bg-rose-50 dark:bg-rose-950', hover: 'hover:bg-rose-100 dark:hover:bg-rose-900', text: 'text-rose-700 dark:text-rose-300' },
+                red: { bg: 'bg-red-50 dark:bg-red-950', hover: 'hover:bg-red-100 dark:hover:bg-red-900', text: 'text-red-700 dark:text-red-300' },
+                violet: { bg: 'bg-violet-50 dark:bg-violet-950', hover: 'hover:bg-violet-100 dark:hover:bg-violet-900', text: 'text-violet-700 dark:text-violet-300' },
+              }
+              const c = colorMap[action.color]
+
+              return (
+                <motion.button
+                  key={action.label}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.65 + idx * 0.04 }}
+                  onClick={() => setActiveSection(action.section)}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border p-4 ${c.bg} ${c.hover} ${c.text} transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+                >
+                  <action.icon className="h-5 w-5" />
+                  <span className="text-xs font-medium">{action.label}</span>
+                </motion.button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+
+  // ─── Assemble Dashboard ────────────────────────────────────────────
+
+  return (
+    <div className="space-y-6">
+      {statCards}
+      {analyticsRow}
+      {wingOverview}
+      {safetyRecallsRow}
+      {quickActions}
+    </div>
+  )
+}

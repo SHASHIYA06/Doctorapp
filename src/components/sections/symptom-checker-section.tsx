@@ -20,6 +20,9 @@ import {
   Loader2,
   Thermometer,
   Zap,
+  Mic,
+  Sparkles,
+  Siren,
 } from 'lucide-react'
 import {
   Card,
@@ -148,7 +151,7 @@ const fadeSlide = {
 // ──────────────────────────────────────────────
 
 export function SymptomCheckerSection() {
-  const { activeModality } = useAppStore()
+  const { activeModality, setActiveSection } = useAppStore()
 
   // Form state
   const [symptoms, setSymptoms] = useState<string[]>([])
@@ -167,6 +170,12 @@ export function SymptomCheckerSection() {
   const [results, setResults] = useState<SymptomCheckResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<string | null>(null)
+
+  // Red flag detection
+  const RED_FLAG_SYMPTOMS = new Set(['chest pain', 'breathing difficulty', 'severe headache', 'sudden vision loss', 'slurred speech', 'weakness on one side', 'severe bleeding', 'high fever', 'seizure', 'loss of consciousness'])
+  const detectedRedFlags = symptoms.filter((s) => RED_FLAG_SYMPTOMS.has(s.toLowerCase()))
 
   // ── Symptom management ─────────────────────
 
@@ -295,6 +304,35 @@ export function SymptomCheckerSection() {
   return (
     <TooltipProvider>
       <motion.div {...fadeSlide} className="space-y-6">
+        {/* ── Red Flag Detection Banner ── */}
+        {detectedRedFlags.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-start gap-3 p-4 rounded-lg border-2 border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950"
+          >
+            <Siren className="h-6 w-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-red-800 dark:text-red-200 text-sm">
+                Red Flag Symptoms Detected!
+              </h3>
+              <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                The following symptoms require immediate medical attention:
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {detectedRedFlags.map((flag) => (
+                  <Badge key={flag} variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700">
+                    {flag}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs text-red-700 dark:text-red-300 mt-2 font-medium">
+                Please seek emergency care or call 108 (India Emergency) immediately.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Input Card ─────────────────────── */}
         <Card>
           <CardHeader>
@@ -441,7 +479,7 @@ export function SymptomCheckerSection() {
             </div>
 
             {/* Check Button */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 onClick={handleCheckSymptoms}
                 disabled={!canSubmit || loading}
@@ -459,6 +497,43 @@ export function SymptomCheckerSection() {
                   </>
                 )}
               </Button>
+              {/* Voice Input Button */}
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setActiveSection('voice')}
+              >
+                <Mic className="h-4 w-4" />
+                Voice Input
+              </Button>
+              {/* Get AI Analysis */}
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={symptoms.length === 0 || aiLoading}
+                onClick={async () => {
+                  setAiLoading(true)
+                  setAiResult(null)
+                  try {
+                    const res = await fetch('/api/medicine-rag', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ query: symptoms.join(', '), modality: modality, language: 'en' }),
+                    })
+                    const data = await res.json()
+                    setAiResult(data.data?.answer ?? data.data?.text ?? JSON.stringify(data.data ?? data))
+                    toast({ title: 'AI Analysis Complete', description: 'Results loaded below' })
+                  } catch {
+                    setAiResult('AI analysis is currently unavailable. Please try again later.')
+                    toast({ title: 'AI Unavailable', variant: 'destructive' })
+                  } finally {
+                    setAiLoading(false)
+                  }
+                }}
+              >
+                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Get AI Analysis
+              </Button>
               {symptoms.length > 0 && (
                 <Button
                   variant="ghost"
@@ -467,6 +542,7 @@ export function SymptomCheckerSection() {
                     setSymptoms([])
                     setSymptomInput('')
                     setResults(null)
+                    setAiResult(null)
                   }}
                   className="text-muted-foreground"
                 >
@@ -724,6 +800,33 @@ export function SymptomCheckerSection() {
                   </CardContent>
                 </Card>
               )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── AI Analysis Result ── */}
+        <AnimatePresence>
+          {aiResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+            >
+              <Card className="border-teal-200 dark:border-teal-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-teal-600" />
+                    AI-Powered Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-80">
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
+                      {aiResult}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>

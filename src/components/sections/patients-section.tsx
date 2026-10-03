@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, UserPlus, X, ChevronRight } from 'lucide-react'
+import { Search, UserPlus, X, ChevronRight, Pill, AlertTriangle, Stethoscope, ClipboardList } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,7 +43,7 @@ const fadeSlide = {
 }
 
 export function PatientsSection() {
-  const { selectedPatientId, setSelectedPatientId } = useAppStore()
+  const { selectedPatientId, setSelectedPatientId, setActiveSection } = useAppStore()
   const [patients, setPatients] = useState<Patient[]>([])
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -259,6 +259,7 @@ export function PatientsSection() {
                     <TableHead className="hidden md:table-cell">Gender</TableHead>
                     <TableHead className="hidden md:table-cell">Blood Group</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">Actions</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -272,7 +273,26 @@ export function PatientsSection() {
                       onClick={() => handleSelectPatient(patient)}
                     >
                       <TableCell className="font-medium">
-                        {patient.firstName} {patient.lastName}
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0" aria-label={`${patient.firstName} ${patient.lastName} avatar`}>
+                            {patient.firstName.charAt(0)}{patient.lastName.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="font-medium text-sm">{patient.firstName} {patient.lastName}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {patient.medicationStatements && patient.medicationStatements.filter((m) => m.isActive).length > 0 && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800 gap-0.5">
+                                  <Pill className="h-2.5 w-2.5" />{patient.medicationStatements.filter((m) => m.isActive).length} med{patient.medicationStatements.filter((m) => m.isActive).length !== 1 ? 's' : ''}
+                                </Badge>
+                              )}
+                              {patient.allergies && patient.allergies.length > 0 && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800 gap-0.5">
+                                  <AlertTriangle className="h-2.5 w-2.5" />{patient.allergies.length} allergy{patient.allergies.length !== 1 ? 'ies' : 'y'}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {getAge(patient.dateOfBirth)}
@@ -288,6 +308,36 @@ export function PatientsSection() {
                           {patient.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedPatientId(patient.id)
+                              setActiveSection('safety')
+                            }}
+                          >
+                            <Stethoscope className="h-3 w-3" />
+                            Triage
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedPatientId(patient.id)
+                              setActiveSection('care-plans')
+                            }}
+                          >
+                            <ClipboardList className="h-3 w-3" />
+                            Care Plan
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </TableCell>
@@ -295,7 +345,7 @@ export function PatientsSection() {
                   ))}
                   {filteredPatients.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No patients found
                       </TableCell>
                     </TableRow>

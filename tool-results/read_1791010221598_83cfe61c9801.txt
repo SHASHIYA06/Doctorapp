@@ -1,0 +1,1082 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Search,
+     7→  Heart,
+     8→  Brain,
+     9→  Leaf,
+    10→  Filter,
+    11→  ChevronRight,
+    12→  AlertTriangle,
+    13→  Stethoscope,
+    14→  Pill,
+    15→  FlaskConical,
+    16→  Activity,
+    17→  ChevronLeft,
+    18→  X,
+    19→  Info,
+    20→  ShieldCheck,
+    21→  Clock,
+    22→  Languages,
+    23→  FileText,
+    24→} from 'lucide-react'
+    25→import {
+    26→  Card,
+    27→  CardContent,
+    28→  CardHeader,
+    29→  CardTitle,
+    30→  CardDescription,
+    31→} from '@/components/ui/card'
+    32→import { Button } from '@/components/ui/button'
+    33→import { Input } from '@/components/ui/input'
+    34→import { Badge } from '@/components/ui/badge'
+    35→import {
+    36→  Tabs,
+    37→  TabsContent,
+    38→  TabsList,
+    39→  TabsTrigger,
+    40→} from '@/components/ui/tabs'
+    41→import { Skeleton } from '@/components/ui/skeleton'
+    42→import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+    43→import {
+    44→  Select,
+    45→  SelectContent,
+    46→  SelectItem,
+    47→  SelectTrigger,
+    48→  SelectValue,
+    49→} from '@/components/ui/select'
+    50→import { useAppStore } from '@/lib/store'
+    51→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    52→
+    53→// ──────────────────────────────────────────────
+    54→// Types
+    55→// ──────────────────────────────────────────────
+    56→
+    57→interface HealthIssueAlias {
+    58→  id: string
+    59→  alias: string
+    60→  language: string
+    61→}
+    62→
+    63→interface HealthIssueTranslation {
+    64→  id: string
+    65→  language: string
+    66→  name: string
+    67→  description: string | null
+    68→}
+    69→
+    70→interface HealthIssueWing {
+    71→  id: string
+    72→  modality: string
+    73→  approach: string
+    74→  commonMedicines: string | null
+    75→  lifestyleAdvice: string | null
+    76→  whenToSeeDoctor: string | null
+    77→  redFlags: string | null
+    78→  evidenceLevel: string | null
+    79→}
+    80→
+    81→interface MedicineIndication {
+    82→  id: string
+    83→  medicine: {
+    84→    id: string
+    85→    name: string
+    86→    modality: string
+    87→    category: string | null
+    88→    form: string | null
+    89→    strength: string | null
+    90→  }
+    91→  indication: string
+    92→  howToUseDaily: string | null
+    93→  medianDose: string | null
+    94→  duration: string | null
+    95→  priority: number
+    96→  evidenceLevel: string | null
+    97→}
+    98→
+    99→interface HealthIssueListItem {
+   100→  id: string
+   101→  code: string | null
+   102→  name: string
+   103→  description: string | null
+   104→  bodySystem: string
+   105→  clinicalDomain: string
+   106→  symptomGroup: string
+   107→  severity: string
+   108→  chronicity: string
+   109→  prevalence: string | null
+   110→  aliases: HealthIssueAlias[]
+   111→  translations: HealthIssueTranslation[]
+   112→  wingApproaches: HealthIssueWing[]
+   113→  _count?: { indications: number }
+   114→}
+   115→
+   116→interface HealthIssueDetail extends HealthIssueListItem {
+   117→  isSubtype: boolean
+   118→  parentIssueId: string | null
+   119→  isActive: boolean
+   120→  indications: MedicineIndication[]
+   121→}
+   122→
+   123→interface Pagination {
+   124→  page: number
+   125→  limit: number
+   126→  total: number
+   127→  totalPages: number
+   128→}
+   129→
+   130→// ──────────────────────────────────────────────
+   131→// Constants & Config
+   132→// ──────────────────────────────────────────────
+   133→
+   134→const BODY_SYSTEMS = [
+   135→  'RESPIRATORY',
+   136→  'CARDIOVASCULAR',
+   137→  'GASTROINTESTINAL',
+   138→  'NEUROLOGICAL',
+   139→  'MUSCULOSKELETAL',
+   140→  'DERMATOLOGICAL',
+   141→  'ENDOCRINE',
+   142→  'GENITOURINARY',
+   143→  'IMMUNOLOGICAL',
+   144→  'PSYCHIATRIC',
+   145→  'ENT',
+   146→  'OPHTHALMOLOGICAL',
+   147→  'HEMATOLOGICAL',
+   148→] as const
+   149→
+   150→const BODY_SYSTEM_ICONS: Record<string, React.ReactNode> = {
+   151→  RESPIRATORY: <Activity className="h-3.5 w-3.5" />,
+   152→  CARDIOVASCULAR: <Heart className="h-3.5 w-3.5" />,
+   153→  GASTROINTESTINAL: <Leaf className="h-3.5 w-3.5" />,
+   154→  NEUROLOGICAL: <Brain className="h-3.5 w-3.5" />,
+   155→  MUSCULOSKELETAL: <Activity className="h-3.5 w-3.5" />,
+   156→  DERMATOLOGICAL: <Stethoscope className="h-3.5 w-3.5" />,
+   157→  ENDOCRINE: <FlaskConical className="h-3.5 w-3.5" />,
+   158→  GENITOURINARY: <Pill className="h-3.5 w-3.5" />,
+   159→  IMMUNOLOGICAL: <ShieldCheck className="h-3.5 w-3.5" />,
+   160→  PSYCHIATRIC: <Brain className="h-3.5 w-3.5" />,
+   161→  ENT: <Stethoscope className="h-3.5 w-3.5" />,
+   162→  OPHTHALMOLOGICAL: <Stethoscope className="h-3.5 w-3.5" />,
+   163→  HEMATOLOGICAL: <Activity className="h-3.5 w-3.5" />,
+   164→}
+   165→
+   166→const SEVERITY_CONFIG: Record<
+   167→  string,
+   168→  { label: string; className: string; pulse: boolean }
+   169→> = {
+   170→  MILD: {
+   171→    label: 'Mild',
+   172→    className:
+   173→      'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700',
+   174→    pulse: false,
+   175→  },
+   176→  MODERATE: {
+   177→    label: 'Moderate',
+   178→    className:
+   179→      'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   180→    pulse: false,
+   181→  },
+   182→  SEVERE: {
+   183→    label: 'Severe',
+   184→    className:
+   185→      'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   186→    pulse: false,
+   187→  },
+   188→  CRITICAL: {
+   189→    label: 'Critical',
+   190→    className:
+   191→      'bg-red-200 text-red-900 border-red-400 dark:bg-red-900 dark:text-red-100 dark:border-red-600',
+   192→    pulse: true,
+   193→  },
+   194→}
+   195→
+   196→const CHRONICITY_CONFIG: Record<string, { label: string; className: string }> = {
+   197→  ACUTE: {
+   198→    label: 'Acute',
+   199→    className:
+   200→      'bg-sky-100 text-sky-800 border-sky-300 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700',
+   201→  },
+   202→  CHRONIC: {
+   203→    label: 'Chronic',
+   204→    className:
+   205→      'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+   206→  },
+   207→  ACUTE_ON_CHRONIC: {
+   208→    label: 'Acute on Chronic',
+   209→    className:
+   210→      'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900 dark:text-rose-200 dark:border-rose-700',
+   211→  },
+   212→}
+   213→
+   214→const MODALITY_CONFIG: Record<
+   215→  string,
+   216→  {
+   217→    label: string
+   218→    icon: React.ReactNode
+   219→    bgClass: string
+   220→    textClass: string
+   221→    borderClass: string
+   222→    cardBg: string
+   223→  }
+   224→> = {
+   225→  ALLOPATHY: {
+   226→    label: 'Allopathy',
+   227→    icon: <Pill className="h-4 w-4" />,
+   228→    bgClass: 'bg-teal-600',
+   229→    textClass: 'text-teal-700 dark:text-teal-300',
+   230→    borderClass: 'border-teal-300 dark:border-teal-700',
+   231→    cardBg: 'bg-teal-50 dark:bg-teal-950/30',
+   232→  },
+   233→  AYURVEDA: {
+   234→    label: 'Ayurveda',
+   235→    icon: <Leaf className="h-4 w-4" />,
+   236→    bgClass: 'bg-emerald-600',
+   237→    textClass: 'text-emerald-700 dark:text-emerald-300',
+   238→    borderClass: 'border-emerald-300 dark:border-emerald-700',
+   239→    cardBg: 'bg-emerald-50 dark:bg-emerald-950/30',
+   240→  },
+   241→  HOMEOPATHY: {
+   242→    label: 'Homeopathy',
+   243→    icon: <FlaskConical className="h-4 w-4" />,
+   244→    bgClass: 'bg-violet-600',
+   245→    textClass: 'text-violet-700 dark:text-violet-300',
+   246→    borderClass: 'border-violet-300 dark:border-violet-700',
+   247→    cardBg: 'bg-violet-50 dark:bg-violet-950/30',
+   248→  },
+   249→}
+   250→
+   251→const EVIDENCE_CONFIG: Record<string, { label: string; className: string }> = {
+   252→  STRONG: {
+   253→    label: 'Strong Evidence',
+   254→    className:
+   255→      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+   256→  },
+   257→  MODERATE: {
+   258→    label: 'Moderate Evidence',
+   259→    className:
+   260→      'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+   261→  },
+   262→  LIMITED: {
+   263→    label: 'Limited Evidence',
+   264→    className:
+   265→      'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+   266→  },
+   267→  TRADITIONAL: {
+   268→    label: 'Traditional Use',
+   269→    className:
+   270→      'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+   271→  },
+   272→}
+   273→
+   274→const fadeSlide = {
+   275→  initial: { opacity: 0, y: 12 },
+   276→  animate: { opacity: 1, y: 0 },
+   277→  transition: { duration: 0.3 },
+   278→}
+   279→
+   280→const staggerChild = {
+   281→  initial: { opacity: 0, y: 8 },
+   282→  animate: { opacity: 1, y: 0 },
+   283→}
+   284→
+   285→// ──────────────────────────────────────────────
+   286→// Sub-components
+   287→// ──────────────────────────────────────────────
+   288→
+   289→function SeverityBadge({ severity }: { severity: string }) {
+   290→  const config = SEVERITY_CONFIG[severity] ?? {
+   291→    label: severity,
+   292→    className: 'bg-muted text-muted-foreground',
+   293→    pulse: false,
+   294→  }
+   295→  return (
+   296→    <Badge
+   297→      variant="outline"
+   298→      className={`text-xs ${config.className} ${config.pulse ? 'animate-pulse' : ''}`}
+   299→    >
+   300→      {config.label}
+   301→    </Badge>
+   302→  )
+   303→}
+   304→
+   305→function ChronicityBadge({ chronicity }: { chronicity: string }) {
+   306→  const config = CHRONICITY_CONFIG[chronicity] ?? {
+   307→    label: chronicity,
+   308→    className: 'bg-muted text-muted-foreground',
+   309→  }
+   310→  return (
+   311→    <Badge variant="outline" className={`text-xs ${config.className}`}>
+   312→      {config.label}
+   313→    </Badge>
+   314→  )
+   315→}
+   316→
+   317→function EvidenceBadge({ level }: { level: string | null }) {
+   318→  if (!level) return null
+   319→  const config = EVIDENCE_CONFIG[level] ?? {
+   320→    label: level,
+   321→    className: 'bg-muted text-muted-foreground',
+   322→  }
+   323→  return (
+   324→    <Badge variant="outline" className={`text-xs ${config.className}`}>
+   325→      {config.label}
+   326→    </Badge>
+   327→  )
+   328→}
+   329→
+   330→function BodySystemTab({
+   331→  system,
+   332→  selected,
+   333→  onClick,
+   334→}: {
+   335→  system: string
+   336→  selected: boolean
+   337→  onClick: () => void
+   338→}) {
+   339→  return (
+   340→    <button
+   341→      onClick={onClick}
+   342→      className={`
+   343→        flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap
+   344→        ${
+   345→          selected
+   346→            ? 'bg-primary text-primary-foreground shadow-sm'
+   347→            : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+   348→        }
+   349→      `}
+   350→    >
+   351→      {BODY_SYSTEM_ICONS[system] ?? <Filter className="h-3.5 w-3.5" />}
+   352→      {system.charAt(0) + system.slice(1).toLowerCase()}
+   353→    </button>
+   354→  )
+   355→}
+   356→
+   357→function WingPanel({
+   358→  wing,
+   359→  modality,
+   360→  medicines,
+   361→}: {
+   362→  wing: HealthIssueWing | undefined
+   363→  modality: string
+   364→  medicines: MedicineIndication[]
+   365→}) {
+   366→  const config = MODALITY_CONFIG[modality] ?? MODALITY_CONFIG.ALLOPATHY
+   367→  const modalityMedicines = medicines.filter(
+   368→    (m) => m.medicine.modality === modality
+   369→  )
+   370→
+   371→  if (!wing) {
+   372→    return (
+   373→      <div className="space-y-4 p-1">
+   374→        <div
+   375→          className={`rounded-lg border ${config.borderClass} ${config.cardBg} p-4`}
+   376→        >
+   377→          <div className="flex items-center gap-2 mb-2">
+   378→            <div className={`p-1.5 rounded-md ${config.bgClass} text-white`}>
+   379→              {config.icon}
+   380→            </div>
+   381→            <h4 className={`font-semibold ${config.textClass}`}>
+   382→              {config.label} Approach
+   383→            </h4>
+   384→          </div>
+   385→          <p className="text-sm text-muted-foreground">
+   386→            No {config.label.toLowerCase()} approach data available for this
+   387→            condition yet.
+   388→          </p>
+   389→        </div>
+   390→      </div>
+   391→    )
+   392→  }
+   393→
+   394→  return (
+   395→    <div className="space-y-4 p-1">
+   396→      {/* Approach Summary */}
+   397→      <div
+   398→        className={`rounded-lg border ${config.borderClass} ${config.cardBg} p-4 space-y-3`}
+   399→      >
+   400→        <div className="flex items-center gap-2">
+   401→          <div className={`p-1.5 rounded-md ${config.bgClass} text-white`}>
+   402→            {config.icon}
+   403→          </div>
+   404→          <h4 className={`font-semibold ${config.textClass}`}>
+   405→            {config.label} Approach
+   406→          </h4>
+   407→          <EvidenceBadge level={wing.evidenceLevel} />
+   408→        </div>
+   409→        <p className="text-sm leading-relaxed">{wing.approach}</p>
+   410→      </div>
+   411→
+   412→      {/* Lifestyle Advice */}
+   413→      {wing.lifestyleAdvice && (
+   414→        <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+   415→          <div className="flex items-center gap-2">
+   416→            <Leaf className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   417→            <h5 className="font-medium text-sm">Lifestyle Advice</h5>
+   418→          </div>
+   419→          <p className="text-sm text-muted-foreground leading-relaxed">
+   420→            {wing.lifestyleAdvice}
+   421→          </p>
+   422→        </div>
+   423→      )}
+   424→
+   425→      {/* When to See Doctor */}
+   426→      {wing.whenToSeeDoctor && (
+   427→        <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-2">
+   428→          <div className="flex items-center gap-2">
+   429→            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   430→            <h5 className="font-medium text-sm">When to See a Doctor</h5>
+   431→          </div>
+   432→          <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+   433→            {wing.whenToSeeDoctor}
+   434→          </p>
+   435→        </div>
+   436→      )}
+   437→
+   438→      {/* Red Flags */}
+   439→      {wing.redFlags && (
+   440→        <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 p-4 space-y-2">
+   441→          <div className="flex items-center gap-2">
+   442→            <ShieldCheck className="h-4 w-4 text-red-600 dark:text-red-400" />
+   443→            <h5 className="font-medium text-sm text-red-800 dark:text-red-200">
+   444→              Red Flags
+   445→            </h5>
+   446→          </div>
+   447→          <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed">
+   448→            {wing.redFlags}
+   449→          </p>
+   450→        </div>
+   451→      )}
+   452→
+   453→      {/* Related Medicines */}
+   454→      <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+   455→        <div className="flex items-center gap-2">
+   456→          <Pill className="h-4 w-4 text-primary" />
+   457→          <h5 className="font-medium text-sm">
+   458→            Related Medicines ({modalityMedicines.length})
+   459→          </h5>
+   460→        </div>
+   461→        {modalityMedicines.length === 0 ? (
+   462→          <p className="text-sm text-muted-foreground">
+   463→            No medicines listed for this modality.
+   464→          </p>
+   465→        ) : (
+   466→          <ScrollArea className="max-h-64">
+   467→            <div className="space-y-2 pr-2">
+   468→              {modalityMedicines.map((ind) => (
+   469→                <motion.div
+   470→                  key={ind.id}
+   471→                  {...staggerChild}
+   472→                  transition={{ duration: 0.2 }}
+   473→                  className="flex items-start gap-3 rounded-md border border-border/50 p-2.5 hover:bg-muted/30 transition-colors"
+   474→                >
+   475→                  <div
+   476→                    className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${config.bgClass}`}
+   477→                  />
+   478→                  <div className="min-w-0 flex-1">
+   479→                    <div className="flex items-center gap-2 flex-wrap">
+   480→                      <span className="text-sm font-medium">
+   481→                        {ind.medicine.name}
+   482→                      </span>
+   483→                      {ind.medicine.form && (
+   484→                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+   485→                          {ind.medicine.form}
+   486→                        </Badge>
+   487→                      )}
+   488→                      {ind.medicine.strength && (
+   489→                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+   490→                          {ind.medicine.strength}
+   491→                        </Badge>
+   492→                      )}
+   493→                    </div>
+   494→                    {ind.indication && (
+   495→                      <p className="text-xs text-muted-foreground mt-0.5">
+   496→                        {ind.indication}
+   497→                      </p>
+   498→                    )}
+   499→                    {ind.howToUseDaily && (
+   500→                      <p className="text-xs text-muted-foreground mt-0.5">
+   501→                        <span className="font-medium">Dose:</span>{' '}
+   502→                        {ind.howToUseDaily}
+   503→                      </p>
+   504→                    )}
+   505→                  </div>
+   506→                </motion.div>
+   507→              ))}
+   508→            </div>
+   509→          </ScrollArea>
+   510→        )}
+   511→      </div>
+   512→    </div>
+   513→  )
+   514→}
+   515→
+   516→// ──────────────────────────────────────────────
+   517→// Main Component
+   518→// ──────────────────────────────────────────────
+   519→
+   520→export function HealthIssuesSection() {
+   521→  const { selectedIssueId, setSelectedIssueId } = useAppStore()
+   522→
+   523→  // State
+   524→  const [issues, setIssues] = useState<HealthIssueListItem[]>([])
+   525→  const [pagination, setPagination] = useState<Pagination>({
+   526→    page: 1,
+   527→    limit: 20,
+   528→    total: 0,
+   529→    totalPages: 0,
+   530→  })
+   531→  const [bodySystemFilters, setBodySystemFilters] = useState<string[]>([])
+   532→  const [search, setSearch] = useState('')
+   533→  const [bodySystem, setBodySystem] = useState('')
+   534→  const [page, setPage] = useState(1)
+   535→  const [loading, setLoading] = useState(true)
+   536→  const [seeding, setSeeding] = useState(false)
+   537→  const [seedDone, setSeedDone] = useState(false)
+   538→
+   539→  // Detail panel
+   540→  const [detail, setDetail] = useState<HealthIssueDetail | null>(null)
+   541→  const [detailLoading, setDetailLoading] = useState(false)
+   542→  const [detailOpen, setDetailOpen] = useState(false)
+   543→  const [activeWing, setActiveWing] = useState('ALLOPATHY')
+   544→
+   545→  // ──────────────────────────────────────────
+   546→  // Auto-seed on first load
+   547→  // ──────────────────────────────────────────
+   548→  useEffect(() => {
+   549→    if (seedDone) return
+   550→    const doSeed = async () => {
+   551→      setSeeding(true)
+   552→      try {
+   553→        await fetch('/api/seed', { method: 'POST' })
+   554→      } catch {
+   555→        // silent — seed may already exist
+   556→      } finally {
+   557→        setSeeding(false)
+   558→        setSeedDone(true)
+   559→      }
+   560→    }
+   561→    doSeed()
+   562→  }, [seedDone])
+   563→
+   564→  // ──────────────────────────────────────────
+   565→  // Fetch issues list
+   566→  // ──────────────────────────────────────────
+   567→  const fetchIssues = useCallback(async () => {
+   568→    if (!seedDone) return
+   569→    setLoading(true)
+   570→    try {
+   571→      const params = new URLSearchParams()
+   572→      if (search) params.set('search', search)
+   573→      if (bodySystem) params.set('bodySystem', bodySystem)
+   574→      params.set('page', String(page))
+   575→      params.set('limit', '20')
+   576→
+   577→      const res = await fetch(`/api/health-issues?${params.toString()}`)
+   578→      const data = await res.json()
+   579→      setIssues(data.data ?? [])
+   580→      if (data.pagination) setPagination(data.pagination)
+   581→      if (data.filters?.bodySystems) {
+   582→        setBodySystemFilters(data.filters.bodySystems)
+   583→      }
+   584→    } catch {
+   585→      // handle silently
+   586→    } finally {
+   587→      setLoading(false)
+   588→    }
+   589→  }, [search, bodySystem, page, seedDone])
+   590→
+   591→  useEffect(() => {
+   592→    fetchIssues()
+   593→  }, [fetchIssues])
+   594→
+   595→  // ──────────────────────────────────────────
+   596→  // Fetch detail
+   597→  // ──────────────────────────────────────────
+   598→  const openDetail = async (issueId: string) => {
+   599→    setDetailLoading(true)
+   600→    setDetailOpen(true)
+   601→    setSelectedIssueId(issueId)
+   602→    setActiveWing('ALLOPATHY')
+   603→    try {
+   604→      const res = await fetch(`/api/health-issues/${issueId}`)
+   605→      const data = await res.json()
+   606→      setDetail(data.data ?? null)
+   607→    } catch {
+   608→      setDetail(null)
+   609→    } finally {
+   610→      setDetailLoading(false)
+   611→    }
+   612→  }
+   613→
+   614→  const closeDetail = () => {
+   615→    setDetailOpen(false)
+   616→    setDetail(null)
+   617→    setSelectedIssueId(null)
+   618→  }
+   619→
+   620→  // ──────────────────────────────────────────
+   621→  // Pagination helpers
+   622→  // ──────────────────────────────────────────
+   623→  const handlePrev = () => setPage((p) => Math.max(1, p - 1))
+   624→  const handleNext = () => setPage((p) => Math.min(pagination.totalPages, p + 1))
+   625→
+   626→  // ──────────────────────────────────────────
+   627→  // Active body system filter tabs
+   628→  // ──────────────────────────────────────────
+   629→  const activeSystems = bodySystemFilters.length > 0 ? bodySystemFilters : [...BODY_SYSTEMS]
+   630→
+   631→  return (
+   632→    <motion.div {...fadeSlide} className="space-y-4">
+   633→      {/* ── Header ── */}
+   634→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   635→        <div className="space-y-1">
+   636→          <h2 className="text-lg font-semibold flex items-center gap-2">
+   637→            <Stethoscope className="h-5 w-5 text-primary" />
+   638→            Health Issue Explorer
+   639→          </h2>
+   640→          <p className="text-sm text-muted-foreground">
+   641→            Search conditions across Allopathy, Ayurveda &amp; Homeopathy
+   642→          </p>
+   643→        </div>
+   644→        {seeding && (
+   645→          <Badge
+   646→            variant="outline"
+   647→            className="text-xs bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-700 animate-pulse"
+   648→          >
+   649→            <Clock className="h-3 w-3 mr-1" />
+   650→            Seeding database...
+   651→          </Badge>
+   652→        )}
+   653→      </div>
+   654→
+   655→      {/* ── Search + Filter Bar ── */}
+   656→      <div className="flex flex-col sm:flex-row gap-3">
+   657→        <div className="relative flex-1">
+   658→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   659→          <Input
+   660→            placeholder='Search issues... (e.g. "pet dard", "sir dard", "bukhar")'
+   661→            value={search}
+   662→            onChange={(e) => {
+   663→              setSearch(e.target.value)
+   664→              setPage(1)
+   665→            }}
+   666→            className="pl-9"
+   667→          />
+   668→        </div>
+   669→        <Select
+   670→          value={bodySystem || 'ALL'}
+   671→          onValueChange={(v) => {
+   672→            setBodySystem(v === 'ALL' ? '' : v)
+   673→            setPage(1)
+   674→          }}
+   675→        >
+   676→          <SelectTrigger className="w-full sm:w-52">
+   677→            <SelectValue placeholder="All Body Systems" />
+   678→          </SelectTrigger>
+   679→          <SelectContent>
+   680→            <SelectItem value="ALL">All Body Systems</SelectItem>
+   681→            {activeSystems.map((sys) => (
+   682→              <SelectItem key={sys} value={sys}>
+   683→                {sys.charAt(0) + sys.slice(1).toLowerCase()}
+   684→              </SelectItem>
+   685→            ))}
+   686→          </SelectContent>
+   687→        </Select>
+   688→      </div>
+   689→
+   690→      {/* ── Body System Filter Tabs ── */}
+   691→      <ScrollArea className="w-full">
+   692→        <div className="flex gap-1.5 pb-1 min-w-max">
+   693→          <BodySystemTab
+   694→            system="ALL"
+   695→            selected={bodySystem === ''}
+   696→            onClick={() => {
+   697→              setBodySystem('')
+   698→              setPage(1)
+   699→            }}
+   700→          />
+   701→          {activeSystems.map((sys) => (
+   702→            <BodySystemTab
+   703→              key={sys}
+   704→              system={sys}
+   705→              selected={bodySystem === sys}
+   706→              onClick={() => {
+   707→                setBodySystem(sys)
+   708→                setPage(1)
+   709→              }}
+   710→            />
+   711→          ))}
+   712→        </div>
+   713→        <ScrollBar orientation="horizontal" />
+   714→      </ScrollArea>
+   715→
+   716→      {/* ── Issues Grid ── */}
+   717→      <div className="grid gap-3">
+   718→        {loading ? (
+   719→          // Skeleton loading
+   720→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+   721→            {Array.from({ length: 6 }).map((_, i) => (
+   722→              <Card key={i}>
+   723→                <CardContent className="p-4 space-y-3">
+   724→                  <Skeleton className="h-5 w-2/3" />
+   725→                  <Skeleton className="h-4 w-1/2" />
+   726→                  <div className="flex gap-2">
+   727→                    <Skeleton className="h-5 w-16" />
+   728→                    <Skeleton className="h-5 w-20" />
+   729→                  </div>
+   730→                </CardContent>
+   731→              </Card>
+   732→            ))}
+   733→          </div>
+   734→        ) : issues.length === 0 ? (
+   735→          <div className="text-center py-12 text-muted-foreground">
+   736→            <Search className="h-10 w-10 mx-auto mb-3 opacity-40" />
+   737→            <p className="text-sm font-medium">No health issues found</p>
+   738→            <p className="text-xs mt-1">
+   739→              Try adjusting your search or filters
+   740→            </p>
+   741→          </div>
+   742→        ) : (
+   743→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+   744→            <AnimatePresence mode="popLayout">
+   745→              {issues.map((issue, idx) => (
+   746→                <motion.div
+   747→                  key={issue.id}
+   748→                  initial={{ opacity: 0, y: 8 }}
+   749→                  animate={{ opacity: 1, y: 0 }}
+   750→                  exit={{ opacity: 0, scale: 0.95 }}
+   751→                  transition={{ duration: 0.2, delay: idx * 0.03 }}
+   752→                >
+   753→                  <Card
+   754→                    className={`cursor-pointer hover:shadow-md transition-all group border-l-4 ${
+   755→                      selectedIssueId === issue.id
+   756→                        ? 'border-l-primary shadow-md'
+   757→                        : 'border-l-transparent hover:border-l-primary/40'
+   758→                    }`}
+   759→                    onClick={() => openDetail(issue.id)}
+   760→                  >
+   761→                    <CardContent className="p-4">
+   762→                      <div className="flex items-start justify-between gap-2">
+   763→                        <div className="space-y-1 min-w-0">
+   764→                          <div className="flex items-center gap-2">
+   765→                            <h3 className="font-medium text-sm truncate">
+   766→                              {issue.name}
+   767→                            </h3>
+   768→                            {issue.code && (
+   769→                              <Badge
+   770→                                variant="outline"
+   771→                                className="text-[10px] px-1.5 py-0 shrink-0"
+   772→                              >
+   773→                                {issue.code}
+   774→                              </Badge>
+   775→                            )}
+   776→                          </div>
+   777→                          <p className="text-xs text-muted-foreground line-clamp-1">
+   778→                            {issue.description ?? issue.symptomGroup ?? ''}
+   779→                          </p>
+   780→                        </div>
+   781→                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+   782→                      </div>
+   783→
+   784→                      <div className="flex flex-wrap items-center gap-1.5 mt-3">
+   785→                        <Badge
+   786→                          variant="outline"
+   787→                          className="text-[10px] px-1.5 py-0 bg-muted/50"
+   788→                        >
+   789→                          {issue.bodySystem
+   790→                            .charAt(0)
+   791→                            .concat(issue.bodySystem.slice(1).toLowerCase())}
+   792→                        </Badge>
+   793→                        <SeverityBadge severity={issue.severity} />
+   794→                        <ChronicityBadge chronicity={issue.chronicity} />
+   795→                        {issue._count?.indications !== undefined && (
+   796→                          <Badge
+   797→                            variant="outline"
+   798→                            className="text-[10px] px-1.5 py-0"
+   799→                          >
+   800→                            {issue._count.indications} med
+   801→                            {issue._count.indications !== 1 ? 's' : ''}
+   802→                          </Badge>
+   803→                        )}
+   804→                      </div>
+   805→
+   806→                      {/* Hindi aliases preview */}
+   807→                      {issue.aliases?.length > 0 && (
+   808→                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+   809→                          <Languages className="h-3 w-3 text-muted-foreground shrink-0" />
+   810→                          {issue.aliases.slice(0, 3).map((alias) => (
+   811→                            <span
+   812→                              key={alias.id}
+   813→                              className="text-[10px] text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded"
+   814→                            >
+   815→                              {alias.alias}
+   816→                            </span>
+   817→                          ))}
+   818→                          {issue.aliases.length > 3 && (
+   819→                            <span className="text-[10px] text-muted-foreground">
+   820→                              +{issue.aliases.length - 3}
+   821→                            </span>
+   822→                          )}
+   823→                        </div>
+   824→                      )}
+   825→                    </CardContent>
+   826→                  </Card>
+   827→                </motion.div>
+   828→              ))}
+   829→            </AnimatePresence>
+   830→          </div>
+   831→        )}
+   832→      </div>
+   833→
+   834→      {/* ── Pagination ── */}
+   835→      {pagination.totalPages > 1 && (
+   836→        <div className="flex items-center justify-between gap-2">
+   837→          <p className="text-xs text-muted-foreground">
+   838→            Page {pagination.page} of {pagination.totalPages} &middot;{' '}
+   839→            {pagination.total} total issues
+   840→          </p>
+   841→          <div className="flex items-center gap-2">
+   842→            <Button
+   843→              variant="outline"
+   844→              size="sm"
+   845→              onClick={handlePrev}
+   846→              disabled={page <= 1}
+   847→              className="gap-1"
+   848→            >
+   849→              <ChevronLeft className="h-3.5 w-3.5" />
+   850→              Prev
+   851→            </Button>
+   852→            <Button
+   853→              variant="outline"
+   854→              size="sm"
+   855→              onClick={handleNext}
+   856→              disabled={page >= pagination.totalPages}
+   857→              className="gap-1"
+   858→            >
+   859→              Next
+   860→              <ChevronRight className="h-3.5 w-3.5" />
+   861→            </Button>
+   862→          </div>
+   863→        </div>
+   864→      )}
+   865→
+   866→      {/* ── Detail Panel (Slide-over) ── */}
+   867→      <AnimatePresence>
+   868→        {detailOpen && (
+   869→          <motion.div
+   870→            initial={{ opacity: 0 }}
+   871→            animate={{ opacity: 1 }}
+   872→            exit={{ opacity: 0 }}
+   873→            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+   874→            onClick={closeDetail}
+   875→          >
+   876→            <motion.div
+   877→              initial={{ x: '100%' }}
+   878→              animate={{ x: 0 }}
+   879→              exit={{ x: '100%' }}
+   880→              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+   881→              className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-background border-l border-border shadow-2xl overflow-hidden"
+   882→              onClick={(e) => e.stopPropagation()}
+   883→            >
+   884→              <div className="flex flex-col h-full">
+   885→                {/* Detail Header */}
+   886→                <div className="flex items-center justify-between p-4 border-b border-border">
+   887→                  <div className="flex items-center gap-2">
+   888→                    <Info className="h-5 w-5 text-primary" />
+   889→                    <h2 className="font-semibold text-base">Issue Details</h2>
+   890→                  </div>
+   891→                  <Button
+   892→                    variant="ghost"
+   893→                    size="icon"
+   894→                    onClick={closeDetail}
+   895→                    className="h-8 w-8"
+   896→                  >
+   897→                    <X className="h-4 w-4" />
+   898→                  </Button>
+   899→                </div>
+   900→
+   901→                {/* Detail Content */}
+   902→                <ScrollArea className="flex-1">
+   903→                  <div className="p-5 space-y-5">
+   904→                    {detailLoading ? (
+   905→                      <div className="space-y-4">
+   906→                        <Skeleton className="h-7 w-3/4" />
+   907→                        <Skeleton className="h-4 w-full" />
+   908→                        <Skeleton className="h-4 w-2/3" />
+   909→                        <div className="flex gap-2">
+   910→                          <Skeleton className="h-6 w-20" />
+   911→                          <Skeleton className="h-6 w-24" />
+   912→                          <Skeleton className="h-6 w-16" />
+   913→                        </div>
+   914→                        <Skeleton className="h-32 w-full" />
+   915→                      </div>
+   916→                    ) : detail ? (
+   917→                      <>
+   918→                        {/* Issue Name & Description */}
+   919→                        <motion.div
+   920→                          initial={{ opacity: 0, y: 10 }}
+   921→                          animate={{ opacity: 1, y: 0 }}
+   922→                          transition={{ duration: 0.25 }}
+   923→                          className="space-y-3"
+   924→                        >
+   925→                          <div className="flex items-start gap-3">
+   926→                            <div className="flex-1">
+   927→                              <h3 className="text-xl font-bold">
+   928→                                {detail.name}
+   929→                              </h3>
+   930→                              {detail.code && (
+   931→                                <p className="text-sm text-muted-foreground mt-0.5">
+   932→                                  Code: {detail.code}
+   933→                                </p>
+   934→                              )}
+   935→                            </div>
+   936→                          </div>
+   937→
+   938→                          {detail.description && (
+   939→                            <p className="text-sm text-muted-foreground leading-relaxed">
+   940→                              {detail.description}
+   941→                            </p>
+   942→                          )}
+   943→
+   944→                          {/* Badges Row */}
+   945→                          <div className="flex flex-wrap items-center gap-2">
+   946→                            <Badge
+   947→                              variant="outline"
+   948→                              className="text-xs bg-muted/50"
+   949→                            >
+   950→                              {detail.bodySystem}
+   951→                            </Badge>
+   952→                            <Badge
+   953→                              variant="outline"
+   954→                              className="text-xs bg-muted/50"
+   955→                            >
+   956→                              {detail.clinicalDomain}
+   957→                            </Badge>
+   958→                            <SeverityBadge severity={detail.severity} />
+   959→                            <ChronicityBadge chronicity={detail.chronicity} />
+   960→                            {detail.prevalence && (
+   961→                              <Badge
+   962→                                variant="outline"
+   963→                                className="text-xs bg-muted/50"
+   964→                              >
+   965→                                {detail.prevalence}
+   966→                              </Badge>
+   967→                            )}
+   968→                          </div>
+   969→                        </motion.div>
+   970→
+   971→                        {/* Hindi Aliases */}
+   972→                        {detail.aliases?.length > 0 && (
+   973→                          <motion.div
+   974→                            initial={{ opacity: 0, y: 10 }}
+   975→                            animate={{ opacity: 1, y: 0 }}
+   976→                            transition={{ duration: 0.25, delay: 0.05 }}
+   977→                            className="rounded-lg border border-border p-3 space-y-2"
+   978→                          >
+   979→                            <div className="flex items-center gap-2">
+   980→                              <Languages className="h-4 w-4 text-primary" />
+   981→                              <h4 className="font-medium text-sm">
+   982→                                Aliases &amp; Translations
+   983→                              </h4>
+   984→                            </div>
+   985→                            <div className="flex flex-wrap gap-1.5">
+   986→                              {detail.aliases.map((alias) => (
+   987→                                <Badge
+   988→                                  key={alias.id}
+   989→                                  variant="outline"
+   990→                                  className="text-xs"
+   991→                                >
+   992→                                  {alias.alias}{' '}
+   993→                                  <span className="text-muted-foreground ml-1">
+   994→                                    ({alias.language})
+   995→                                  </span>
+   996→                                </Badge>
+   997→                              ))}
+   998→                            </div>
+   999→                            {detail.translations?.length > 0 && (
+  1000→                              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border/50">
+  1001→                                {detail.translations.map((t) => (
+  1002→                                  <Badge
+  1003→                                    key={t.id}
+  1004→                                    variant="outline"
+  1005→                                    className="text-xs bg-primary/5"
+  1006→                                  >
+  1007→                                    {t.language}: {t.name}
+  1008→                                  </Badge>
+  1009→                                ))}
+  1010→                              </div>
+  1011→                            )}
+  1012→                          </motion.div>
+  1013→                        )}
+  1014→
+  1015→                        {/* Three-Wing Comparison Tabs */}
+  1016→                        <motion.div
+  1017→                          initial={{ opacity: 0, y: 10 }}
+  1018→                          animate={{ opacity: 1, y: 0 }}
+  1019→                          transition={{ duration: 0.25, delay: 0.1 }}
+  1020→                        >
+  1021→                          <div className="flex items-center gap-2 mb-3">
+  1022→                            <FileText className="h-4 w-4 text-primary" />
+  1023→                            <h4 className="font-medium text-sm">
+  1024→                              Three-Wing Comparison
+  1025→                            </h4>
+  1026→                          </div>
+  1027→                          <Tabs
+  1028→                            value={activeWing}
+  1029→                            onValueChange={setActiveWing}
+  1030→                            className="w-full"
+  1031→                          >
+  1032→                            <TabsList className="w-full grid grid-cols-3 h-auto p-1">
+  1033→                              {(
+  1034→                                ['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as const
+  1035→                              ).map((mod) => {
+  1036→                                const cfg = MODALITY_CONFIG[mod]
+  1037→                                return (
+  1038→                                  <TabsTrigger
+  1039→                                    key={mod}
+  1040→                                    value={mod}
+  1041→                                    className={`flex items-center gap-1.5 text-xs data-[state=active]:${cfg.bgClass} data-[state=active]:text-white py-2`}
+  1042→                                  >
+  1043→                                    {cfg.icon}
+  1044→                                    {cfg.label}
+  1045→                                  </TabsTrigger>
+  1046→                                )
+  1047→                              })}
+  1048→                            </TabsList>
+  1049→
+  1050→                            {(
+  1051→                              ['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as const
+  1052→                            ).map((mod) => (
+  1053→                              <TabsContent key={mod} value={mod} className="mt-3">
+  1054→                                <WingPanel
+  1055→                                  wing={detail.wingApproaches?.find(
+  1056→                                    (w) => w.modality === mod
+  1057→                                  )}
+  1058→                                  modality={mod}
+  1059→                                  medicines={detail.indications ?? []}
+  1060→                                />
+  1061→                              </TabsContent>
+  1062→                            ))}
+  1063→                          </Tabs>
+  1064→                        </motion.div>
+  1065→                      </>
+  1066→                    ) : (
+  1067→                      <div className="text-center py-8 text-muted-foreground">
+  1068→                        <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+  1069→                        <p className="text-sm">Failed to load issue details</p>
+  1070→                      </div>
+  1071→                    )}
+  1072→                  </div>
+  1073→                </ScrollArea>
+  1074→              </div>
+  1075→            </motion.div>
+  1076→          </motion.div>
+  1077→        )}
+  1078→      </AnimatePresence>
+  1079→    </motion.div>
+  1080→  )
+  1081→}
+  1082→

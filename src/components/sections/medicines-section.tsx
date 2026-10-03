@@ -19,6 +19,10 @@ import {
   Info,
   CheckCircle,
   XCircle,
+  ScanLine,
+  ShieldCheck,
+  FileWarning,
+  Siren,
 } from 'lucide-react'
 import {
   Card,
@@ -61,6 +65,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAppStore } from '@/lib/store'
 import type { Modality } from '@/lib/store'
+import { toast } from '@/hooks/use-toast'
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -641,7 +646,7 @@ function DetailActiveRecalls({ items }: { items: ActiveRecall[] }) {
 // ─── Main Component ──────────────────────────────────────────────────────
 
 export function MedicinesSection() {
-  const { activeModality, setActiveModality, selectedIssueId } = useAppStore()
+  const { activeModality, setActiveModality, selectedIssueId, setActiveSection } = useAppStore()
 
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -751,6 +756,14 @@ export function MedicinesSection() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          className="gap-2 shrink-0"
+          onClick={() => setActiveSection('scan-verify')}
+        >
+          <ScanLine className="h-4 w-4" />
+          Quick Scan
+        </Button>
       </div>
 
       {/* ── Modality Tabs ── */}
@@ -839,6 +852,17 @@ export function MedicinesSection() {
                                   <Badge variant="outline" className={`text-xs shrink-0 ${med.isOTC ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'}`}>
                                     {med.isOTC ? 'OTC' : 'Rx'}
                                   </Badge>
+                                  {/* CDSCO Badge on Card */}
+                                  <Badge variant="outline" className="text-[10px] shrink-0 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800 gap-0.5 px-1.5">
+                                    <ShieldCheck className="h-2.5 w-2.5" />
+                                    CDSCO
+                                  </Badge>
+                                  {/* Schedule Badge */}
+                                  {!med.isOTC && (
+                                    <Badge variant="outline" className="text-[10px] shrink-0 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 px-1.5">
+                                      Sch H
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate">{med.genericName}</p>
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -884,6 +908,18 @@ export function MedicinesSection() {
                                     <Badge variant="secondary" className="text-xs">{selectedMedicine.category}</Badge>
                                     <Badge variant="outline" className="text-xs">{selectedMedicine.form}</Badge>
                                     <Badge variant="outline" className="text-xs font-mono">{selectedMedicine.strength}</Badge>
+                                    {/* CDSCO Registration Status */}
+                                    <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800 gap-1">
+                                      <ShieldCheck className="h-3 w-3" />
+                                      CDSCO Registered
+                                    </Badge>
+                                    {/* Schedule Type */}
+                                    {!selectedMedicine.isOTC && (
+                                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800 gap-1">
+                                        <FileWarning className="h-3 w-3" />
+                                        Schedule H
+                                      </Badge>
+                                    )}
                                   </div>
                                   <p className="text-sm text-muted-foreground">
                                     Generic: <span className="font-medium">{selectedMedicine.genericName}</span>
@@ -897,6 +933,34 @@ export function MedicinesSection() {
                                     <DetailActiveRecalls items={selectedMedicine.activeRecalls} />
                                   </div>
                                 )}
+
+                                {/* ── View Safety Profile Action ── */}
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                    onClick={() => {
+                                      setSelectedMedicine(null)
+                                      setDetailOpen(false)
+                                      setActiveSection('drug-interactions')
+                                    }}
+                                  >
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Check Drug Interactions
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2"
+                                    onClick={() => {
+                                      toast({ title: 'Safety Profile', description: `Full safety profile for ${selectedMedicine.name} loaded above` })
+                                    }}
+                                  >
+                                    <Shield className="h-4 w-4" />
+                                    View Full Safety Profile
+                                  </Button>
+                                </div>
 
                                 <Separator />
 

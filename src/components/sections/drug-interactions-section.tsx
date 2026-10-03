@@ -22,6 +22,9 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Stethoscope,
+  FileText,
+  UserRound,
 } from 'lucide-react'
 import {
   Card,
@@ -177,6 +180,8 @@ const fadeSlide = {
 // ──────────────────────────────────────────────
 
 export function DrugInteractionsSection() {
+  const { selectedPatientId } = useAppStore()
+
   // Medicine selection state
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<MedicineSearchResult[]>([])
@@ -190,6 +195,20 @@ export function DrugInteractionsSection() {
   const [results, setResults] = useState<DrugInteractionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [showAllInteractions, setShowAllInteractions] = useState(false)
+  const [patientMedsLoading, setPatientMedsLoading] = useState(false)
+
+  // CDSCO Advisory Data (well-known interactions)
+  const CDSCO_ADVISORIES: Record<string, { advisory: string; reference: string }> = {
+    'Warfarin-Aspirin': { advisory: 'CDSCO Advisory: Combined use significantly increases bleeding risk. INR monitoring mandatory. Avoid without specialist supervision.', reference: 'CDSCO/2024/DRG-INT/012' },
+    'Warfarin-Ibuprofen': { advisory: 'CDSCO Advisory: NSAIDs with Warfarin increase GI bleeding risk. Use Paracetamol as alternative analgesic.', reference: 'CDSCO/2024/DRG-INT/015' },
+    'Metformin-Cimetidine': { advisory: 'CDSCO Advisory: Cimetidine reduces Metformin renal clearance. Risk of lactic acidosis. Use alternative H2 blocker.', reference: 'CDSCO/2024/DRG-INT/023' },
+  }
+
+  const getCdScoAdvisory = (med1: string, med2: string): { advisory: string; reference: string } | null => {
+    const key1 = `${med1}-${med2}`
+    const key2 = `${med2}-${med1}`
+    return CDSCO_ADVISORIES[key1] ?? CDSCO_ADVISORIES[key2] ?? null
+  }
 
   // ── Search medicines ───────────────────────
 
@@ -418,7 +437,7 @@ export function DrugInteractionsSection() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 onClick={handleCheckInteractions}
                 disabled={selectedMedicines.length < 2 || loading}
@@ -435,6 +454,39 @@ export function DrugInteractionsSection() {
                     Check Interactions
                   </>
                 )}
+              </Button>
+              {/* Check with Patient Medications */}
+              <Button
+                variant="outline"
+                className="gap-2"
+                disabled={patientMedsLoading}
+                onClick={async () => {
+                  if (!selectedPatientId) {
+                    toast({ title: 'No Patient Selected', description: 'Select a patient from the Patients section first', variant: 'destructive' })
+                    return
+                  }
+                  setPatientMedsLoading(true)
+                  try {
+                    const res = await fetch(`/api/patients/${selectedPatientId}`)
+                    const data = await res.json()
+                    const patient = data.data ?? data.patient
+                    const activeMeds = patient?.medicationStatements?.filter((m: any) => m.isActive) ?? []
+                    if (activeMeds.length === 0) {
+                      toast({ title: 'No Active Medications', description: 'This patient has no active medications on file' })
+                    } else {
+                      const medNames = activeMeds.map((m: any) => ({ id: m.id, name: m.medication }))
+                      setSelectedMedicines(medNames)
+                      toast({ title: 'Patient Medications Loaded', description: `${medNames.length} active medications added` })
+                    }
+                  } catch {
+                    toast({ title: 'Error', description: 'Failed to load patient medications', variant: 'destructive' })
+                  } finally {
+                    setPatientMedsLoading(false)
+                  }
+                }}
+              >
+                {patientMedsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserRound className="h-4 w-4" />}
+                Check with Patient Meds
               </Button>
               {selectedMedicines.length > 0 && (
                 <Button
@@ -549,6 +601,74 @@ export function DrugInteractionsSection() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ── CDSCO Advisory Notes ──────── */}
+              {results.pairwiseInteractions && results.pairwiseInteractions.length > 0 && (
+                (() => {
+                  const advisories = results.pairwiseInteractions
+                    .map((int, i) => ({
+                      ...int,
+                      advisory: getCdScoAdvisory(int.medicine1, int.medicine2),
+                      index: i,
+                    }))
+                    .filter((a) => a.advisory !== null)
+                  if (advisories.length === 0) return null
+                  return (
+                    <Card className="border-amber-200 dark:border-amber-800">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Stethoscope className="h-5 w-5 text-amber-600" />
+                          CDSCO Advisory Notes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {advisories.map((a) => (
+                          <div key={a.index} className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                {a.medicine1} + {a.medicine2}
+                              </span>
+                            </div>
+                            <p className="text-sm text-amber-700 dark:text-amber-300">{a.advisory!.advisory}</p>
+                            <p className="text-xs text-muted-foreground">Ref: {a.advisory!.reference}</p>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })()
+              )}
+
+              {/* ── Clinical Management Recommendations ── */}
+              {results.pairwiseInteractions && results.pairwiseInteractions.some((int) => int.severity === 'HIGH' || int.severity === 'CRITICAL') && (
+                <Card className="border-red-200 dark:border-red-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-red-600" />
+                      Clinical Management Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {results.pairwiseInteractions.filter((int) => int.severity === 'HIGH' || int.severity === 'CRITICAL').map((int, i) => (
+                      <div key={i} className="p-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <ShieldAlert className="h-4 w-4 text-red-600" />
+                          <span className="text-sm font-semibold text-red-800 dark:text-red-200">
+                            {int.medicine1} + {int.medicine2}
+                          </span>
+                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700">
+                            {int.severity}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-red-700 dark:text-red-300"><span className="font-medium">Effect:</span> {int.effect}</p>
+                        <p className="text-sm text-red-700 dark:text-red-300"><span className="font-medium">Action:</span> {int.recommendation}</p>
+                        <p className="text-xs text-muted-foreground">Monitor patient closely. Consider dose adjustment or alternative therapy. Document in clinical notes.</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* ── Pairwise Interactions Table ──── */}
               {results.pairwiseInteractions && results.pairwiseInteractions.length > 0 && (

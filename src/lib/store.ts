@@ -9,6 +9,8 @@ export type Section =
   | 'medicines'
   | 'symptom-checker'
   | 'drug-interactions'
+  | 'scan-verify'
+  | 'pharmacy'
   | 'consent'
   | 'intake'
   | 'safety'
@@ -16,6 +18,9 @@ export type Section =
   | 'care-plans'
   | 'knowledge'
   | 'audit'
+  | 'analytics'
+  | 'voice'
+  | 'recalls'
   | 'admin'
 
 export type Modality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
@@ -56,6 +61,14 @@ interface AppState {
   setSelectedIssueId: (id: string | null) => void
   selectedMedicineId: string | null
   setSelectedMedicineId: (id: string | null) => void
+  selectedPharmacyId: string | null
+  setSelectedPharmacyId: (id: string | null) => void
+  selectedRecallId: string | null
+  setSelectedRecallId: (id: string | null) => void
+  isVoiceActive: boolean
+  setIsVoiceActive: (active: boolean) => void
+  scanResult: any | null
+  setScanResult: (result: any | null) => void
   notificationCount: number
   setNotificationCount: (count: number) => void
   sidebarCollapsed: boolean
@@ -79,6 +92,14 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedIssueId: (id) => set({ selectedIssueId: id }),
   selectedMedicineId: null,
   setSelectedMedicineId: (id) => set({ selectedMedicineId: id }),
+  selectedPharmacyId: null,
+  setSelectedPharmacyId: (id) => set({ selectedPharmacyId: id }),
+  selectedRecallId: null,
+  setSelectedRecallId: (id) => set({ selectedRecallId: id }),
+  isVoiceActive: false,
+  setIsVoiceActive: (active) => set({ isVoiceActive: active }),
+  scanResult: null,
+  setScanResult: (result) => set({ scanResult: result }),
   notificationCount: 3,
   setNotificationCount: (count) => set({ notificationCount: count }),
   sidebarCollapsed: false,

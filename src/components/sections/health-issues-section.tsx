@@ -21,6 +21,13 @@ import {
   Clock,
   Languages,
   FileText,
+  Baby,
+  UserRound,
+  Wind,
+  Bone,
+  Eye,
+  Ear,
+  GitBranch,
 } from 'lucide-react'
 import {
   Card,
@@ -148,18 +155,18 @@ const BODY_SYSTEMS = [
 ] as const
 
 const BODY_SYSTEM_ICONS: Record<string, React.ReactNode> = {
-  RESPIRATORY: <Activity className="h-3.5 w-3.5" />,
+  RESPIRATORY: <Wind className="h-3.5 w-3.5" />,
   CARDIOVASCULAR: <Heart className="h-3.5 w-3.5" />,
   GASTROINTESTINAL: <Leaf className="h-3.5 w-3.5" />,
   NEUROLOGICAL: <Brain className="h-3.5 w-3.5" />,
-  MUSCULOSKELETAL: <Activity className="h-3.5 w-3.5" />,
-  DERMATOLOGICAL: <Stethoscope className="h-3.5 w-3.5" />,
+  MUSCULOSKELETAL: <Bone className="h-3.5 w-3.5" />,
+  DERMATOLOGICAL: <ShieldCheck className="h-3.5 w-3.5" />,
   ENDOCRINE: <FlaskConical className="h-3.5 w-3.5" />,
-  GENITOURINARY: <Pill className="h-3.5 w-3.5" />,
+  GENITOURINARY: <Activity className="h-3.5 w-3.5" />,
   IMMUNOLOGICAL: <ShieldCheck className="h-3.5 w-3.5" />,
   PSYCHIATRIC: <Brain className="h-3.5 w-3.5" />,
-  ENT: <Stethoscope className="h-3.5 w-3.5" />,
-  OPHTHALMOLOGICAL: <Stethoscope className="h-3.5 w-3.5" />,
+  ENT: <Ear className="h-3.5 w-3.5" />,
+  OPHTHALMOLOGICAL: <Eye className="h-3.5 w-3.5" />,
   HEMATOLOGICAL: <Activity className="h-3.5 w-3.5" />,
 }
 
@@ -542,6 +549,32 @@ export function HealthIssuesSection() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [activeWing, setActiveWing] = useState('ALLOPATHY')
 
+  // Hindi/English toggle
+  const [showHindi, setShowHindi] = useState(false)
+
+  // Pediatric/geriatric flag data (mock for known conditions)
+  const PEDIATRIC_ISSUES = new Set(['Asthma', 'Tonsillitis', 'Ear Infection', 'Chickenpox', 'Measles', 'ADHD'])
+  const GERIATRIC_ISSUES = new Set(['Osteoarthritis', 'Hypertension', 'Type 2 Diabetes', 'Dementia', 'Parkinson Disease', 'COPD', 'Cataract', 'Benign Prostatic Hyperplasia'])
+
+  const getHindiName = (issue: HealthIssueListItem): string => {
+    const hiAlias = issue.aliases?.find((a) => a.language === 'hi')
+    const hiTranslation = issue.translations?.find((t) => t.language === 'hi')
+    return hiAlias?.alias ?? hiTranslation?.name ?? ''
+  }
+
+  const normalizeHindiSearch = (q: string): string => {
+    const map: Record<string, string> = {
+      'पेट दर्द': 'stomach pain', 'pet dard': 'stomach pain',
+      'सिर दर्द': 'headache', 'sir dard': 'headache',
+      'बुखार': 'fever', 'bukhar': 'fever',
+      'खांसी': 'cough', 'khasi': 'cough',
+      'दस्त': 'diarrhea', 'dast': 'diarrhea',
+      'जुकाम': 'cold', 'jukam': 'cold',
+    }
+    const lower = q.toLowerCase().trim()
+    return map[lower] ?? map[q.trim()] ?? q
+  }
+
   // ──────────────────────────────────────────
   // Auto-seed on first load
   // ──────────────────────────────────────────
@@ -660,7 +693,7 @@ export function HealthIssuesSection() {
             placeholder='Search issues... (e.g. "pet dard", "sir dard", "bukhar")'
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value)
+              setSearch(normalizeHindiSearch(e.target.value))
               setPage(1)
             }}
             className="pl-9"
@@ -685,6 +718,19 @@ export function HealthIssuesSection() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* ── Hindi/English Toggle ── */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant={showHindi ? 'default' : 'outline'}
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setShowHindi(!showHindi)}
+        >
+          <Languages className="h-3.5 w-3.5" />
+          {showHindi ? 'Show English' : 'Show Hindi Names'}
+        </Button>
       </div>
 
       {/* ── Body System Filter Tabs ── */}
@@ -763,8 +809,11 @@ export function HealthIssuesSection() {
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-medium text-sm truncate">
-                              {issue.name}
+                              {showHindi && getHindiName(issue) ? getHindiName(issue) : issue.name}
                             </h3>
+                            {showHindi && getHindiName(issue) && (
+                              <span className="text-[10px] text-muted-foreground truncate">({issue.name})</span>
+                            )}
                             {issue.code && (
                               <Badge
                                 variant="outline"
@@ -792,6 +841,16 @@ export function HealthIssuesSection() {
                         </Badge>
                         <SeverityBadge severity={issue.severity} />
                         <ChronicityBadge chronicity={issue.chronicity} />
+                        {PEDIATRIC_ISSUES.has(issue.name) && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800 gap-0.5">
+                            <Baby className="h-2.5 w-2.5" />Pediatric
+                          </Badge>
+                        )}
+                        {GERIATRIC_ISSUES.has(issue.name) && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800 gap-0.5">
+                            <UserRound className="h-2.5 w-2.5" />Geriatric
+                          </Badge>
+                        )}
                         {issue._count?.indications !== undefined && (
                           <Badge
                             variant="outline"
