@@ -1,0 +1,1035 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  FileText,
+     7→  Plus,
+     8→  QrCode,
+     9→  ShieldCheck,
+    10→  Pill,
+    11→  Check,
+    12→  X,
+    13→} from 'lucide-react'
+    14→import {
+    15→  Card,
+    16→  CardContent,
+    17→  CardHeader,
+    18→  CardTitle,
+    19→  CardDescription,
+    20→} from '@/components/ui/card'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Input } from '@/components/ui/input'
+    23→import { Badge } from '@/components/ui/badge'
+    24→import { Label } from '@/components/ui/label'
+    25→import { Textarea } from '@/components/ui/textarea'
+    26→import { Skeleton } from '@/components/ui/skeleton'
+    27→import { ScrollArea } from '@/components/ui/scroll-area'
+    28→import { Separator } from '@/components/ui/separator'
+    29→import {
+    30→  Tabs,
+    31→  TabsContent,
+    32→  TabsList,
+    33→  TabsTrigger,
+    34→} from '@/components/ui/tabs'
+    35→import {
+    36→  Table,
+    37→  TableBody,
+    38→  TableCell,
+    39→  TableHead,
+    40→  TableHeader,
+    41→  TableRow,
+    42→} from '@/components/ui/table'
+    43→import {
+    44→  Dialog,
+    45→  DialogContent,
+    46→  DialogDescription,
+    47→  DialogFooter,
+    48→  DialogHeader,
+    49→  DialogTitle,
+    50→} from '@/components/ui/dialog'
+    51→import {
+    52→  Select,
+    53→  SelectContent,
+    54→  SelectItem,
+    55→  SelectTrigger,
+    56→  SelectValue,
+    57→} from '@/components/ui/select'
+    58→import { useAppStore } from '@/lib/store'
+    59→import type { Modality } from '@/lib/store'
+    60→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    61→import { toast } from '@/hooks/use-toast'
+    62→
+    63→// ─── Types ───────────────────────────────────────────────────────────────
+    64→
+    65→type PrescriptionStatus = 'DRAFT' | 'ACTIVE' | 'DISPENSED' | 'EXPIRED' | 'CANCELLED'
+    66→type Frequency = 'ONCE_DAILY' | 'TWICE_DAILY' | 'THRICE_DAILY' | 'AS_NEEDED' | 'STAT'
+    67→type Route = 'ORAL' | 'IV' | 'IM' | 'SC' | 'TOPICAL' | 'INHALATION'
+    68→type ScheduleType = 'OTC' | 'SCHEDULE_H' | 'SCHEDULE_H1' | 'SCHEDULE_X' | 'NARCOTIC'
+    69→type FoodInstruction = 'before food' | 'after food' | 'with food' | 'empty stomach'
+    70→
+    71→interface PrescriptionItem {
+    72→  id?: string
+    73→  medicineName: string
+    74→  medicineId?: string
+    75→  dosage: string
+    76→  frequency: Frequency
+    77→  duration: string
+    78→  route: Route
+    79→  instructions: FoodInstruction
+    80→  scheduleType: ScheduleType
+    81→  quantity: number
+    82→  refills: number
+    83→}
+    84→
+    85→interface Prescription {
+    86→  id: string
+    87→  prescriptionNo: string
+    88→  patientId: string
+    89→  patient?: { id: string; firstName: string; lastName: string }
+    90→  practitioner?: { id: string; name: string }
+    91→  modality: string
+    92→  status: PrescriptionStatus
+    93→  diagnosis: string | null
+    94→  notes: string | null
+    95→  qrCodeData: string | null
+    96→  digitalSignature: string | null
+    97→  isCdScoCompliant: boolean
+    98→  validFrom: string
+    99→  validUntil: string | null
+   100→  createdAt: string
+   101→  items: PrescriptionItem[]
+   102→}
+   103→
+   104→interface Patient {
+   105→  id: string
+   106→  firstName: string
+   107→  lastName: string
+   108→}
+   109→
+   110→// ─── Constants ───────────────────────────────────────────────────────────
+   111→
+   112→const FREQUENCY_LABELS: Record<Frequency, string> = {
+   113→  ONCE_DAILY: 'Once Daily',
+   114→  TWICE_DAILY: 'Twice Daily',
+   115→  THRICE_DAILY: 'Thrice Daily',
+   116→  AS_NEEDED: 'As Needed (PRN)',
+   117→  STAT: 'STAT (Immediately)',
+   118→}
+   119→
+   120→const ROUTE_LABELS: Record<Route, string> = {
+   121→  ORAL: 'Oral',
+   122→  IV: 'Intravenous',
+   123→  IM: 'Intramuscular',
+   124→  SC: 'Subcutaneous',
+   125→  TOPICAL: 'Topical',
+   126→  INHALATION: 'Inhalation',
+   127→}
+   128→
+   129→const SCHEDULE_TYPE_CONFIG: Record<ScheduleType, { label: string; className: string }> = {
+   130→  OTC: {
+   131→    label: 'OTC',
+   132→    className: 'bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-900 dark:text-teal-200 dark:border-teal-700',
+   133→  },
+   134→  SCHEDULE_H: {
+   135→    label: 'Schedule H',
+   136→    className: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   137→  },
+   138→  SCHEDULE_H1: {
+   139→    label: 'Schedule H1',
+   140→    className: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   141→  },
+   142→  SCHEDULE_X: {
+   143→    label: 'Schedule X',
+   144→    className: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+   145→  },
+   146→  NARCOTIC: {
+   147→    label: 'Narcotic',
+   148→    className: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   149→  },
+   150→}
+   151→
+   152→const STATUS_CONFIG: Record<PrescriptionStatus, { label: string; className: string }> = {
+   153→  DRAFT: {
+   154→    label: 'Draft',
+   155→    className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+   156→  },
+   157→  ACTIVE: {
+   158→    label: 'Active',
+   159→    className: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+   160→  },
+   161→  DISPENSED: {
+   162→    label: 'Dispensed',
+   163→    className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+   164→  },
+   165→  EXPIRED: {
+   166→    label: 'Expired',
+   167→    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+   168→  },
+   169→  CANCELLED: {
+   170→    label: 'Cancelled',
+   171→    className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+   172→  },
+   173→}
+   174→
+   175→const FOOD_INSTRUCTIONS: FoodInstruction[] = ['before food', 'after food', 'with food', 'empty stomach']
+   176→
+   177→// ─── Simple QR Code Data URL Generator ───────────────────────────────────
+   178→// Generates a visual placeholder SVG that encodes the prescription data
+   179→
+   180→function generateQrDataUrl(data: string): string {
+   181→  const size = 128
+   182→  const cellSize = 4
+   183→  const gridCount = size / cellSize
+   184→  // Simple hash-based pattern for visual representation
+   185→  let hash = 0
+   186→  for (let i = 0; i < data.length; i++) {
+   187→    hash = ((hash << 5) - hash + data.charCodeAt(i)) | 0
+   188→  }
+   189→  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`
+   190→  svg += `<rect width="${size}" height="${size}" fill="white"/>`
+   191→  // Finder patterns (3 corners)
+   192→  for (const [ox, oy] of [[0, 0], [size - 7 * cellSize, 0], [0, size - 7 * cellSize]]) {
+   193→    svg += `<rect x="${ox}" y="${oy}" width="${7 * cellSize}" height="${7 * cellSize}" fill="black"/>`
+   194→    svg += `<rect x="${ox + cellSize}" y="${oy + cellSize}" width="${5 * cellSize}" height="${5 * cellSize}" fill="white"/>`
+   195→    svg += `<rect x="${ox + 2 * cellSize}" y="${oy + 2 * cellSize}" width="${3 * cellSize}" height="${3 * cellSize}" fill="black"/>`
+   196→  }
+   197→  // Data pattern
+   198→  for (let row = 0; row < gridCount; row++) {
+   199→    for (let col = 0; col < gridCount; col++) {
+   200→      if (row < 8 && col < 8) continue
+   201→      if (row < 8 && col >= gridCount - 8) continue
+   202→      if (row >= gridCount - 8 && col < 8) continue
+   203→      const bit = ((hash * (row * gridCount + col + 1)) >>> 0) % 2
+   204→      if (bit) {
+   205→        svg += `<rect x="${col * cellSize}" y="${row * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`
+   206→      }
+   207→    }
+   208→  }
+   209→  svg += '</svg>'
+   210→  return `data:image/svg+xml;base64,${btoa(svg)}`
+   211→}
+   212→
+   213→// ─── Animation ───────────────────────────────────────────────────────────
+   214→
+   215→const fadeSlide = {
+   216→  initial: { opacity: 0, y: 12 },
+   217→  animate: { opacity: 1, y: 0 },
+   218→  transition: { duration: 0.3 },
+   219→}
+   220→
+   221→// ─── Component ───────────────────────────────────────────────────────────
+   222→
+   223→export function PrescriptionsSection() {
+   224→  const { activeModality, selectedPatientId, setSelectedPrescriptionId } = useAppStore()
+   225→
+   226→  const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
+   227→  const [patients, setPatients] = useState<Patient[]>([])
+   228→  const [loading, setLoading] = useState(true)
+   229→  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+   230→  const [modalityTab, setModalityTab] = useState<string>(activeModality)
+   231→
+   232→  // New prescription dialog
+   233→  const [createOpen, setCreateOpen] = useState(false)
+   234→  const [formPatientId, setFormPatientId] = useState(selectedPatientId ?? '')
+   235→  const [formModality, setFormModality] = useState<string>(activeModality)
+   236→  const [formDiagnosis, setFormDiagnosis] = useState('')
+   237→  const [formNotes, setFormNotes] = useState('')
+   238→  const [formItems, setFormItems] = useState<PrescriptionItem[]>([
+   239→    {
+   240→      medicineName: '',
+   241→      dosage: '',
+   242→      frequency: 'ONCE_DAILY',
+   243→      duration: '7 days',
+   244→      route: 'ORAL',
+   245→      instructions: 'after food',
+   246→      scheduleType: 'OTC',
+   247→      quantity: 10,
+   248→      refills: 0,
+   249→    },
+   250→  ])
+   251→  const [submitting, setSubmitting] = useState(false)
+   252→
+   253→  // Detail dialog
+   254→  const [detailOpen, setDetailOpen] = useState(false)
+   255→  const [selectedRx, setSelectedRx] = useState<Prescription | null>(null)
+   256→
+   257→  // ─── Fetch patients ───────────────────────────────────────────────
+   258→
+   259→  useEffect(() => {
+   260→    fetch('/api/patients')
+   261→      .then((r) => r.json())
+   262→      .then((d) => setPatients(d.data ?? d.patients ?? []))
+   263→      .catch(() => {
+   264→        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+   265→      })
+   266→  }, [])
+   267→
+   268→  // ─── Fetch prescriptions ─────────────────────────────────────────
+   269→
+   270→  const loadPrescriptions = useCallback(async () => {
+   271→    setLoading(true)
+   272→    try {
+   273→      const params = new URLSearchParams()
+   274→      if (statusFilter && statusFilter !== 'ALL') params.set('status', statusFilter)
+   275→      if (modalityTab) params.set('modality', modalityTab)
+   276→      const res = await fetch(`/api/prescriptions?${params.toString()}`)
+   277→      const json = await res.json()
+   278→      const raw = json.data ?? json.prescriptions ?? []
+   279→      const mapped = raw.map((p: Record<string, unknown>) => {
+   280→        const patient = p.patient as { id: string; firstName: string; lastName: string } | undefined
+   281→        const practitioner = p.practitioner as { id: string; name: string } | undefined
+   282→        const items = (Array.isArray(p.items) ? p.items : []) as PrescriptionItem[]
+   283→        return {
+   284→          id: p.id as string,
+   285→          prescriptionNo: (p.prescriptionNo ?? '') as string,
+   286→          patientId: (p.patientId ?? '') as string,
+   287→          patient,
+   288→          practitioner,
+   289→          modality: (p.modality ?? 'ALLOPATHY') as string,
+   290→          status: (p.status ?? 'DRAFT') as PrescriptionStatus,
+   291→          diagnosis: (p.diagnosis ?? null) as string | null,
+   292→          notes: (p.notes ?? null) as string | null,
+   293→          qrCodeData: (p.qrCodeData ?? null) as string | null,
+   294→          digitalSignature: (p.digitalSignature ?? null) as string | null,
+   295→          isCdScoCompliant: (p.isCdScoCompliant ?? true) as boolean,
+   296→          validFrom: (p.validFrom ?? p.createdAt ?? new Date().toISOString()) as string,
+   297→          validUntil: (p.validUntil ?? null) as string | null,
+   298→          createdAt: (p.createdAt ?? new Date().toISOString()) as string,
+   299→          items,
+   300→        } as Prescription
+   301→      })
+   302→      setPrescriptions(mapped)
+   303→    } catch {
+   304→      toast({ title: 'Error', description: 'Failed to load prescriptions', variant: 'destructive' })
+   305→    } finally {
+   306→      setLoading(false)
+   307→    }
+   308→  }, [statusFilter, modalityTab])
+   309→
+   310→  useEffect(() => { loadPrescriptions() }, [loadPrescriptions])
+   311→
+   312→  // ─── Item management ──────────────────────────────────────────────
+   313→
+   314→  const addItem = () => {
+   315→    setFormItems((prev) => [
+   316→      ...prev,
+   317→      {
+   318→        medicineName: '',
+   319→        dosage: '',
+   320→        frequency: 'ONCE_DAILY',
+   321→        duration: '7 days',
+   322→        route: 'ORAL',
+   323→        instructions: 'after food',
+   324→        scheduleType: 'OTC',
+   325→        quantity: 10,
+   326→        refills: 0,
+   327→      },
+   328→    ])
+   329→  }
+   330→
+   331→  const removeItem = (idx: number) => {
+   332→    setFormItems((prev) => prev.filter((_, i) => i !== idx))
+   333→  }
+   334→
+   335→  const updateItem = (idx: number, field: keyof PrescriptionItem, value: unknown) => {
+   336→    setFormItems((prev) =>
+   337→      prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item))
+   338→    )
+   339→  }
+   340→
+   341→  // ─── Create prescription ─────────────────────────────────────────
+   342→
+   343→  const handleCreate = async () => {
+   344→    if (!formPatientId) {
+   345→      toast({ title: 'Validation', description: 'Select a patient', variant: 'destructive' })
+   346→      return
+   347→    }
+   348→    const validItems = formItems.filter((i) => i.medicineName.trim())
+   349→    if (validItems.length === 0) {
+   350→      toast({ title: 'Validation', description: 'Add at least one medicine', variant: 'destructive' })
+   351→      return
+   352→    }
+   353→    setSubmitting(true)
+   354→    try {
+   355→      const res = await fetch('/api/prescriptions', {
+   356→        method: 'POST',
+   357→        headers: { 'Content-Type': 'application/json' },
+   358→        body: JSON.stringify({
+   359→          patientId: formPatientId,
+   360→          modality: formModality,
+   361→          diagnosis: formDiagnosis || undefined,
+   362→          notes: formNotes || undefined,
+   363→          items: validItems,
+   364→        }),
+   365→      })
+   366→      if (res.ok) {
+   367→        toast({ title: 'Prescription Created', description: 'New prescription saved as draft' })
+   368→        setCreateOpen(false)
+   369→        resetForm()
+   370→        loadPrescriptions()
+   371→      } else {
+   372→        toast({ title: 'Error', description: 'Failed to create prescription', variant: 'destructive' })
+   373→      }
+   374→    } catch {
+   375→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   376→    } finally {
+   377→      setSubmitting(false)
+   378→    }
+   379→  }
+   380→
+   381→  const resetForm = () => {
+   382→    setFormPatientId(selectedPatientId ?? '')
+   383→    setFormModality(activeModality)
+   384→    setFormDiagnosis('')
+   385→    setFormNotes('')
+   386→    setFormItems([
+   387→      {
+   388→        medicineName: '',
+   389→        dosage: '',
+   390→        frequency: 'ONCE_DAILY',
+   391→        duration: '7 days',
+   392→        route: 'ORAL',
+   393→        instructions: 'after food',
+   394→        scheduleType: 'OTC',
+   395→        quantity: 10,
+   396→        refills: 0,
+   397→      },
+   398→    ])
+   399→  }
+   400→
+   401→  // ─── QR code for selected prescription ────────────────────────────
+   402→
+   403→  const qrDataUrl = selectedRx?.qrCodeData
+   404→    ? generateQrDataUrl(selectedRx.qrCodeData)
+   405→    : null
+   406→
+   407→  // ─── Render ───────────────────────────────────────────────────────
+   408→
+   409→  if (loading) {
+   410→    return (
+   411→      <div className="space-y-3">
+   412→        {[1, 2, 3].map((i) => (
+   413→          <Skeleton key={i} className="h-24 w-full" />
+   414→        ))}
+   415→      </div>
+   416→    )
+   417→  }
+   418→
+   419→  return (
+   420→    <motion.div {...fadeSlide} className="space-y-6">
+   421→      {/* Header */}
+   422→      <div className="flex items-center justify-between flex-wrap gap-3">
+   423→        <div className="flex items-center gap-3">
+   424→          <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+   425→            <FileText className="h-6 w-6 text-teal-600" />
+   426→          </div>
+   427→          <div>
+   428→            <h2 className="text-2xl font-bold tracking-tight">E-Prescriptions</h2>
+   429→            <p className="text-sm text-muted-foreground">Create and manage prescriptions across modalities</p>
+   430→          </div>
+   431→        </div>
+   432→        <Button
+   433→          className="gap-2 bg-teal-600 hover:bg-teal-700 text-white"
+   434→          onClick={() => {
+   435→            resetForm()
+   436→            setCreateOpen(true)
+   437→          }}
+   438→        >
+   439→          <Plus className="h-4 w-4" /> New Prescription
+   440→        </Button>
+   441→      </div>
+   442→
+   443→      {/* Modality Tabs (NEVER MERGED) */}
+   444→      <Tabs
+   445→        value={modalityTab}
+   446→        onValueChange={setModalityTab}
+   447→        className="space-y-4"
+   448→      >
+   449→        <div className="flex items-center gap-4 flex-wrap">
+   450→          <TabsList>
+   451→            <TabsTrigger value="ALLOPATHY" className="gap-1">
+   452→              <Pill className="h-3 w-3" /> Allopathy
+   453→            </TabsTrigger>
+   454→            <TabsTrigger value="AYURVEDA" className="gap-1">
+   455→              🌿 Ayurveda
+   456→            </TabsTrigger>
+   457→            <TabsTrigger value="HOMEOPATHY" className="gap-1">
+   458→              ✨ Homeopathy
+   459→            </TabsTrigger>
+   460→          </TabsList>
+   461→
+   462→          {/* Status filter */}
+   463→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   464→            <SelectTrigger className="w-40">
+   465→              <SelectValue placeholder="All Status" />
+   466→            </SelectTrigger>
+   467→            <SelectContent>
+   468→              <SelectItem value="ALL">All Status</SelectItem>
+   469→              <SelectItem value="DRAFT">Draft</SelectItem>
+   470→              <SelectItem value="ACTIVE">Active</SelectItem>
+   471→              <SelectItem value="DISPENSED">Dispensed</SelectItem>
+   472→              <SelectItem value="EXPIRED">Expired</SelectItem>
+   473→              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+   474→            </SelectContent>
+   475→          </Select>
+   476→        </div>
+   477→
+   478→        {/* Tab content is the same list, just filtered by modality via API */}
+   479→        {['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'].map((mod) => (
+   480→          <TabsContent key={mod} value={mod} className="space-y-4">
+   481→            {/* Summary cards */}
+   482→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   483→              {(
+   484→                ['DRAFT', 'ACTIVE', 'DISPENSED', 'EXPIRED'] as PrescriptionStatus[]
+   485→              ).map((st) => {
+   486→                const count = prescriptions.filter((p) => p.status === st).length
+   487→                return (
+   488→                  <Card key={st} className="p-3">
+   489→                    <div className="flex items-center justify-between">
+   490→                      <span className="text-xs font-medium text-muted-foreground">
+   491→                        {STATUS_CONFIG[st].label}
+   492→                      </span>
+   493→                      <Badge className={`text-xs ${STATUS_CONFIG[st].className}`}>
+   494→                        {count}
+   495→                      </Badge>
+   496→                    </div>
+   497→                  </Card>
+   498→                )
+   499→              })}
+   500→            </div>
+   501→
+   502→            {/* Prescriptions table */}
+   503→            {prescriptions.length === 0 ? (
+   504→              <Card>
+   505→                <CardContent className="py-8 text-center text-muted-foreground">
+   506→                  No prescriptions found for {mod.charAt(0) + mod.slice(1).toLowerCase()}
+   507→                </CardContent>
+   508→              </Card>
+   509→            ) : (
+   510→              <Card>
+   511→                <CardContent className="p-0">
+   512→                  <div className="overflow-x-auto">
+   513→                    <Table>
+   514→                      <TableHeader>
+   515→                        <TableRow>
+   516→                          <TableHead>Rx No.</TableHead>
+   517→                          <TableHead>Patient</TableHead>
+   518→                          <TableHead>Diagnosis</TableHead>
+   519→                          <TableHead>Items</TableHead>
+   520→                          <TableHead>Status</TableHead>
+   521→                          <TableHead>CDSCO</TableHead>
+   522→                          <TableHead>Date</TableHead>
+   523→                          <TableHead className="text-right">Action</TableHead>
+   524→                        </TableRow>
+   525→                      </TableHeader>
+   526→                      <TableBody>
+   527→                        {prescriptions.map((rx) => {
+   528→                          const statusCfg = STATUS_CONFIG[rx.status] ?? STATUS_CONFIG.DRAFT
+   529→                          const hasNarcotic = rx.items?.some(
+   530→                            (item) => item.scheduleType === 'NARCOTIC'
+   531→                          )
+   532→                          return (
+   533→                            <TableRow
+   534→                              key={rx.id}
+   535→                              className="cursor-pointer hover:bg-muted/50"
+   536→                              onClick={() => {
+   537→                                setSelectedRx(rx)
+   538→                                setSelectedPrescriptionId(rx.id)
+   539→                                setDetailOpen(true)
+   540→                              }}
+   541→                            >
+   542→                              <TableCell className="font-mono text-sm font-medium">
+   543→                                {rx.prescriptionNo}
+   544→                              </TableCell>
+   545→                              <TableCell className="text-sm">
+   546→                                {rx.patient
+   547→                                  ? `${rx.patient.firstName} ${rx.patient.lastName}`
+   548→                                  : '—'}
+   549→                              </TableCell>
+   550→                              <TableCell className="text-sm max-w-[150px] truncate">
+   551→                                {rx.diagnosis || '—'}
+   552→                              </TableCell>
+   553→                              <TableCell className="text-sm">
+   554→                                {rx.items?.length ?? 0}
+   555→                              </TableCell>
+   556→                              <TableCell>
+   557→                                <Badge className={`text-xs ${statusCfg.className}`}>
+   558→                                  {statusCfg.label}
+   559→                                </Badge>
+   560→                              </TableCell>
+   561→                              <TableCell>
+   562→                                {rx.isCdScoCompliant ? (
+   563→                                  <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200 gap-1">
+   564→                                    <ShieldCheck className="h-3 w-3" /> CDSCO
+   565→                                  </Badge>
+   566→                                ) : (
+   567→                                  <Badge variant="outline" className="text-xs">
+   568→                                    Non-compliant
+   569→                                  </Badge>
+   570→                                )}
+   571→                              </TableCell>
+   572→                              <TableCell className="text-sm text-muted-foreground">
+   573→                                {new Date(rx.createdAt).toLocaleDateString()}
+   574→                              </TableCell>
+   575→                              <TableCell className="text-right">
+   576→                                <div className="flex items-center justify-end gap-1">
+   577→                                  {hasNarcotic && (
+   578→                                    <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+   579→                                      Narcotic
+   580→                                    </Badge>
+   581→                                  )}
+   582→                                  <Button
+   583→                                    variant="ghost"
+   584→                                    size="sm"
+   585→                                    onClick={(e) => {
+   586→                                      e.stopPropagation()
+   587→                                      setSelectedRx(rx)
+   588→                                      setSelectedPrescriptionId(rx.id)
+   589→                                      setDetailOpen(true)
+   590→                                    }}
+   591→                                  >
+   592→                                    <FileText className="h-4 w-4" />
+   593→                                  </Button>
+   594→                                </div>
+   595→                              </TableCell>
+   596→                            </TableRow>
+   597→                          )
+   598→                        })}
+   599→                      </TableBody>
+   600→                    </Table>
+   601→                  </div>
+   602→                </CardContent>
+   603→              </Card>
+   604→            )}
+   605→          </TabsContent>
+   606→        ))}
+   607→      </Tabs>
+   608→
+   609→      {/* ─── Create Prescription Dialog ──────────────────────────── */}
+   610→      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+   611→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   612→          <DialogHeader>
+   613→            <DialogTitle className="flex items-center gap-2">
+   614→              <Pill className="h-5 w-5 text-teal-600" /> New Prescription
+   615→            </DialogTitle>
+   616→            <DialogDescription>
+   617→              Create a new prescription — medicines are modality-specific and never shared
+   618→            </DialogDescription>
+   619→          </DialogHeader>
+   620→
+   621→          <div className="grid gap-4 py-2">
+   622→            {/* Patient */}
+   623→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   624→              <div className="space-y-2">
+   625→                <Label>Patient *</Label>
+   626→                <Select value={formPatientId} onValueChange={setFormPatientId}>
+   627→                  <SelectTrigger>
+   628→                    <SelectValue placeholder="Select patient..." />
+   629→                  </SelectTrigger>
+   630→                  <SelectContent>
+   631→                    {patients.map((p) => (
+   632→                      <SelectItem key={p.id} value={p.id}>
+   633→                        {p.firstName} {p.lastName}
+   634→                      </SelectItem>
+   635→                    ))}
+   636→                  </SelectContent>
+   637→                </Select>
+   638→              </div>
+   639→              <div className="space-y-2">
+   640→                <Label>Modality *</Label>
+   641→                <Select value={formModality} onValueChange={setFormModality}>
+   642→                  <SelectTrigger>
+   643→                    <SelectValue />
+   644→                  </SelectTrigger>
+   645→                  <SelectContent>
+   646→                    <SelectItem value="ALLOPATHY">Allopathy</SelectItem>
+   647→                    <SelectItem value="AYURVEDA">Ayurveda</SelectItem>
+   648→                    <SelectItem value="HOMEOPATHY">Homeopathy</SelectItem>
+   649→                  </SelectContent>
+   650→                </Select>
+   651→              </div>
+   652→            </div>
+   653→
+   654→            {/* Diagnosis & Notes */}
+   655→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   656→              <div className="space-y-2">
+   657→                <Label>Diagnosis</Label>
+   658→                <Input
+   659→                  placeholder="e.g. Type 2 Diabetes, Hypertension"
+   660→                  value={formDiagnosis}
+   661→                  onChange={(e) => setFormDiagnosis(e.target.value)}
+   662→                />
+   663→              </div>
+   664→              <div className="space-y-2">
+   665→                <Label>Notes</Label>
+   666→                <Textarea
+   667→                  placeholder="Additional notes..."
+   668→                  value={formNotes}
+   669→                  onChange={(e) => setFormNotes(e.target.value)}
+   670→                  rows={2}
+   671→                />
+   672→              </div>
+   673→            </div>
+   674→
+   675→            <Separator />
+   676→
+   677→            {/* Medicine Items */}
+   678→            <div className="space-y-3">
+   679→              <div className="flex items-center justify-between">
+   680→                <Label className="text-base font-semibold">Medicine Items</Label>
+   681→                <Button variant="outline" size="sm" className="gap-1" onClick={addItem}>
+   682→                  <Plus className="h-3 w-3" /> Add Item
+   683→                </Button>
+   684→              </div>
+   685→
+   686→              <ScrollArea className="max-h-64">
+   687→                <div className="space-y-3 pr-2">
+   688→                  {formItems.map((item, idx) => (
+   689→                    <Card key={idx} className="p-3">
+   690→                      <div className="flex items-start justify-between gap-2 mb-2">
+   691→                        <span className="text-sm font-medium text-muted-foreground">
+   692→                          Item {idx + 1}
+   693→                        </span>
+   694→                        {formItems.length > 1 && (
+   695→                          <Button
+   696→                            variant="ghost"
+   697→                            size="sm"
+   698→                            className="h-6 w-6 p-0 text-red-500"
+   699→                            onClick={() => removeItem(idx)}
+   700→                          >
+   701→                            <X className="h-3 w-3" />
+   702→                          </Button>
+   703→                        )}
+   704→                      </div>
+   705→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   706→                        <div className="space-y-1">
+   707→                          <Label className="text-xs">Medicine Name *</Label>
+   708→                          <Input
+   709→                            placeholder="e.g. Metformin 500mg"
+   710→                            value={item.medicineName}
+   711→                            onChange={(e) => updateItem(idx, 'medicineName', e.target.value)}
+   712→                          />
+   713→                        </div>
+   714→                        <div className="space-y-1">
+   715→                          <Label className="text-xs">Dosage *</Label>
+   716→                          <Input
+   717→                            placeholder="e.g. 1 tablet"
+   718→                            value={item.dosage}
+   719→                            onChange={(e) => updateItem(idx, 'dosage', e.target.value)}
+   720→                          />
+   721→                        </div>
+   722→                        <div className="space-y-1">
+   723→                          <Label className="text-xs">Frequency</Label>
+   724→                          <Select
+   725→                            value={item.frequency}
+   726→                            onValueChange={(v) => updateItem(idx, 'frequency', v)}
+   727→                          >
+   728→                            <SelectTrigger className="h-9 text-xs">
+   729→                              <SelectValue />
+   730→                            </SelectTrigger>
+   731→                            <SelectContent>
+   732→                              {Object.entries(FREQUENCY_LABELS).map(([val, label]) => (
+   733→                                <SelectItem key={val} value={val}>
+   734→                                  {label}
+   735→                                </SelectItem>
+   736→                              ))}
+   737→                            </SelectContent>
+   738→                          </Select>
+   739→                        </div>
+   740→                        <div className="space-y-1">
+   741→                          <Label className="text-xs">Duration</Label>
+   742→                          <Input
+   743→                            placeholder="e.g. 7 days"
+   744→                            value={item.duration}
+   745→                            onChange={(e) => updateItem(idx, 'duration', e.target.value)}
+   746→                          />
+   747→                        </div>
+   748→                        <div className="space-y-1">
+   749→                          <Label className="text-xs">Route</Label>
+   750→                          <Select
+   751→                            value={item.route}
+   752→                            onValueChange={(v) => updateItem(idx, 'route', v)}
+   753→                          >
+   754→                            <SelectTrigger className="h-9 text-xs">
+   755→                              <SelectValue />
+   756→                            </SelectTrigger>
+   757→                            <SelectContent>
+   758→                              {Object.entries(ROUTE_LABELS).map(([val, label]) => (
+   759→                                <SelectItem key={val} value={val}>
+   760→                                  {label}
+   761→                                </SelectItem>
+   762→                              ))}
+   763→                            </SelectContent>
+   764→                          </Select>
+   765→                        </div>
+   766→                        <div className="space-y-1">
+   767→                          <Label className="text-xs">Instructions</Label>
+   768→                          <Select
+   769→                            value={item.instructions}
+   770→                            onValueChange={(v) => updateItem(idx, 'instructions', v)}
+   771→                          >
+   772→                            <SelectTrigger className="h-9 text-xs">
+   773→                              <SelectValue />
+   774→                            </SelectTrigger>
+   775→                            <SelectContent>
+   776→                              {FOOD_INSTRUCTIONS.map((fi) => (
+   777→                                <SelectItem key={fi} value={fi}>
+   778→                                  {fi.charAt(0).toUpperCase() + fi.slice(1)}
+   779→                                </SelectItem>
+   780→                              ))}
+   781→                            </SelectContent>
+   782→                          </Select>
+   783→                        </div>
+   784→                        <div className="space-y-1">
+   785→                          <Label className="text-xs">Schedule Type</Label>
+   786→                          <Select
+   787→                            value={item.scheduleType}
+   788→                            onValueChange={(v) => updateItem(idx, 'scheduleType', v)}
+   789→                          >
+   790→                            <SelectTrigger className="h-9 text-xs">
+   791→                              <SelectValue />
+   792→                            </SelectTrigger>
+   793→                            <SelectContent>
+   794→                              {Object.entries(SCHEDULE_TYPE_CONFIG).map(([val, cfg]) => (
+   795→                                <SelectItem key={val} value={val}>
+   796→                                  {cfg.label}
+   797→                                </SelectItem>
+   798→                              ))}
+   799→                            </SelectContent>
+   800→                          </Select>
+   801→                        </div>
+   802→                        <div className="space-y-1">
+   803→                          <Label className="text-xs">Quantity</Label>
+   804→                          <Input
+   805→                            type="number"
+   806→                            min={1}
+   807→                            value={item.quantity}
+   808→                            onChange={(e) =>
+   809→                              updateItem(idx, 'quantity', parseInt(e.target.value) || 1)
+   810→                            }
+   811→                          />
+   812→                        </div>
+   813→                      </div>
+   814→                      {/* Schedule type badge preview */}
+   815→                      <div className="mt-2">
+   816→                        <Badge
+   817→                          variant="outline"
+   818→                          className={`text-xs ${SCHEDULE_TYPE_CONFIG[item.scheduleType]?.className ?? ''}`}
+   819→                        >
+   820→                          {SCHEDULE_TYPE_CONFIG[item.scheduleType]?.label ?? item.scheduleType}
+   821→                        </Badge>
+   822→                      </div>
+   823→                    </Card>
+   824→                  ))}
+   825→                </div>
+   826→              </ScrollArea>
+   827→            </div>
+   828→
+   829→            {/* Digital Signature Placeholder */}
+   830→            <Separator />
+   831→            <div className="space-y-2">
+   832→              <Label className="text-base font-semibold">Digital Signature</Label>
+   833→              <div className="border-2 border-dashed rounded-lg p-6 text-center text-muted-foreground">
+   834→                <FileText className="h-8 w-8 mx-auto mb-2 opacity-40" />
+   835→                <p className="text-sm">Digital signature will be applied upon activation</p>
+   836→                <p className="text-xs mt-1">Requires clinician authentication</p>
+   837→              </div>
+   838→            </div>
+   839→          </div>
+   840→
+   841→          <DialogFooter>
+   842→            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+   843→              Cancel
+   844→            </Button>
+   845→            <Button
+   846→              onClick={handleCreate}
+   847→              disabled={submitting}
+   848→              className="gap-1 bg-teal-600 hover:bg-teal-700 text-white"
+   849→            >
+   850→              {submitting ? (
+   851→                'Saving...'
+   852→              ) : (
+   853→                <>
+   854→                  <Check className="h-4 w-4" /> Save as Draft
+   855→                </>
+   856→              )}
+   857→            </Button>
+   858→          </DialogFooter>
+   859→        </DialogContent>
+   860→      </Dialog>
+   861→
+   862→      {/* ─── Prescription Detail Dialog ──────────────────────────── */}
+   863→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   864→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   865→          {selectedRx && (
+   866→            <>
+   867→              <DialogHeader>
+   868→                <DialogTitle className="flex items-center gap-2">
+   869→                  <FileText className="h-5 w-5 text-teal-600" />
+   870→                  {selectedRx.prescriptionNo}
+   871→                </DialogTitle>
+   872→                <DialogDescription>
+   873→                  {selectedRx.patient
+   874→                    ? `${selectedRx.patient.firstName} ${selectedRx.patient.lastName}`
+   875→                    : 'Unknown Patient'}{' '}
+   876→                  •{' '}
+   877→                  {new Date(selectedRx.createdAt).toLocaleDateString()}
+   878→                </DialogDescription>
+   879→              </DialogHeader>
+   880→
+   881→              <div className="space-y-4">
+   882→                {/* Meta row */}
+   883→                <div className="flex items-center gap-2 flex-wrap">
+   884→                  <ModalityBadge modality={selectedRx.modality as Modality} />
+   885→                  <Badge
+   886→                    className={`text-xs ${STATUS_CONFIG[selectedRx.status]?.className ?? ''}`}
+   887→                  >
+   888→                    {STATUS_CONFIG[selectedRx.status]?.label ?? selectedRx.status}
+   889→                  </Badge>
+   890→                  {selectedRx.isCdScoCompliant && (
+   891→                    <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200 gap-1">
+   892→                      <ShieldCheck className="h-3 w-3" /> CDSCO Compliant
+   893→                    </Badge>
+   894→                  )}
+   895→                </div>
+   896→
+   897→                {/* Diagnosis */}
+   898→                {selectedRx.diagnosis && (
+   899→                  <div>
+   900→                    <p className="text-sm font-medium mb-1">Diagnosis</p>
+   901→                    <p className="text-sm text-muted-foreground">{selectedRx.diagnosis}</p>
+   902→                  </div>
+   903→                )}
+   904→
+   905→                {/* Notes */}
+   906→                {selectedRx.notes && (
+   907→                  <div>
+   908→                    <p className="text-sm font-medium mb-1">Notes</p>
+   909→                    <p className="text-sm text-muted-foreground">{selectedRx.notes}</p>
+   910→                  </div>
+   911→                )}
+   912→
+   913→                <Separator />
+   914→
+   915→                {/* Items table */}
+   916→                <div>
+   917→                  <p className="text-sm font-semibold mb-2">Prescribed Medicines</p>
+   918→                  <div className="overflow-x-auto">
+   919→                    <Table>
+   920→                      <TableHeader>
+   921→                        <TableRow>
+   922→                          <TableHead>#</TableHead>
+   923→                          <TableHead>Medicine</TableHead>
+   924→                          <TableHead>Dosage</TableHead>
+   925→                          <TableHead>Frequency</TableHead>
+   926→                          <TableHead>Duration</TableHead>
+   927→                          <TableHead>Route</TableHead>
+   928→                          <TableHead>Instructions</TableHead>
+   929→                          <TableHead>Schedule</TableHead>
+   930→                        </TableRow>
+   931→                      </TableHeader>
+   932→                      <TableBody>
+   933→                        {selectedRx.items?.map((item, idx) => (
+   934→                          <TableRow key={item.id ?? idx}>
+   935→                            <TableCell className="text-sm">{idx + 1}</TableCell>
+   936→                            <TableCell className="text-sm font-medium">
+   937→                              {item.medicineName}
+   938→                            </TableCell>
+   939→                            <TableCell className="text-sm">{item.dosage}</TableCell>
+   940→                            <TableCell className="text-sm">
+   941→                              {FREQUENCY_LABELS[item.frequency as Frequency] ?? item.frequency}
+   942→                            </TableCell>
+   943→                            <TableCell className="text-sm">
+   944→                              {item.duration ?? '—'}
+   945→                            </TableCell>
+   946→                            <TableCell className="text-sm">
+   947→                              {ROUTE_LABELS[item.route as Route] ?? item.route ?? '—'}
+   948→                            </TableCell>
+   949→                            <TableCell className="text-sm">
+   950→                              {item.instructions ?? '—'}
+   951→                            </TableCell>
+   952→                            <TableCell>
+   953→                              <Badge
+   954→                                variant="outline"
+   955→                                className={`text-xs ${SCHEDULE_TYPE_CONFIG[item.scheduleType as ScheduleType]?.className ?? ''}`}
+   956→                              >
+   957→                                {SCHEDULE_TYPE_CONFIG[item.scheduleType as ScheduleType]?.label ??
+   958→                                  item.scheduleType ??
+   959→                                  '—'}
+   960→                              </Badge>
+   961→                            </TableCell>
+   962→                          </TableRow>
+   963→                        ))}
+   964→                      </TableBody>
+   965→                    </Table>
+   966→                  </div>
+   967→                </div>
+   968→
+   969→                <Separator />
+   970→
+   971→                {/* QR Code & Signature */}
+   972→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   973→                  {/* QR Code */}
+   974→                  <Card className="p-4">
+   975→                    <p className="text-sm font-semibold mb-2 flex items-center gap-1">
+   976→                      <QrCode className="h-4 w-4" /> Verification QR
+   977→                    </p>
+   978→                    {qrDataUrl ? (
+   979→                      <img
+   980→                        src={qrDataUrl}
+   981→                        alt="Prescription QR Code"
+   982→                        className="w-32 h-32 mx-auto"
+   983→                      />
+   984→                    ) : (
+   985→                      <div className="w-32 h-32 mx-auto bg-muted rounded flex items-center justify-center">
+   986→                        <QrCode className="h-8 w-8 text-muted-foreground" />
+   987→                      </div>
+   988→                    )}
+   989→                    <p className="text-xs text-center text-muted-foreground mt-2">
+   990→                      Scan to verify authenticity
+   991→                    </p>
+   992→                  </Card>
+   993→
+   994→                  {/* Digital Signature */}
+   995→                  <Card className="p-4">
+   996→                    <p className="text-sm font-semibold mb-2 flex items-center gap-1">
+   997→                      <ShieldCheck className="h-4 w-4" /> Digital Signature
+   998→                    </p>
+   999→                    {selectedRx.digitalSignature ? (
+  1000→                      <div className="border rounded p-2">
+  1001→                        <img
+  1002→                          src={selectedRx.digitalSignature}
+  1003→                          alt="Digital Signature"
+  1004→                          className="h-16"
+  1005→                        />
+  1006→                      </div>
+  1007→                    ) : (
+  1008→                      <div className="border-2 border-dashed rounded-lg p-4 text-center text-muted-foreground">
+  1009→                        <p className="text-xs">Pending clinician signature</p>
+  1010→                      </div>
+  1011→                    )}
+  1012→                    <p className="text-xs text-center text-muted-foreground mt-2">
+  1013→                      {selectedRx.practitioner
+  1014→                        ? `Signed by: ${selectedRx.practitioner.name}`
+  1015→                        : 'Awaiting signature'}
+  1016→                    </p>
+  1017→                  </Card>
+  1018→                </div>
+  1019→
+  1020→                {/* Validity info */}
+  1021→                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+  1022→                  <span>Valid from: {new Date(selectedRx.validFrom).toLocaleDateString()}</span>
+  1023→                  {selectedRx.validUntil && (
+  1024→                    <span>Until: {new Date(selectedRx.validUntil).toLocaleDateString()}</span>
+  1025→                  )}
+  1026→                </div>
+  1027→              </div>
+  1028→            </>
+  1029→          )}
+  1030→        </DialogContent>
+  1031→      </Dialog>
+  1032→    </motion.div>
+  1033→  )
+  1034→}
+  1035→
