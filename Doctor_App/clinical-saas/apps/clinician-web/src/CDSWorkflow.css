@@ -1,0 +1,504 @@
+/**
+ * CDS Workflow Styles
+ * Styling for Clinical Decision Support workflow components
+ */
+
+.cds-workflow {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+/* Header Section */
+.workflow-header {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #e5e7eb;
+}
+
+.workflow-header h2 {
+  margin: 0 0 16px 0;
+  font-size: 24px;
+  color: #1f2937;
+}
+
+.workflow-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.triage-badge {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.triage-badge[data-level="emergency"] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.triage-badge[data-level="urgent"] {
+  background: #fef08a;
+  color: #713f12;
+}
+
+.triage-badge[data-level="routine"] {
+  background: #dbeafe;
+  color: #0c2d6b;
+}
+
+.triage-badge[data-level="no_red_flag"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.modality-badge {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  min-width: 200px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2937;
+  text-shadow: 0 0 2px white;
+}
+
+/* Error Alert */
+.error-alert {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+/* Phase Containers */
+.phase-container {
+  background: white;
+  padding: 28px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  border: 1px solid #e5e7eb;
+}
+
+.phase-container h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #1f2937;
+}
+
+.phase-description {
+  margin: 0 0 24px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Evidence Gathering Form */
+.evidence-form {
+  margin-bottom: 24px;
+}
+
+.evidence-form fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.evidence-form legend {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1f2937;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.evidence-form label {
+  display: block;
+  margin-bottom: 16px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.evidence-form input {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.evidence-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Emergency Note */
+.emergency-note {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+/* Recommendations List */
+.recommendations-list {
+  margin-bottom: 24px;
+}
+
+.recommendation-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: white;
+}
+
+.recommendation-card.confidence-high {
+  border-left: 4px solid #10b981;
+  background: #f0fdf4;
+}
+
+.recommendation-card.confidence-medium {
+  border-left: 4px solid #f59e0b;
+  background: #fffbf0;
+}
+
+.recommendation-card.confidence-low {
+  border-left: 4px solid #ef4444;
+  background: #fef2f2;
+}
+
+.rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rec-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.confidence-badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.confidence-badge[data-category="high"] {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.confidence-badge[data-category="medium"] {
+  background: #fed7aa;
+  color: #7c2d12;
+}
+
+.confidence-badge[data-category="low"] {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.rec-details {
+  margin-bottom: 16px;
+}
+
+.rec-details p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.rec-details strong {
+  color: #1f2937;
+}
+
+.interactions-section,
+.monitoring-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.interactions-section strong,
+.monitoring-section strong {
+  font-size: 14px;
+}
+
+.interactions-section ul,
+.monitoring-section ul {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.interaction-severe,
+.interaction-contraindicated {
+  color: #dc2626;
+}
+
+.interaction-moderate {
+  color: #ea580c;
+}
+
+.interaction-minor {
+  color: #7c3aed;
+}
+
+.rec-decision {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rec-decision label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  margin: 0;
+}
+
+.rec-decision input[type="radio"] {
+  cursor: pointer;
+  margin: 0;
+  width: auto;
+}
+
+/* Review Summary */
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f3f4f6;
+  border-radius: 6px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-stat .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.summary-stat .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+/* Decision Summary */
+.decision-summary {
+  margin-bottom: 24px;
+}
+
+.decision-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.decision-item.decision-accept {
+  background: #f0fdf4;
+  border-left: 3px solid #10b981;
+}
+
+.decision-item.decision-override {
+  background: #fffbf0;
+  border-left: 3px solid #f59e0b;
+}
+
+.decision-item.decision-reject {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+}
+
+.decision-item .medicine {
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+
+.decision-item .decision-label {
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.decision-item .rationale {
+  font-size: 12px;
+  color: #6b7280;
+  display: block;
+  width: 100%;
+}
+
+/* Care Plan Preview */
+.careplan-preview {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+.careplan-preview h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.careplan-preview h5 {
+  margin: 12px 0 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.careplan-preview ul {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+.careplan-preview li {
+  margin: 4px 0;
+  color: #374151;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-primary:disabled {
+  background: #bfdbfe;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+/* Workflow Actions */
+.workflow-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cds-workflow {
+    padding: 16px;
+  }
+
+  .workflow-header {
+    padding: 16px;
+  }
+
+  .workflow-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .progress-bar {
+    min-width: 100%;
+  }
+
+  .rec-decision {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .review-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .phase-container {
+    padding: 16px;
+  }
+}
