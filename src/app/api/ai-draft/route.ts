@@ -112,15 +112,20 @@ export async function POST(request: NextRequest) {
       'AUDIENCE: CLINICIAN (draft for clinician review only)',
       '',
       'OUTPUT REQUIREMENTS:',
-      '- Structure your response as a clinical draft with clear sections',
+      '- Provide a COMPREHENSIVE, DETAILED clinical draft — at least 400-600 words',
+      '- Include SPECIFIC medicine names with dosages, frequencies, and durations',
+      '- Give INDIAN BRAND NAMES for medicines (e.g., Glycomet for Metformin)',
+      '- Explain WHY each medicine is recommended with clinical reasoning',
       '- Include differential considerations where appropriate',
       '- Flag any safety concerns (allergies, interactions, contraindications)',
+      '- Include DETAILED precautions and side effects for each medicine',
       '- Mark all recommendations as DRAFT - PENDING CLINICIAN REVIEW',
       '- If evidence is insufficient, explicitly state so rather than fabricating',
       '- Include relevant citations/references where possible',
-      '- Do NOT include specific medication dosages (clinician determines dosage)',
       '- Note any follow-up recommendations',
-      '- If emergency indicators present, flag prominently'
+      '- If emergency indicators present, flag prominently',
+      '- Include LIFESTYLE and DIET advice specific to Indian context',
+      '- Reference ICMR/CDSCO guidelines where applicable',
     ].join('\n')
 
     const userPrompt = `CLINICAL TASK: ${task}

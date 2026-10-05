@@ -1,0 +1,848 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, useEffect } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Stethoscope,
+     7→  Plus,
+     8→  X,
+     9→  Search,
+    10→  AlertTriangle,
+    11→  Activity,
+    12→  Heart,
+    13→  Brain,
+    14→  ShieldAlert,
+    15→  Pill,
+    16→  Leaf,
+    17→  FlaskConical,
+    18→  ChevronRight,
+    19→  Info,
+    20→  Loader2,
+    21→  Thermometer,
+    22→  Zap,
+    23→  Mic,
+    24→  Sparkles,
+    25→  Siren,
+    26→} from 'lucide-react'
+    27→import {
+    28→  Card,
+    29→  CardContent,
+    30→  CardHeader,
+    31→  CardTitle,
+    32→  CardDescription,
+    33→} from '@/components/ui/card'
+    34→import { Button } from '@/components/ui/button'
+    35→import { Input } from '@/components/ui/input'
+    36→import { Badge } from '@/components/ui/badge'
+    37→import { Label } from '@/components/ui/label'
+    38→import {
+    39→  Select,
+    40→  SelectContent,
+    41→  SelectItem,
+    42→  SelectTrigger,
+    43→  SelectValue,
+    44→} from '@/components/ui/select'
+    45→import { Separator } from '@/components/ui/separator'
+    46→import { Progress } from '@/components/ui/progress'
+    47→import { Skeleton } from '@/components/ui/skeleton'
+    48→import { ScrollArea } from '@/components/ui/scroll-area'
+    49→import {
+    50→  Tooltip,
+    51→  TooltipContent,
+    52→  TooltipProvider,
+    53→  TooltipTrigger,
+    54→} from '@/components/ui/tooltip'
+    55→import { useAppStore } from '@/lib/store'
+    56→import type { Modality } from '@/lib/store'
+    57→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    58→import { toast } from '@/hooks/use-toast'
+    59→
+    60→// ──────────────────────────────────────────────
+    61→// Types
+    62→// ──────────────────────────────────────────────
+    63→
+    64→interface WingApproach {
+    65→  modality: string
+    66→  approach: string
+    67→  commonMedicines: string[]
+    68→}
+    69→
+    70→interface SafetyWarning {
+    71→  type: string
+    72→  message: string
+    73→  severity: 'INFO' | 'WARNING' | 'CRITICAL'
+    74→}
+    75→
+    76→interface MatchedIssue {
+    77→  id: string
+    78→  name: string
+    79→  bodySystem: string
+    80→  severity: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+    81→  relevanceScore: number
+    82→  description: string
+    83→  wingApproaches: WingApproach[]
+    84→  topMedicines: { name: string; modality: string }[]
+    85→  safetyWarnings: SafetyWarning[]
+    86→}
+    87→
+    88→interface SymptomCheckResult {
+    89→  matchedIssues: MatchedIssue[]
+    90→  summary: string
+    91→}
+    92→
+    93→// ──────────────────────────────────────────────
+    94→// Constants
+    95→// ──────────────────────────────────────────────
+    96→
+    97→const COMMON_SYMPTOMS = [
+    98→  'headache', 'fever', 'cough', 'cold', 'fatigue', 'body pain',
+    99→  'nausea', 'dizziness', 'chest pain', 'breathing difficulty',
+   100→  'stomach pain', 'back pain', 'joint pain', 'skin rash',
+   101→  'sore throat', 'vomiting', 'diarrhea', 'constipation',
+   102→  'anxiety', 'depression', 'insomnia', 'pet dard',
+   103→  'sir dard', 'bukhar', 'khasi', 'dast',
+   104→]
+   105→
+   106→const AGE_OPTIONS = [
+   107→  { value: '0-2', label: '0–2 years (Infant)' },
+   108→  { value: '3-12', label: '3–12 years (Child)' },
+   109→  { value: '13-17', label: '13–17 years (Adolescent)' },
+   110→  { value: '18-39', label: '18–39 years (Young Adult)' },
+   111→  { value: '40-59', label: '40–59 years (Middle Age)' },
+   112→  { value: '60-74', label: '60–74 years (Senior)' },
+   113→  { value: '75+', label: '75+ years (Elderly)' },
+   114→]
+   115→
+   116→const GENDER_OPTIONS = [
+   117→  { value: 'MALE', label: 'Male' },
+   118→  { value: 'FEMALE', label: 'Female' },
+   119→  { value: 'OTHER', label: 'Other' },
+   120→]
+   121→
+   122→const MODALITY_CONFIG: Record<Modality, { label: string; icon: React.ElementType; color: string }> = {
+   123→  ALLOPATHY: { label: 'Allopathy', icon: Pill, color: 'text-teal-600 dark:text-teal-400' },
+   124→  AYURVEDA: { label: 'Ayurveda', icon: Leaf, color: 'text-emerald-600 dark:text-emerald-400' },
+   125→  HOMEOPATHY: { label: 'Homeopathy', icon: FlaskConical, color: 'text-violet-600 dark:text-violet-400' },
+   126→}
+   127→
+   128→const SEVERITY_CONFIG: Record<string, { label: string; className: string }> = {
+   129→  LOW: { label: 'Low', className: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700' },
+   130→  MODERATE: { label: 'Moderate', className: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700' },
+   131→  HIGH: { label: 'High', className: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700' },
+   132→  CRITICAL: { label: 'Critical', className: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700' },
+   133→}
+   134→
+   135→const BODY_SYSTEM_ICONS: Record<string, React.ElementType> = {
+   136→  NERVOUS: Brain,
+   137→  CARDIOVASCULAR: Heart,
+   138→  RESPIRATORY: Activity,
+   139→  MUSCULOSKELETAL: Zap,
+   140→  DIGESTIVE: Thermometer,
+   141→}
+   142→
+   143→const fadeSlide = {
+   144→  initial: { opacity: 0, y: 12 },
+   145→  animate: { opacity: 1, y: 0 },
+   146→  transition: { duration: 0.3 },
+   147→}
+   148→
+   149→// ──────────────────────────────────────────────
+   150→// Component
+   151→// ──────────────────────────────────────────────
+   152→
+   153→export function SymptomCheckerSection() {
+   154→  const { activeModality, setActiveSection } = useAppStore()
+   155→
+   156→  // Form state
+   157→  const [symptoms, setSymptoms] = useState<string[]>([])
+   158→  const [symptomInput, setSymptomInput] = useState('')
+   159→  const [age, setAge] = useState('')
+   160→  const [gender, setGender] = useState('')
+   161→  const [modality, setModality] = useState<Modality>(activeModality)
+   162→
+   163→  // Suggestion state
+   164→  const [showSuggestions, setShowSuggestions] = useState(false)
+   165→  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
+   166→  const inputRef = useRef<HTMLInputElement>(null)
+   167→  const suggestionsRef = useRef<HTMLDivElement>(null)
+   168→
+   169→  // Results state
+   170→  const [results, setResults] = useState<SymptomCheckResult | null>(null)
+   171→  const [loading, setLoading] = useState(false)
+   172→  const [expandedIssue, setExpandedIssue] = useState<string | null>(null)
+   173→  const [aiLoading, setAiLoading] = useState(false)
+   174→  const [aiResult, setAiResult] = useState<string | null>(null)
+   175→
+   176→  // Red flag detection
+   177→  const RED_FLAG_SYMPTOMS = new Set(['chest pain', 'breathing difficulty', 'severe headache', 'sudden vision loss', 'slurred speech', 'weakness on one side', 'severe bleeding', 'high fever', 'seizure', 'loss of consciousness'])
+   178→  const detectedRedFlags = symptoms.filter((s) => RED_FLAG_SYMPTOMS.has(s.toLowerCase()))
+   179→
+   180→  // ── Symptom management ─────────────────────
+   181→
+   182→  const addSymptom = (symptom: string) => {
+   183→    const trimmed = symptom.trim().toLowerCase()
+   184→    if (trimmed && !symptoms.includes(trimmed)) {
+   185→      setSymptoms((prev) => [...prev, trimmed])
+   186→    }
+   187→    setSymptomInput('')
+   188→    setShowSuggestions(false)
+   189→    inputRef.current?.focus()
+   190→  }
+   191→
+   192→  const removeSymptom = (symptom: string) => {
+   193→    setSymptoms((prev) => prev.filter((s) => s !== symptom))
+   194→  }
+   195→
+   196→  const handleSymptomKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+   197→    if (e.key === 'Enter' && symptomInput.trim()) {
+   198→      e.preventDefault()
+   199→      addSymptom(symptomInput)
+   200→    }
+   201→    if (e.key === 'Backspace' && !symptomInput && symptoms.length > 0) {
+   202→      setSymptoms((prev) => prev.slice(0, -1))
+   203→    }
+   204→  }
+   205→
+   206→  const handleSymInputChange = (value: string) => {
+   207→    setSymptomInput(value)
+   208→    if (value.trim()) {
+   209→      const lower = value.toLowerCase()
+   210→      const filtered = COMMON_SYMPTOMS.filter(
+   211→        (s) => s.includes(lower) && !symptoms.includes(s)
+   212→      )
+   213→      setFilteredSuggestions(filtered.slice(0, 8))
+   214→      setShowSuggestions(filtered.length > 0)
+   215→    } else {
+   216→      setShowSuggestions(false)
+   217→    }
+   218→  }
+   219→
+   220→  // Close suggestions on outside click
+   221→  useEffect(() => {
+   222→    const handler = (e: MouseEvent) => {
+   223→      if (
+   224→        suggestionsRef.current &&
+   225→        !suggestionsRef.current.contains(e.target as Node) &&
+   226→        inputRef.current &&
+   227→        !inputRef.current.contains(e.target as Node)
+   228→      ) {
+   229→        setShowSuggestions(false)
+   230→      }
+   231→    }
+   232→    document.addEventListener('mousedown', handler)
+   233→    return () => document.removeEventListener('mousedown', handler)
+   234→  }, [])
+   235→
+   236→  // ── Submit handler ─────────────────────────
+   237→
+   238→  const handleCheckSymptoms = async () => {
+   239→    if (symptoms.length === 0) {
+   240→      toast({ title: 'Add symptoms', description: 'Please add at least one symptom', variant: 'destructive' })
+   241→      return
+   242→    }
+   243→    if (!age) {
+   244→      toast({ title: 'Select age group', description: 'Please select your age range', variant: 'destructive' })
+   245→      return
+   246→    }
+   247→    if (!gender) {
+   248→      toast({ title: 'Select gender', description: 'Please select your gender', variant: 'destructive' })
+   249→      return
+   250→    }
+   251→
+   252→    setLoading(true)
+   253→    setResults(null)
+   254→    setExpandedIssue(null)
+   255→
+   256→    try {
+   257→      const res = await fetch('/api/symptom-checker', {
+   258→        method: 'POST',
+   259→        headers: { 'Content-Type': 'application/json' },
+   260→        body: JSON.stringify({ symptoms, age, gender, modality }),
+   261→      })
+   262→      const data = await res.json()
+   263→      const result: SymptomCheckResult = data.data ?? data
+   264→      setResults(result)
+   265→      toast({
+   266→        title: 'Symptom Check Complete',
+   267→        description: `${result.matchedIssues?.length ?? 0} possible conditions found`,
+   268→      })
+   269→    } catch {
+   270→      toast({ title: 'Error', description: 'Failed to check symptoms', variant: 'destructive' })
+   271→    } finally {
+   272→      setLoading(false)
+   273→    }
+   274→  }
+   275→
+   276→  // ── Helpers ────────────────────────────────
+   277→
+   278→  const canSubmit = symptoms.length > 0 && age && gender
+   279→
+   280→  const getSeverityBadge = (severity: string) => {
+   281→    const config = SEVERITY_CONFIG[severity] ?? SEVERITY_CONFIG.MODERATE
+   282→    return (
+   283→      <Badge variant="outline" className={config.className}>
+   284→        {config.label}
+   285→      </Badge>
+   286→    )
+   287→  }
+   288→
+   289→  const getRelevanceColor = (score: number) => {
+   290→    if (score >= 80) return 'text-red-600 dark:text-red-400'
+   291→    if (score >= 60) return 'text-orange-600 dark:text-orange-400'
+   292→    if (score >= 40) return 'text-amber-600 dark:text-amber-400'
+   293→    return 'text-green-600 dark:text-green-400'
+   294→  }
+   295→
+   296→  const getWarningIcon = (severity: string) => {
+   297→    if (severity === 'CRITICAL') return <ShieldAlert className="h-4 w-4 text-red-500" />
+   298→    if (severity === 'WARNING') return <AlertTriangle className="h-4 w-4 text-amber-500" />
+   299→    return <Info className="h-4 w-4 text-teal-500" />
+   300→  }
+   301→
+   302→  // ── Render ─────────────────────────────────
+   303→
+   304→  return (
+   305→    <TooltipProvider>
+   306→      <motion.div {...fadeSlide} className="space-y-6">
+   307→        {/* ── Red Flag Detection Banner ── */}
+   308→        {detectedRedFlags.length > 0 && (
+   309→          <motion.div
+   310→            initial={{ opacity: 0, scale: 0.98 }}
+   311→            animate={{ opacity: 1, scale: 1 }}
+   312→            className="flex items-start gap-3 p-4 rounded-lg border-2 border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950"
+   313→          >
+   314→            <Siren className="h-6 w-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+   315→            <div>
+   316→              <h3 className="font-bold text-red-800 dark:text-red-200 text-sm">
+   317→                Red Flag Symptoms Detected!
+   318→              </h3>
+   319→              <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+   320→                The following symptoms require immediate medical attention:
+   321→              </p>
+   322→              <div className="flex flex-wrap gap-1.5 mt-2">
+   323→                {detectedRedFlags.map((flag) => (
+   324→                  <Badge key={flag} variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700">
+   325→                    {flag}
+   326→                  </Badge>
+   327→                ))}
+   328→              </div>
+   329→              <p className="text-xs text-red-700 dark:text-red-300 mt-2 font-medium">
+   330→                Please seek emergency care or call 108 (India Emergency) immediately.
+   331→              </p>
+   332→            </div>
+   333→          </motion.div>
+   334→        )}
+   335→
+   336→        {/* ── Input Card ─────────────────────── */}
+   337→        <Card>
+   338→          <CardHeader>
+   339→            <CardTitle className="text-lg flex items-center gap-2">
+   340→              <Stethoscope className="h-5 w-5" />
+   341→              Symptom Checker
+   342→            </CardTitle>
+   343→            <CardDescription>
+   344→              Enter your symptoms to get potential health insights across modalities
+   345→            </CardDescription>
+   346→          </CardHeader>
+   347→          <CardContent className="space-y-5">
+   348→            {/* Symptom Tags Input */}
+   349→            <div className="space-y-2">
+   350→              <Label>Symptoms</Label>
+   351→              <div className="flex flex-wrap items-center gap-2 p-3 border rounded-lg bg-background min-h-[48px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+   352→                <AnimatePresence>
+   353→                  {symptoms.map((symptom) => (
+   354→                    <motion.span
+   355→                      key={symptom}
+   356→                      initial={{ opacity: 0, scale: 0.8 }}
+   357→                      animate={{ opacity: 1, scale: 1 }}
+   358→                      exit={{ opacity: 0, scale: 0.8 }}
+   359→                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20"
+   360→                    >
+   361→                      {symptom}
+   362→                      <button
+   363→                        type="button"
+   364→                        onClick={() => removeSymptom(symptom)}
+   365→                        className="ml-0.5 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+   366→                      >
+   367→                        <X className="h-3 w-3" />
+   368→                      </button>
+   369→                    </motion.span>
+   370→                  ))}
+   371→                </AnimatePresence>
+   372→                <div className="relative flex-1 min-w-[140px]">
+   373→                  <input
+   374→                    ref={inputRef}
+   375→                    type="text"
+   376→                    value={symptomInput}
+   377→                    onChange={(e) => handleSymInputChange(e.target.value)}
+   378→                    onKeyDown={handleSymptomKeyDown}
+   379→                    onFocus={() => {
+   380→                      if (symptomInput.trim()) handleSymInputChange(symptomInput)
+   381→                    }}
+   382→                    placeholder={symptoms.length === 0 ? 'Type a symptom (e.g. headache, fever, pet dard)...' : 'Add more...'}
+   383→                    className="w-full bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+   384→                  />
+   385→                </div>
+   386→              </div>
+   387→              {/* Suggestions Dropdown */}
+   388→              <AnimatePresence>
+   389→                {showSuggestions && filteredSuggestions.length > 0 && (
+   390→                  <motion.div
+   391→                    ref={suggestionsRef}
+   392→                    initial={{ opacity: 0, y: -4 }}
+   393→                    animate={{ opacity: 1, y: 0 }}
+   394→                    exit={{ opacity: 0, y: -4 }}
+   395→                    className="border rounded-lg bg-popover shadow-md overflow-hidden z-10"
+   396→                  >
+   397→                    <ScrollArea className="max-h-48">
+   398→                      {filteredSuggestions.map((suggestion) => (
+   399→                        <button
+   400→                          key={suggestion}
+   401→                          type="button"
+   402→                          onClick={() => addSymptom(suggestion)}
+   403→                          className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
+   404→                        >
+   405→                          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+   406→                          {suggestion}
+   407→                        </button>
+   408→                      ))}
+   409→                    </ScrollArea>
+   410→                  </motion.div>
+   411→                )}
+   412→              </AnimatePresence>
+   413→              {symptoms.length === 0 && (
+   414→                <p className="text-xs text-muted-foreground flex items-center gap-1">
+   415→                  <Info className="h-3 w-3" />
+   416→                  Press Enter or select from suggestions to add symptoms
+   417→                </p>
+   418→              )}
+   419→            </div>
+   420→
+   421→            {/* Age, Gender, Modality Row */}
+   422→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   423→              {/* Age */}
+   424→              <div className="space-y-2">
+   425→                <Label>Age Group</Label>
+   426→                <Select value={age} onValueChange={setAge}>
+   427→                  <SelectTrigger>
+   428→                    <SelectValue placeholder="Select age..." />
+   429→                  </SelectTrigger>
+   430→                  <SelectContent>
+   431→                    {AGE_OPTIONS.map((opt) => (
+   432→                      <SelectItem key={opt.value} value={opt.value}>
+   433→                        {opt.label}
+   434→                      </SelectItem>
+   435→                    ))}
+   436→                  </SelectContent>
+   437→                </Select>
+   438→              </div>
+   439→
+   440→              {/* Gender */}
+   441→              <div className="space-y-2">
+   442→                <Label>Gender</Label>
+   443→                <Select value={gender} onValueChange={setGender}>
+   444→                  <SelectTrigger>
+   445→                    <SelectValue placeholder="Select gender..." />
+   446→                  </SelectTrigger>
+   447→                  <SelectContent>
+   448→                    {GENDER_OPTIONS.map((opt) => (
+   449→                      <SelectItem key={opt.value} value={opt.value}>
+   450→                        {opt.label}
+   451→                      </SelectItem>
+   452→                    ))}
+   453→                  </SelectContent>
+   454→                </Select>
+   455→              </div>
+   456→
+   457→              {/* Modality */}
+   458→              <div className="space-y-2">
+   459→                <Label>Treatment Modality</Label>
+   460→                <Select value={modality} onValueChange={(v) => setModality(v as Modality)}>
+   461→                  <SelectTrigger>
+   462→                    <SelectValue />
+   463→                  </SelectTrigger>
+   464→                  <SelectContent>
+   465→                    {Object.entries(MODALITY_CONFIG).map(([key, cfg]) => {
+   466→                      const Icon = cfg.icon
+   467→                      return (
+   468→                        <SelectItem key={key} value={key}>
+   469→                          <span className="flex items-center gap-2">
+   470→                            <Icon className={`h-4 w-4 ${cfg.color}`} />
+   471→                            {cfg.label}
+   472→                          </span>
+   473→                        </SelectItem>
+   474→                      )
+   475→                    })}
+   476→                  </SelectContent>
+   477→                </Select>
+   478→              </div>
+   479→            </div>
+   480→
+   481→            {/* Check Button */}
+   482→            <div className="flex flex-wrap items-center gap-3">
+   483→              <Button
+   484→                onClick={handleCheckSymptoms}
+   485→                disabled={!canSubmit || loading}
+   486→                className="gap-2 min-w-[180px]"
+   487→              >
+   488→                {loading ? (
+   489→                  <>
+   490→                    <Loader2 className="h-4 w-4 animate-spin" />
+   491→                    Checking...
+   492→                  </>
+   493→                ) : (
+   494→                  <>
+   495→                    <Search className="h-4 w-4" />
+   496→                    Check Symptoms
+   497→                  </>
+   498→                )}
+   499→              </Button>
+   500→              {/* Voice Input Button */}
+   501→              <Button
+   502→                variant="outline"
+   503→                className="gap-2"
+   504→                onClick={() => setActiveSection('voice')}
+   505→              >
+   506→                <Mic className="h-4 w-4" />
+   507→                Voice Input
+   508→              </Button>
+   509→              {/* Get AI Analysis */}
+   510→              <Button
+   511→                variant="outline"
+   512→                className="gap-2"
+   513→                disabled={symptoms.length === 0 || aiLoading}
+   514→                onClick={async () => {
+   515→                  setAiLoading(true)
+   516→                  setAiResult(null)
+   517→                  try {
+   518→                    const res = await fetch('/api/medicine-rag', {
+   519→                      method: 'POST',
+   520→                      headers: { 'Content-Type': 'application/json' },
+   521→                      body: JSON.stringify({ query: symptoms.join(', '), modality: modality, language: 'en' }),
+   522→                    })
+   523→                    const data = await res.json()
+   524→                    setAiResult(data.data?.answer ?? data.data?.text ?? JSON.stringify(data.data ?? data))
+   525→                    toast({ title: 'AI Analysis Complete', description: 'Results loaded below' })
+   526→                  } catch {
+   527→                    setAiResult('AI analysis is currently unavailable. Please try again later.')
+   528→                    toast({ title: 'AI Unavailable', variant: 'destructive' })
+   529→                  } finally {
+   530→                    setAiLoading(false)
+   531→                  }
+   532→                }}
+   533→              >
+   534→                {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+   535→                Get AI Analysis
+   536→              </Button>
+   537→              {symptoms.length > 0 && (
+   538→                <Button
+   539→                  variant="ghost"
+   540→                  size="sm"
+   541→                  onClick={() => {
+   542→                    setSymptoms([])
+   543→                    setSymptomInput('')
+   544→                    setResults(null)
+   545→                    setAiResult(null)
+   546→                  }}
+   547→                  className="text-muted-foreground"
+   548→                >
+   549→                  Clear all
+   550→                </Button>
+   551→              )}
+   552→            </div>
+   553→          </CardContent>
+   554→        </Card>
+   555→
+   556→        {/* ── Loading Skeleton ────────────────── */}
+   557→        <AnimatePresence>
+   558→          {loading && (
+   559→            <motion.div
+   560→              initial={{ opacity: 0 }}
+   561→              animate={{ opacity: 1 }}
+   562→              exit={{ opacity: 0 }}
+   563→              className="space-y-4"
+   564→            >
+   565→              <Card>
+   566→                <CardContent className="p-6 space-y-4">
+   567→                  <Skeleton className="h-6 w-48" />
+   568→                  <Skeleton className="h-24 w-full" />
+   569→                  <Skeleton className="h-24 w-full" />
+   570→                  <Skeleton className="h-24 w-full" />
+   571→                </CardContent>
+   572→              </Card>
+   573→            </motion.div>
+   574→          )}
+   575→        </AnimatePresence>
+   576→
+   577→        {/* ── Results ─────────────────────────── */}
+   578→        <AnimatePresence>
+   579→          {results && !loading && (
+   580→            <motion.div
+   581→              initial={{ opacity: 0, y: 16 }}
+   582→              animate={{ opacity: 1, y: 0 }}
+   583→              transition={{ duration: 0.4 }}
+   584→              className="space-y-4"
+   585→            >
+   586→              {/* Summary */}
+   587→              {results.summary && (
+   588→                <div className="p-3 rounded-lg bg-muted/50 border text-sm text-muted-foreground">
+   589→                  {results.summary}
+   590→                </div>
+   591→              )}
+   592→
+   593→              {/* Matched Issues */}
+   594→              {results.matchedIssues && results.matchedIssues.length > 0 ? (
+   595→                <div className="space-y-3">
+   596→                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+   597→                    Possible Conditions ({results.matchedIssues.length})
+   598→                  </h3>
+   599→                  {results.matchedIssues.map((issue, index) => {
+   600→                    const SystemIcon = BODY_SYSTEM_ICONS[issue.bodySystem?.toUpperCase()] ?? Activity
+   601→                    const isExpanded = expandedIssue === issue.id
+   602→                    const wingForModality = issue.wingApproaches?.find(
+   603→                      (w) => w.modality === modality
+   604→                    )
+   605→
+   606→                    return (
+   607→                      <motion.div
+   608→                        key={issue.id}
+   609→                        initial={{ opacity: 0, y: 8 }}
+   610→                        animate={{ opacity: 1, y: 0 }}
+   611→                        transition={{ duration: 0.25, delay: index * 0.05 }}
+   612→                      >
+   613→                        <Card className="overflow-hidden hover:shadow-md transition-shadow">
+   614→                          <CardContent className="p-0">
+   615→                            {/* Issue Header */}
+   616→                            <button
+   617→                              type="button"
+   618→                              onClick={() => setExpandedIssue(isExpanded ? null : issue.id)}
+   619→                              className="w-full text-left p-4 flex items-start gap-4 hover:bg-accent/30 transition-colors"
+   620→                            >
+   621→                              <div className="shrink-0 mt-0.5">
+   622→                                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+   623→                                  <SystemIcon className="h-5 w-5 text-primary" />
+   624→                                </div>
+   625→                              </div>
+   626→                              <div className="flex-1 min-w-0">
+   627→                                <div className="flex items-center gap-2 flex-wrap">
+   628→                                  <span className="font-semibold text-base">{issue.name}</span>
+   629→                                  {getSeverityBadge(issue.severity)}
+   630→                                  <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+   631→                                    {issue.bodySystem}
+   632→                                  </Badge>
+   633→                                </div>
+   634→                                {issue.description && (
+   635→                                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+   636→                                    {issue.description}
+   637→                                  </p>
+   638→                                )}
+   639→                                <div className="mt-2 flex items-center gap-3">
+   640→                                  <div className="flex items-center gap-1.5">
+   641→                                    <span className="text-xs text-muted-foreground">Relevance</span>
+   642→                                    <div className="w-24">
+   643→                                      <Progress
+   644→                                        value={issue.relevanceScore}
+   645→                                        className="h-2"
+   646→                                      />
+   647→                                    </div>
+   648→                                    <span className={`text-sm font-semibold ${getRelevanceColor(issue.relevanceScore)}`}>
+   649→                                      {issue.relevanceScore}%
+   650→                                    </span>
+   651→                                  </div>
+   652→                                </div>
+   653→                              </div>
+   654→                              <ChevronRight
+   655→                                className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+   656→                              />
+   657→                            </button>
+   658→
+   659→                            {/* Expanded Details */}
+   660→                            <AnimatePresence>
+   661→                              {isExpanded && (
+   662→                                <motion.div
+   663→                                  initial={{ height: 0, opacity: 0 }}
+   664→                                  animate={{ height: 'auto', opacity: 1 }}
+   665→                                  exit={{ height: 0, opacity: 0 }}
+   666→                                  transition={{ duration: 0.25 }}
+   667→                                  className="overflow-hidden"
+   668→                                >
+   669→                                  <div className="px-4 pb-4 pt-0 space-y-4 border-t">
+   670→                                    {/* Wing Approach for Selected Modality */}
+   671→                                    <div className="pt-4">
+   672→                                      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+   673→                                        <ModalityBadge modality={modality} />
+   674→                                        <span>Approach</span>
+   675→                                      </h4>
+   676→                                      {wingForModality ? (
+   677→                                        <div className="space-y-2">
+   678→                                          <p className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+   679→                                            {wingForModality.approach}
+   680→                                          </p>
+   681→                                          {wingForModality.commonMedicines && wingForModality.commonMedicines.length > 0 && (
+   682→                                            <div className="flex flex-wrap gap-1.5">
+   683→                                              {wingForModality.commonMedicines.map((med) => (
+   684→                                                <Badge key={med} variant="secondary" className="text-xs">
+   685→                                                  {med}
+   686→                                                </Badge>
+   687→                                              ))}
+   688→                                            </div>
+   689→                                          )}
+   690→                                        </div>
+   691→                                      ) : (
+   692→                                        <p className="text-sm text-muted-foreground italic">
+   693→                                          No specific {MODALITY_CONFIG[modality].label} approach documented for this condition
+   694→                                        </p>
+   695→                                      )}
+   696→                                    </div>
+   697→
+   698→                                    <Separator />
+   699→
+   700→                                    {/* All Wing Approaches */}
+   701→                                    <div>
+   702→                                      <h4 className="text-sm font-semibold mb-2">All Modality Approaches</h4>
+   703→                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   704→                                        {issue.wingApproaches?.map((wing) => {
+   705→                                          const WingIcon = MODALITY_CONFIG[wing.modality as Modality]?.icon ?? Pill
+   706→                                          const wingColor = MODALITY_CONFIG[wing.modality as Modality]?.color ?? 'text-muted-foreground'
+   707→                                          return (
+   708→                                            <div
+   709→                                              key={wing.modality}
+   710→                                              className="p-3 rounded-lg border bg-card"
+   711→                                            >
+   712→                                              <div className="flex items-center gap-2 mb-2">
+   713→                                                <WingIcon className={`h-4 w-4 ${wingColor}`} />
+   714→                                                <ModalityBadge modality={wing.modality} />
+   715→                                              </div>
+   716→                                              <p className="text-xs text-muted-foreground line-clamp-3">
+   717→                                                {wing.approach}
+   718→                                              </p>
+   719→                                            </div>
+   720→                                          )
+   721→                                        })}
+   722→                                      </div>
+   723→                                    </div>
+   724→
+   725→                                    <Separator />
+   726→
+   727→                                    {/* Top Recommended Medicines */}
+   728→                                    <div>
+   729→                                      <h4 className="text-sm font-semibold mb-2">Top Recommended Medicines</h4>
+   730→                                      <div className="flex flex-wrap gap-2">
+   731→                                        {issue.topMedicines?.map((med, i) => (
+   732→                                          <Tooltip key={i}>
+   733→                                            <TooltipTrigger asChild>
+   734→                                              <Badge
+   735→                                                variant="outline"
+   736→                                                className="gap-1.5 cursor-default"
+   737→                                              >
+   738→                                                {MODALITY_CONFIG[med.modality as Modality]?.label?.charAt(0) ?? '?'}
+   739→                                                <span className="text-muted-foreground">·</span>
+   740→                                                {med.name}
+   741→                                              </Badge>
+   742→                                            </TooltipTrigger>
+   743→                                            <TooltipContent>
+   744→                                              <p>{med.name} ({MODALITY_CONFIG[med.modality as Modality]?.label ?? med.modality})</p>
+   745→                                            </TooltipContent>
+   746→                                          </Tooltip>
+   747→                                        ))}
+   748→                                        {(!issue.topMedicines || issue.topMedicines.length === 0) && (
+   749→                                          <p className="text-sm text-muted-foreground italic">No specific medicines listed</p>
+   750→                                        )}
+   751→                                      </div>
+   752→                                    </div>
+   753→
+   754→                                    {/* Safety Warnings */}
+   755→                                    {issue.safetyWarnings && issue.safetyWarnings.length > 0 && (
+   756→                                      <>
+   757→                                        <Separator />
+   758→                                        <div>
+   759→                                          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+   760→                                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+   761→                                            Safety Warnings
+   762→                                          </h4>
+   763→                                          <div className="space-y-2">
+   764→                                            {issue.safetyWarnings.map((warning, i) => (
+   765→                                              <div
+   766→                                                key={i}
+   767→                                                className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50/50 border border-amber-200/50 dark:bg-amber-950/30 dark:border-amber-800/30"
+   768→                                              >
+   769→                                                {getWarningIcon(warning.severity)}
+   770→                                                <div className="flex-1 min-w-0">
+   771→                                                  <span className="text-xs font-medium text-amber-800 dark:text-amber-200 uppercase">
+   772→                                                    {warning.type}
+   773→                                                  </span>
+   774→                                                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
+   775→                                                    {warning.message}
+   776→                                                  </p>
+   777→                                                </div>
+   778→                                              </div>
+   779→                                            ))}
+   780→                                          </div>
+   781→                                        </div>
+   782→                                      </>
+   783→                                    )}
+   784→                                  </div>
+   785→                                </motion.div>
+   786→                              )}
+   787→                            </AnimatePresence>
+   788→                          </CardContent>
+   789→                        </Card>
+   790→                      </motion.div>
+   791→                    )
+   792→                  })}
+   793→                </div>
+   794→              ) : (
+   795→                <Card>
+   796→                  <CardContent className="py-12 text-center">
+   797→                    <Activity className="h-10 w-10 mx-auto mb-3 text-muted-foreground/50" />
+   798→                    <p className="text-muted-foreground">No matching conditions found for the given symptoms.</p>
+   799→                    <p className="text-sm text-muted-foreground mt-1">Try adding more specific symptoms or different terms.</p>
+   800→                  </CardContent>
+   801→                </Card>
+   802→              )}
+   803→            </motion.div>
+   804→          )}
+   805→        </AnimatePresence>
+   806→
+   807→        {/* ── AI Analysis Result ── */}
+   808→        <AnimatePresence>
+   809→          {aiResult && (
+   810→            <motion.div
+   811→              initial={{ opacity: 0, y: 16 }}
+   812→              animate={{ opacity: 1, y: 0 }}
+   813→              exit={{ opacity: 0, y: -16 }}
+   814→            >
+   815→              <Card className="border-teal-200 dark:border-teal-800">
+   816→                <CardHeader className="pb-3">
+   817→                  <CardTitle className="text-base flex items-center gap-2">
+   818→                    <Sparkles className="h-5 w-5 text-teal-600" />
+   819→                    AI-Powered Analysis
+   820→                  </CardTitle>
+   821→                </CardHeader>
+   822→                <CardContent>
+   823→                  <ScrollArea className="max-h-80">
+   824→                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
+   825→                      {aiResult}
+   826→                    </div>
+   827→                  </ScrollArea>
+   828→                </CardContent>
+   829→              </Card>
+   830→            </motion.div>
+   831→          )}
+   832→        </AnimatePresence>
+   833→
+   834→        {/* ── Disclaimer ──────────────────────── */}
+   835→        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-muted">
+   836→          <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+   837→          <p className="text-xs text-muted-foreground">
+   838→            <span className="font-semibold">Disclaimer:</span>{' '}
+   839→            This is for informational purposes only. Always consult a qualified healthcare professional
+   840→            for proper diagnosis and treatment. Results are based on symptom matching and should not be
+   841→            considered a medical diagnosis.
+   842→          </p>
+   843→        </div>
+   844→      </motion.div>
+   845→    </TooltipProvider>
+   846→  )
+   847→}
+   848→

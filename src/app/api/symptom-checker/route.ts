@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { z } from 'zod'
+import { interpretLabValue, matchSymptomsToConditions } from '@/lib/clinical-knowledge-base'
+
+const symptomCheckSchema = z.object({
+  symptoms: z.array(z.string()).min(1),
+  age: z.string().optional(),
+  gender: z.string().optional(),
+  modality: z.string().optional(),
+  labValues: z.array(z.object({ test: z.string(), value: z.number() })).optional(),
+})
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { symptoms, age, gender, modality } = body as {
-      symptoms: string[]
-      age?: number
-      gender?: string
-      modality?: string
+    const parsed = symptomCheckSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    if (!symptoms || symptoms.length === 0) {
-      return NextResponse.json({ error: 'Symptoms are required' }, { status: 400 })
-    }
+    const { symptoms, age: ageStr, gender, modality, labValues } = parsed.data
+    const age = ageStr ? parseInt(ageStr.split('-')[0]) : undefined
 
     // Search for health issues matching the symptoms
     const matchedIssues = await db.healthIssue.findMany({
@@ -112,9 +119,19 @@ export async function POST(request: NextRequest) {
     if (age !== undefined && age > 65) warnings.push('Elderly: Dose adjustment may be needed')
     if (gender === 'FEMALE' && body.isPregnant) warnings.push('Pregnancy: Many medicines are contraindicated')
 
+    // Interpret lab values from clinical knowledge base
+    const labInterpretations = labValues
+      ?.map(lv => interpretLabValue(lv.test, lv.value))
+      .filter(Boolean) ?? []
+
+    // Match symptoms to knowledge base conditions
+    const kbMatches = matchSymptomsToConditions(symptoms.join(' '))
+
     return NextResponse.json({
       data: scored.slice(0, 15),
       meta: { symptomsSearched: symptoms, age, gender, modality, warnings },
+      labInterpretations,
+      knowledgeBaseMatches: kbMatches,
     })
   } catch (error) {
     console.error('Symptom checker error:', error)

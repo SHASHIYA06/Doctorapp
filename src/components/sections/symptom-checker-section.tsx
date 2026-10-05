@@ -173,6 +173,43 @@ export function SymptomCheckerSection() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiResult, setAiResult] = useState<string | null>(null)
 
+  // Lab values state
+  const [labValues, setLabValues] = useState<Array<{ test: string; value: number }>>([])
+  const [labTestInput, setLabTestInput] = useState('')
+  const [labValueInput, setLabValueInput] = useState('')
+  const [showLabInput, setShowLabInput] = useState(false)
+
+  // Live AI suggestions state
+  const [liveSuggestions, setLiveSuggestions] = useState<string[]>([])
+  const [liveLoading, setLiveLoading] = useState(false)
+  const liveDebounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Clinical assistant detailed response
+  const [clinicalResponse, setClinicalResponse] = useState<{
+    aiEnhancedResponse?: string | null
+    knowledgeBaseResponse?: {
+      conditionName: string
+      patientFriendlySummary: string
+      allopathy: Array<{ medicineName: string; genericName: string; dosage: string; frequency: string; reasoning: string; isFirstLine: boolean; isPrescription: boolean; indianBrandNames: string[]; janAushadhiAvailable: boolean; janAushadhiPrice?: string; sideEffects: string[]; precautions: string[] }>
+      ayurveda: Array<{ medicineName: string; genericName: string; dosage: string; frequency: string; reasoning: string; isFirstLine: boolean; sideEffects: string[]; precautions: string[] }>
+      homeopathy: Array<{ medicineName: string; genericName: string; dosage: string; frequency: string; reasoning: string; isFirstLine: boolean; sideEffects: string[]; precautions: string[] }>
+      lifestyle: string[]
+      diet: string[]
+      redFlags: string[]
+      followUp: string[]
+      whenToSeeDoctor: string
+    } | null
+    labInterpretations?: Array<{ testName: string; value: number; unit: string; status: string; clinicalSignificance: string; recommendedAction: string }>
+    matchedConditions?: Array<{ key: string; name: string; confidence: number }>
+    disclaimer?: string
+  } | null>(null)
+
+  const LAB_TEST_OPTIONS = [
+    'HbA1c', 'Fasting Glucose', 'Total Cholesterol', 'LDL', 'HDL', 'Triglycerides',
+    'TSH', 'Free T4', 'Hemoglobin', 'Creatinine', 'eGFR', 'Vitamin D', 'Vitamin B12',
+    'Ferritin', 'ALT', 'AST', 'CRP', 'ESR', 'PSA', 'Uric Acid',
+  ]
+
   // Red flag detection
   const RED_FLAG_SYMPTOMS = new Set(['chest pain', 'breathing difficulty', 'severe headache', 'sudden vision loss', 'slurred speech', 'weakness on one side', 'severe bleeding', 'high fever', 'seizure', 'loss of consciousness'])
   const detectedRedFlags = symptoms.filter((s) => RED_FLAG_SYMPTOMS.has(s.toLowerCase()))
@@ -478,6 +515,77 @@ export function SymptomCheckerSection() {
               </div>
             </div>
 
+            {/* Lab Values Input */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Lab Values (Optional)</Label>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowLabInput(!showLabInput)}>
+                  <Plus className="h-3 w-3" />
+                  {showLabInput ? 'Hide' : 'Add Lab Values'}
+                </Button>
+              </div>
+              {showLabInput && (
+                <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Select value={labTestInput} onValueChange={setLabTestInput}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select test..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LAB_TEST_OPTIONS.map((test) => (
+                          <SelectItem key={test} value={test}>{test}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="Value"
+                      value={labValueInput}
+                      onChange={(e) => setLabValueInput(e.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!labTestInput || !labValueInput}
+                      onClick={() => {
+                        const num = parseFloat(labValueInput)
+                        if (!isNaN(num)) {
+                          setLabValues([...labValues, { test: labTestInput, value: num }])
+                          setLabTestInput('')
+                          setLabValueInput('')
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add
+                    </Button>
+                  </div>
+                  {labValues.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {labValues.map((lv, idx) => (
+                        <Badge key={idx} variant="outline" className="gap-1 bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700">
+                          {lv.test}: {lv.value}
+                          <button onClick={() => setLabValues(labValues.filter((_, i) => i !== idx))} className="ml-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5">
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">e.g., HbA1c: 7.8, Total Cholesterol: 360, TSH: 8.5 — helps the AI give specific medicine recommendations</p>
+                </div>
+              )}
+              {labValues.length > 0 && !showLabInput && (
+                <div className="flex flex-wrap gap-1.5">
+                  {labValues.map((lv, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700">
+                      {lv.test}: {lv.value}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Check Button */}
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -506,7 +614,7 @@ export function SymptomCheckerSection() {
                 <Mic className="h-4 w-4" />
                 Voice Input
               </Button>
-              {/* Get AI Analysis */}
+              {/* Ask the Doctor AI — Clinical Assistant */}
               <Button
                 variant="outline"
                 className="gap-2"
@@ -514,17 +622,31 @@ export function SymptomCheckerSection() {
                 onClick={async () => {
                   setAiLoading(true)
                   setAiResult(null)
+                  setClinicalResponse(null)
                   try {
-                    const res = await fetch('/api/medicine-rag', {
+                    const queryText = symptoms.join(', ')
+                    const res = await fetch('/api/clinical-assistant', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ query: symptoms.join(', '), modality: modality, language: 'en' }),
+                      body: JSON.stringify({
+                        query: queryText,
+                        labValues: labValues.length > 0 ? labValues : undefined,
+                        modality: modality,
+                        language: 'en',
+                        includeAllWings: true,
+                      }),
                     })
                     const data = await res.json()
-                    setAiResult(data.data?.answer ?? data.data?.text ?? JSON.stringify(data.data ?? data))
-                    toast({ title: 'AI Analysis Complete', description: 'Results loaded below' })
+                    if (data.data) {
+                      setClinicalResponse(data.data)
+                      setAiResult(data.data.aiEnhancedResponse || data.data.knowledgeBaseResponse?.patientFriendlySummary || null)
+                      toast({ title: '🩺 Doctor AI Analysis Complete', description: 'Detailed clinical guidance with medicines, dosages, and reasoning loaded below' })
+                    } else {
+                      setAiResult('Clinical analysis is currently unavailable. Please try again later.')
+                      toast({ title: 'AI Unavailable', variant: 'destructive' })
+                    }
                   } catch {
-                    setAiResult('AI analysis is currently unavailable. Please try again later.')
+                    setAiResult('AI clinical analysis is currently unavailable. Please try again later.')
                     toast({ title: 'AI Unavailable', variant: 'destructive' })
                   } finally {
                     setAiLoading(false)
@@ -532,7 +654,7 @@ export function SymptomCheckerSection() {
                 }}
               >
                 {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Get AI Analysis
+                Ask Doctor AI
               </Button>
               {symptoms.length > 0 && (
                 <Button
@@ -804,29 +926,215 @@ export function SymptomCheckerSection() {
           )}
         </AnimatePresence>
 
-        {/* ── AI Analysis Result ── */}
+        {/* ── AI Analysis Result / Clinical Assistant Response ── */}
         <AnimatePresence>
-          {aiResult && (
+          {(aiResult || clinicalResponse) && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
+              className="space-y-4"
             >
-              <Card className="border-teal-200 dark:border-teal-800">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-teal-600" />
-                    AI-Powered Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="max-h-80">
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
-                      {aiResult}
+              {/* Lab Interpretations */}
+              {clinicalResponse?.labInterpretations && clinicalResponse.labInterpretations.length > 0 && (
+                <Card className="border-blue-200 dark:border-blue-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Thermometer className="h-5 w-5 text-blue-600" />
+                      Lab Value Interpretation
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {clinicalResponse.labInterpretations.map((lab, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border ${lab.status.includes('CRITICAL') ? 'border-red-300 bg-red-50 dark:bg-red-950 dark:border-red-700' : lab.status === 'HIGH' || lab.status === 'LOW' ? 'border-amber-300 bg-amber-50 dark:bg-amber-950 dark:border-amber-700' : 'border-green-300 bg-green-50 dark:bg-green-950 dark:border-green-700'}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">{lab.testName}</span>
+                            <Badge variant="outline" className={lab.status.includes('CRITICAL') ? 'bg-red-100 text-red-800 border-red-300' : lab.status === 'HIGH' || lab.status === 'LOW' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-green-100 text-green-800 border-green-300'}>
+                              {lab.value} {lab.unit} — {lab.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm mt-2">{lab.clinicalSignificance}</p>
+                          <p className="text-sm mt-1 font-medium">Action: {lab.recommendedAction}</p>
+                        </div>
+                      ))}
                     </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Matched Conditions from KB */}
+              {clinicalResponse?.matchedConditions && clinicalResponse.matchedConditions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Possible Conditions:</span>
+                  {clinicalResponse.matchedConditions.map((mc, idx) => (
+                    <Badge key={idx} variant="outline" className="gap-1 bg-primary/5">
+                      {mc.name}
+                      <span className="text-xs text-muted-foreground">({mc.confidence}%)</span>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Knowledge Base Structured Response */}
+              {clinicalResponse?.knowledgeBaseResponse && (
+                <Card className="border-emerald-200 dark:border-emerald-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Stethoscope className="h-5 w-5 text-emerald-600" />
+                      {clinicalResponse.knowledgeBaseResponse.conditionName} — Structured Clinical Guidance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Allopathy */}
+                    {clinicalResponse.knowledgeBaseResponse.allopathy.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                          <Pill className="h-4 w-4 text-teal-600" /> 💊 Allopathy Recommendations
+                        </h4>
+                        <div className="space-y-3">
+                          {clinicalResponse.knowledgeBaseResponse.allopathy.map((med, idx) => (
+                            <div key={idx} className="p-3 rounded-lg border bg-card space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold">{med.medicineName}</span>
+                                <span className="text-sm text-muted-foreground">({med.genericName})</span>
+                                {med.isFirstLine && <Badge className="bg-teal-100 text-teal-800 border-teal-300 text-xs">⭐ First-line</Badge>}
+                                {med.isPrescription && <Badge variant="outline" className="text-xs">🔒 Prescription</Badge>}
+                                {med.janAushadhiAvailable && <Badge variant="outline" className="text-xs bg-green-50 text-green-800 border-green-300">💊 Jan Aushadhi</Badge>}
+                              </div>
+                              {med.indianBrandNames?.length > 0 && (
+                                <p className="text-xs text-muted-foreground">Indian Brands: {med.indianBrandNames.join(', ')}</p>
+                              )}
+                              <p className="text-sm"><strong>Dosage:</strong> {med.dosage} — {med.frequency} — {med.duration}</p>
+                              <p className="text-sm text-muted-foreground"><strong>Why this medicine?</strong> {med.reasoning}</p>
+                              {med.precautions?.length > 0 && <p className="text-xs"><strong>Precautions:</strong> {med.precautions.join('; ')}</p>}
+                              {med.sideEffects?.length > 0 && <p className="text-xs"><strong>Side Effects:</strong> {med.sideEffects.join('; ')}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Ayurveda */}
+                    {clinicalResponse.knowledgeBaseResponse.ayurveda.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                          <Leaf className="h-4 w-4 text-emerald-600" /> 🌿 Ayurveda Recommendations
+                        </h4>
+                        <div className="space-y-3">
+                          {clinicalResponse.knowledgeBaseResponse.ayurveda.map((med, idx) => (
+                            <div key={idx} className="p-3 rounded-lg border bg-emerald-50/30 dark:bg-emerald-950/20 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold">{med.medicineName}</span>
+                                <span className="text-sm text-muted-foreground">({med.genericName})</span>
+                                {med.isFirstLine && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs">⭐ First-line</Badge>}
+                              </div>
+                              <p className="text-sm"><strong>Dosage:</strong> {med.dosage} — {med.frequency} — {med.duration}</p>
+                              <p className="text-sm text-muted-foreground"><strong>Why?</strong> {med.reasoning}</p>
+                              {med.precautions?.length > 0 && <p className="text-xs"><strong>Precautions:</strong> {med.precautions.join('; ')}</p>}
+                              {med.sideEffects?.length > 0 && <p className="text-xs"><strong>Side Effects:</strong> {med.sideEffects.join('; ')}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Homeopathy */}
+                    {clinicalResponse.knowledgeBaseResponse.homeopathy.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                          <FlaskConical className="h-4 w-4 text-violet-600" /> 🔮 Homeopathy Recommendations
+                        </h4>
+                        <div className="space-y-3">
+                          {clinicalResponse.knowledgeBaseResponse.homeopathy.map((med, idx) => (
+                            <div key={idx} className="p-3 rounded-lg border bg-violet-50/30 dark:bg-violet-950/20 space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold">{med.medicineName}</span>
+                                <span className="text-sm text-muted-foreground">({med.genericName})</span>
+                                {med.isFirstLine && <Badge className="bg-violet-100 text-violet-800 border-violet-300 text-xs">⭐ First-line</Badge>}
+                              </div>
+                              <p className="text-sm"><strong>Dosage:</strong> {med.dosage} — {med.frequency} — {med.duration}</p>
+                              <p className="text-sm text-muted-foreground"><strong>Why?</strong> {med.reasoning}</p>
+                              {med.precautions?.length > 0 && <p className="text-xs"><strong>Precautions:</strong> {med.precautions.join('; ')}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Lifestyle */}
+                    {clinicalResponse.knowledgeBaseResponse.lifestyle.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-2">🏃 Lifestyle Advice</h4>
+                        <ul className="text-sm space-y-1 list-disc pl-4">
+                          {clinicalResponse.knowledgeBaseResponse.lifestyle.map((l, idx) => <li key={idx}>{l}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Diet */}
+                    {clinicalResponse.knowledgeBaseResponse.diet.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-2">🥗 Diet Advice</h4>
+                        <ul className="text-sm space-y-1 list-disc pl-4">
+                          {clinicalResponse.knowledgeBaseResponse.diet.map((d, idx) => <li key={idx}>{d}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Red Flags */}
+                    {clinicalResponse.knowledgeBaseResponse.redFlags.length > 0 && (
+                      <div className="p-3 rounded-lg border-2 border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950">
+                        <h4 className="font-semibold text-sm flex items-center gap-2 text-red-800 dark:text-red-200 mb-2">
+                          <Siren className="h-4 w-4" /> 🚩 Red Flags — Seek Immediate Help
+                        </h4>
+                        <ul className="text-sm space-y-1 list-disc pl-4 text-red-700 dark:text-red-300">
+                          {clinicalResponse.knowledgeBaseResponse.redFlags.filter(f => f.startsWith('🚩')).map((r, idx) => <li key={idx}>{r}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Follow-up */}
+                    {clinicalResponse.knowledgeBaseResponse.followUp.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-sm mb-2">📅 Follow-up</h4>
+                        <ul className="text-sm space-y-1 list-disc pl-4">
+                          {clinicalResponse.knowledgeBaseResponse.followUp.map((f, idx) => <li key={idx}>{f}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {/* When to see doctor */}
+                    {clinicalResponse.knowledgeBaseResponse.whenToSeeDoctor && (
+                      <div className="p-3 rounded-lg bg-amber-50/50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+                        <h4 className="font-semibold text-sm flex items-center gap-2 mb-1">
+                          <AlertTriangle className="h-4 w-4 text-amber-600" /> When to See a Doctor
+                        </h4>
+                        <p className="text-sm">{clinicalResponse.knowledgeBaseResponse.whenToSeeDoctor}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* AI Enhanced Response (Markdown) */}
+              {aiResult && (
+                <Card className="border-teal-200 dark:border-teal-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-teal-600" />
+                      🩺 Doctor AI — Comprehensive Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="max-h-[500px]">
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm whitespace-pre-wrap">
+                        {aiResult}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Disclaimer */}
+              {clinicalResponse?.disclaimer && (
+                <div className="p-3 rounded-lg bg-muted/40 border border-muted text-xs text-muted-foreground">
+                  {clinicalResponse.disclaimer}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
