@@ -1,0 +1,805 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Video,
+     7→  VideoOff,
+     8→  Mic,
+     9→  MicOff,
+    10→  Phone,
+    11→  PhoneOff,
+    12→  Clock,
+    13→  MessageSquare,
+    14→  Star,
+    15→  Monitor,
+    16→  FileText,
+    17→  Plus,
+    18→  Eye,
+    19→  Circle,
+    20→  CheckCircle2,
+    21→} from 'lucide-react'
+    22→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    23→import { Button } from '@/components/ui/button'
+    24→import { Badge } from '@/components/ui/badge'
+    25→import { Input } from '@/components/ui/input'
+    26→import { Label } from '@/components/ui/label'
+    27→import { Textarea } from '@/components/ui/textarea'
+    28→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    29→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    30→import { Separator } from '@/components/ui/separator'
+    31→import { Skeleton } from '@/components/ui/skeleton'
+    32→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    33→import { useAppStore } from '@/lib/store'
+    34→import type { Modality } from '@/lib/store'
+    35→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    36→import { toast } from '@/hooks/use-toast'
+    37→
+    38→// ─── Types ────────────────────────────────────────────────────────────
+    39→
+    40→type SessionStatus =
+    41→  | 'SCHEDULED'
+    42→  | 'WAITING'
+    43→  | 'IN_PROGRESS'
+    44→  | 'COMPLETED'
+    45→  | 'CANCELLED'
+    46→  | 'FAILED'
+    47→
+    48→interface Practitioner {
+    49→  id: string
+    50→  name: string
+    51→  specialty: string
+    52→  modality: Modality
+    53→}
+    54→
+    55→interface Session {
+    56→  id: string
+    57→  patientId: string
+    58→  patientName: string
+    59→  practitionerId: string
+    60→  practitionerName: string
+    61→  modality: Modality
+    62→  status: SessionStatus
+    63→  scheduledAt: string
+    64→  startedAt: string | null
+    65→  endedAt: string | null
+    66→  durationMinutes: number | null
+    67→  rating: number | null
+    68→  feedback: string | null
+    69→  isRecording: boolean
+    70→  notes: string
+    71→  prescriptionId: string | null
+    72→  followUpScheduled: boolean
+    73→  createdAt: string
+    74→}
+    75→
+    76→interface Patient {
+    77→  id: string
+    78→  firstName: string
+    79→  lastName: string
+    80→}
+    81→
+    82→// ─── Style Maps ───────────────────────────────────────────────────────
+    83→
+    84→const statusStyles: Record<SessionStatus, string> = {
+    85→  SCHEDULED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    86→  WAITING: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    87→  IN_PROGRESS: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    88→  COMPLETED: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+    89→  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    90→  FAILED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    91→}
+    92→
+    93→const statusDotColor: Record<SessionStatus, string> = {
+    94→  SCHEDULED: 'bg-slate-400',
+    95→  WAITING: 'bg-amber-500 animate-pulse',
+    96→  IN_PROGRESS: 'bg-green-500 animate-pulse',
+    97→  COMPLETED: 'bg-teal-500',
+    98→  CANCELLED: 'bg-red-500',
+    99→  FAILED: 'bg-red-500',
+   100→}
+   101→
+   102→const fadeSlide = {
+   103→  initial: { opacity: 0, y: 12 },
+   104→  animate: { opacity: 1, y: 0 },
+   105→  transition: { duration: 0.3 },
+   106→}
+   107→
+   108→const MODALITIES: Modality[] = ['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY']
+   109→
+   110→// ─── Component ────────────────────────────────────────────────────────
+   111→
+   112→export function TelemedicineSection() {
+   113→  const { activeModality, setActiveModality } = useAppStore()
+   114→
+   115→  const [patients, setPatients] = useState<Patient[]>([])
+   116→  const [practitioners, setPractitioners] = useState<Practitioner[]>([])
+   117→  const [sessions, setSessions] = useState<Session[]>([])
+   118→  const [loading, setLoading] = useState(true)
+   119→
+   120→  // Modality tab
+   121→  const [modalityTab, setModalityTab] = useState<Modality>(activeModality)
+   122→
+   123→  // Filters
+   124→  const [filterStatus, setFilterStatus] = useState<string>('ALL')
+   125→
+   126→  // Schedule dialog
+   127→  const [scheduleOpen, setScheduleOpen] = useState(false)
+   128→  const [formPatientId, setFormPatientId] = useState('')
+   129→  const [formPractitionerId, setFormPractitionerId] = useState('')
+   130→  const [formScheduledAt, setFormScheduledAt] = useState('')
+   131→  const [formNotes, setFormNotes] = useState('')
+   132→  const [submitting, setSubmitting] = useState(false)
+   133→
+   134→  // Session detail / consultation dialog
+   135→  const [detailSession, setDetailSession] = useState<Session | null>(null)
+   136→
+   137→  // Consultation state (simulated)
+   138→  const [inCall, setInCall] = useState(false)
+   139→  const [callElapsed, setCallElapsed] = useState(0)
+   140→  const [micOn, setMicOn] = useState(true)
+   141→  const [camOn, setCamOn] = useState(true)
+   142→  const [chatNotes, setChatNotes] = useState('')
+   143→  const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   144→
+   145→  // Post-consultation
+   146→  const [showFeedback, setShowFeedback] = useState(false)
+   147→  const [rating, setRating] = useState(0)
+   148→  const [feedbackText, setFeedbackText] = useState('')
+   149→
+   150→  // ─── Data Loading ─────────────────────────────────────────────────
+   151→
+   152→  useEffect(() => {
+   153→    fetch('/api/patients')
+   154→      .then((r) => r.json())
+   155→      .then((d) => {
+   156→        const list = d.data ?? d.patients ?? []
+   157→        setPatients(list)
+   158→        if (list.length > 0) setFormPatientId(list[0].id)
+   159→      })
+   160→      .catch(() => {
+   161→        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+   162→      })
+   163→  }, [])
+   164→
+   165→  useEffect(() => {
+   166→    fetch('/api/telemedicine?practitioners=true')
+   167→      .then((r) => r.json())
+   168→      .then((d) => {
+   169→        setPractitioners(d.practitioners ?? [])
+   170→      })
+   171→      .catch(() => {
+   172→        toast({ title: 'Error', description: 'Failed to load practitioners', variant: 'destructive' })
+   173→      })
+   174→  }, [])
+   175→
+   176→  const loadSessions = useCallback(async () => {
+   177→    setLoading(true)
+   178→    try {
+   179→      const params = new URLSearchParams()
+   180→      params.set('modality', modalityTab)
+   181→      if (filterStatus !== 'ALL') params.set('status', filterStatus)
+   182→      const res = await fetch(`/api/telemedicine?${params.toString()}`)
+   183→      const data = await res.json()
+   184→      setSessions(data.data ?? data.sessions ?? [])
+   185→    } catch {
+   186→      toast({ title: 'Error', description: 'Failed to load sessions', variant: 'destructive' })
+   187→    } finally {
+   188→      setLoading(false)
+   189→    }
+   190→  }, [modalityTab, filterStatus])
+   191→
+   192→  useEffect(() => { loadSessions() }, [loadSessions])
+   193→
+   194→  // ─── Call Timer ───────────────────────────────────────────────────
+   195→
+   196→  useEffect(() => {
+   197→    if (inCall) {
+   198→      callTimerRef.current = setInterval(() => {
+   199→        setCallElapsed((prev) => prev + 1)
+   200→      }, 1000)
+   201→    } else {
+   202→      if (callTimerRef.current) clearInterval(callTimerRef.current)
+   203→      callTimerRef.current = null
+   204→    }
+   205→    return () => {
+   206→      if (callTimerRef.current) clearInterval(callTimerRef.current)
+   207→    }
+   208→  }, [inCall])
+   209→
+   210→  const formatTime = (seconds: number) => {
+   211→    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+   212→    const s = (seconds % 60).toString().padStart(2, '0')
+   213→    return `${m}:${s}`
+   214→  }
+   215→
+   216→  // ─── Stats ────────────────────────────────────────────────────────
+   217→
+   218→  const stats = {
+   219→    total: sessions.length,
+   220→    today: sessions.filter((s) => {
+   221→      const d = new Date(s.scheduledAt)
+   222→      const now = new Date()
+   223→      return d.toDateString() === now.toDateString()
+   224→    }).length,
+   225→    inProgress: sessions.filter((s) => s.status === 'IN_PROGRESS').length,
+   226→    avgRating: sessions.filter((s) => s.rating !== null).length > 0
+   227→      ? (sessions.filter((s) => s.rating !== null).reduce((a, s) => a + (s.rating ?? 0), 0) /
+   228→          sessions.filter((s) => s.rating !== null).length).toFixed(1)
+   229→      : '—',
+   230→  }
+   231→
+   232→  // ─── Actions ──────────────────────────────────────────────────────
+   233→
+   234→  const handleSchedule = async () => {
+   235→    if (!formPatientId || !formPractitionerId || !formScheduledAt) {
+   236→      toast({ title: 'Validation', description: 'Fill all required fields', variant: 'destructive' })
+   237→      return
+   238→    }
+   239→    setSubmitting(true)
+   240→    try {
+   241→      const res = await fetch('/api/telemedicine', {
+   242→        method: 'POST',
+   243→        headers: { 'Content-Type': 'application/json' },
+   244→        body: JSON.stringify({
+   245→          patientId: formPatientId,
+   246→          practitionerId: formPractitionerId,
+   247→          modality: modalityTab,
+   248→          scheduledAt: formScheduledAt,
+   249→          notes: formNotes,
+   250→        }),
+   251→      })
+   252→      if (res.ok) {
+   253→        toast({ title: 'Session Scheduled', description: 'Telemedicine session created' })
+   254→        setScheduleOpen(false)
+   255→        setFormNotes('')
+   256→        setFormScheduledAt('')
+   257→        loadSessions()
+   258→      } else {
+   259→        toast({ title: 'Error', description: 'Failed to schedule session', variant: 'destructive' })
+   260→      }
+   261→    } catch {
+   262→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   263→    } finally {
+   264→      setSubmitting(false)
+   265→    }
+   266→  }
+   267→
+   268→  const handleJoinCall = (session: Session) => {
+   269→    setDetailSession(session)
+   270→    setInCall(true)
+   271→    setCallElapsed(0)
+   272→    setMicOn(true)
+   273→    setCamOn(true)
+   274→    setChatNotes('')
+   275→    setShowFeedback(false)
+   276→    toast({ title: 'Joined Call', description: `Connected with ${session.patientName}` })
+   277→  }
+   278→
+   279→  const handleEndCall = async () => {
+   280→    setInCall(false)
+   281→    // Update session to completed
+   282→    if (detailSession) {
+   283→      try {
+   284→        await fetch('/api/telemedicine', {
+   285→          method: 'PUT',
+   286→          headers: { 'Content-Type': 'application/json' },
+   287→          body: JSON.stringify({ id: detailSession.id, status: 'COMPLETED', durationMinutes: Math.round(callElapsed / 60) }),
+   288→        })
+   289→      } catch { /* silent */ }
+   290→    }
+   291→    setShowFeedback(true)
+   292→    toast({ title: 'Call Ended', description: `Duration: ${formatTime(callElapsed)}` })
+   293→  }
+   294→
+   295→  const handleSubmitFeedback = async () => {
+   296→    if (detailSession) {
+   297→      try {
+   298→        await fetch('/api/telemedicine', {
+   299→          method: 'PUT',
+   300→          headers: { 'Content-Type': 'application/json' },
+   301→          body: JSON.stringify({ id: detailSession.id, rating, feedback: feedbackText }),
+   302→        })
+   303→        toast({ title: 'Feedback Submitted' })
+   304→      } catch { /* silent */ }
+   305→    }
+   306→    setShowFeedback(false)
+   307→    setDetailSession(null)
+   308→    setRating(0)
+   309→    setFeedbackText('')
+   310→    loadSessions()
+   311→  }
+   312→
+   313→  const handleCancelSession = async (id: string) => {
+   314→    try {
+   315→      const res = await fetch('/api/telemedicine', {
+   316→        method: 'PUT',
+   317→        headers: { 'Content-Type': 'application/json' },
+   318→        body: JSON.stringify({ id, status: 'CANCELLED' }),
+   319→      })
+   320→      if (res.ok) {
+   321→        toast({ title: 'Session Cancelled' })
+   322→        loadSessions()
+   323→        setDetailSession(null)
+   324→      }
+   325→    } catch {
+   326→      toast({ title: 'Error', description: 'Failed to cancel', variant: 'destructive' })
+   327→    }
+   328→  }
+   329→
+   330→  // ─── Render ───────────────────────────────────────────────────────
+   331→
+   332→  return (
+   333→    <motion.div {...fadeSlide} className="space-y-4">
+   334→      {/* Stats Cards */}
+   335→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   336→        {[
+   337→          { label: 'Total Sessions', value: stats.total, icon: Monitor, color: 'text-slate-600 dark:text-slate-400' },
+   338→          { label: 'Today', value: stats.today, icon: Clock, color: 'text-amber-600 dark:text-amber-400' },
+   339→          { label: 'In Progress', value: stats.inProgress, icon: Video, color: 'text-green-600 dark:text-green-400' },
+   340→          { label: 'Avg Rating', value: stats.avgRating, icon: Star, color: 'text-yellow-600 dark:text-yellow-400' },
+   341→        ].map((s) => (
+   342→          <Card key={s.label}>
+   343→            <CardContent className="p-4 flex items-center gap-3">
+   344→              <s.icon className={`h-5 w-5 ${s.color}`} />
+   345→              <div>
+   346→                <p className="text-2xl font-bold">{s.value}</p>
+   347→                <p className="text-xs text-muted-foreground">{s.label}</p>
+   348→              </div>
+   349→            </CardContent>
+   350→          </Card>
+   351→        ))}
+   352→      </div>
+   353→
+   354→      {/* Modality Tabs + Toolbar */}
+   355→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   356→        <Tabs
+   357→          value={modalityTab}
+   358→          onValueChange={(v) => { setModalityTab(v as Modality); setActiveModality(v as Modality) }}
+   359→        >
+   360→          <TabsList>
+   361→            <TabsTrigger value="ALLOPATHY">Allopathy</TabsTrigger>
+   362→            <TabsTrigger value="AYURVEDA">Ayurveda</TabsTrigger>
+   363→            <TabsTrigger value="HOMEOPATHY">Homeopathy</TabsTrigger>
+   364→          </TabsList>
+   365→        </Tabs>
+   366→
+   367→        <Select value={filterStatus} onValueChange={setFilterStatus}>
+   368→          <SelectTrigger className="w-32 h-8"><SelectValue placeholder="Status" /></SelectTrigger>
+   369→          <SelectContent>
+   370→            <SelectItem value="ALL">All Status</SelectItem>
+   371→            <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+   372→            <SelectItem value="WAITING">Waiting</SelectItem>
+   373→            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+   374→            <SelectItem value="COMPLETED">Completed</SelectItem>
+   375→            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+   376→            <SelectItem value="FAILED">Failed</SelectItem>
+   377→          </SelectContent>
+   378→        </Select>
+   379→
+   380→        <div className="sm:ml-auto">
+   381→          <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+   382→            <DialogTrigger asChild>
+   383→              <Button className="gap-2">
+   384→                <Plus className="h-4 w-4" />
+   385→                Schedule Session
+   386→              </Button>
+   387→            </DialogTrigger>
+   388→            <DialogContent className="max-w-lg">
+   389→              <DialogHeader>
+   390→                <DialogTitle className="flex items-center gap-2">
+   391→                  <Video className="h-5 w-5" />
+   392→                  Schedule Telemedicine Session
+   393→                </DialogTitle>
+   394→                <DialogDescription>
+   395→                  For <ModalityBadge modality={modalityTab} /> modality
+   396→                </DialogDescription>
+   397→              </DialogHeader>
+   398→              <div className="grid gap-4 py-4">
+   399→                <div className="space-y-2">
+   400→                  <Label>Patient</Label>
+   401→                  <Select value={formPatientId} onValueChange={setFormPatientId}>
+   402→                    <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+   403→                    <SelectContent>
+   404→                      {patients.map((p) => (
+   405→                        <SelectItem key={p.id} value={p.id}>
+   406→                          {p.firstName} {p.lastName}
+   407→                        </SelectItem>
+   408→                      ))}
+   409→                    </SelectContent>
+   410→                  </Select>
+   411→                </div>
+   412→
+   413→                <div className="space-y-2">
+   414→                  <Label>Practitioner</Label>
+   415→                  <Select value={formPractitionerId} onValueChange={setFormPractitionerId}>
+   416→                    <SelectTrigger><SelectValue placeholder="Select practitioner" /></SelectTrigger>
+   417→                    <SelectContent>
+   418→                      {practitioners
+   419→                        .filter((p) => p.modality === modalityTab)
+   420→                        .map((p) => (
+   421→                          <SelectItem key={p.id} value={p.id}>
+   422→                            {p.name} — {p.specialty}
+   423→                          </SelectItem>
+   424→                        ))}
+   425→                    </SelectContent>
+   426→                  </Select>
+   427→                </div>
+   428→
+   429→                <div className="space-y-2">
+   430→                  <Label>Scheduled Time</Label>
+   431→                  <Input
+   432→                    type="datetime-local"
+   433→                    value={formScheduledAt}
+   434→                    onChange={(e) => setFormScheduledAt(e.target.value)}
+   435→                  />
+   436→                </div>
+   437→
+   438→                <div className="space-y-2">
+   439→                  <Label>Notes</Label>
+   440→                  <Textarea
+   441→                    value={formNotes}
+   442→                    onChange={(e) => setFormNotes(e.target.value)}
+   443→                    placeholder="Reason for consultation..."
+   444→                    rows={2}
+   445→                  />
+   446→                </div>
+   447→              </div>
+   448→              <DialogFooter>
+   449→                <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancel</Button>
+   450→                <Button onClick={handleSchedule} disabled={submitting}>
+   451→                  {submitting ? 'Scheduling...' : 'Schedule'}
+   452→                </Button>
+   453→              </DialogFooter>
+   454→            </DialogContent>
+   455→          </Dialog>
+   456→        </div>
+   457→      </div>
+   458→
+   459→      {/* Session List */}
+   460→      <Card>
+   461→        <CardHeader>
+   462→          <CardTitle className="text-base flex items-center gap-2">
+   463→            <Monitor className="h-5 w-5" />
+   464→            Sessions
+   465→            <ModalityBadge modality={modalityTab} className="ml-1" />
+   466→          </CardTitle>
+   467→          <CardDescription>Telemedicine sessions and remote consultations</CardDescription>
+   468→        </CardHeader>
+   469→        <CardContent>
+   470→          {loading ? (
+   471→            <div className="space-y-2">
+   472→              {[1, 2, 3, 4].map((i) => (
+   473→                <Skeleton key={i} className="h-14 w-full" />
+   474→              ))}
+   475→            </div>
+   476→          ) : (
+   477→            <div className="space-y-2 max-h-96 overflow-y-auto">
+   478→              {sessions.map((session) => (
+   479→                <div
+   480→                  key={session.id}
+   481→                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+   482→                >
+   483→                  {/* Status dot */}
+   484→                  <div className="shrink-0">
+   485→                    <Circle className={`h-3 w-3 fill-current ${statusDotColor[session.status]}`} />
+   486→                  </div>
+   487→
+   488→                  {/* Info */}
+   489→                  <div className="flex-1 min-w-0">
+   490→                    <p className="font-medium text-sm">{session.patientName} ↔ {session.practitionerName}</p>
+   491→                    <p className="text-xs text-muted-foreground">
+   492→                      {new Date(session.scheduledAt).toLocaleString()}
+   493→                      {session.durationMinutes && ` • ${session.durationMinutes} min`}
+   494→                      {session.isRecording && ' • 🔴 Recording'}
+   495→                    </p>
+   496→                  </div>
+   497→
+   498→                  {/* Badges */}
+   499→                  <Badge variant="outline" className={statusStyles[session.status]}>
+   500→                    {session.status.replace('_', ' ')}
+   501→                  </Badge>
+   502→
+   503→                  {/* Actions */}
+   504→                  <div className="flex items-center gap-1">
+   505→                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setDetailSession(session); setShowFeedback(false); setInCall(false) }}>
+   506→                      <Eye className="h-3.5 w-3.5" />
+   507→                    </Button>
+   508→                    {(session.status === 'SCHEDULED' || session.status === 'WAITING') && (
+   509→                      <Button
+   510→                        size="sm"
+   511→                        variant="outline"
+   512→                        className="h-7 gap-1 text-xs text-green-700 dark:text-green-400"
+   513→                        onClick={() => handleJoinCall(session)}
+   514→                      >
+   515→                        <Video className="h-3 w-3" /> Join
+   516→                      </Button>
+   517→                    )}
+   518→                  </div>
+   519→                </div>
+   520→              ))}
+   521→              {sessions.length === 0 && (
+   522→                <div className="text-center text-muted-foreground py-8">
+   523→                  No sessions found for this modality
+   524→                </div>
+   525→              )}
+   526→            </div>
+   527→          )}
+   528→        </CardContent>
+   529→      </Card>
+   530→
+   531→      {/* Detail / Consultation Dialog */}
+   532→      <Dialog
+   533→        open={!!detailSession || inCall || showFeedback}
+   534→        onOpenChange={(open) => {
+   535→          if (!open) {
+   536→            if (inCall) {
+   537→              setInCall(false)
+   538→            } else {
+   539→              setDetailSession(null)
+   540→              setShowFeedback(false)
+   541→              setInCall(false)
+   542→            }
+   543→          }
+   544→        }}
+   545→      >
+   546→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   547→          {detailSession && (
+   548→            <>
+   549→              <DialogHeader>
+   550→                <DialogTitle className="flex items-center gap-2">
+   551→                  {inCall ? <Video className="h-5 w-5 text-green-600" /> : <Monitor className="h-5 w-5" />}
+   552→                  {inCall ? 'Live Consultation' : 'Session Detail'}
+   553→                </DialogTitle>
+   554→                <DialogDescription>
+   555→                  {detailSession.patientName} ↔ {detailSession.practitionerName}
+   556→                  <ModalityBadge modality={detailSession.modality} className="ml-2" />
+   557→                </DialogDescription>
+   558→              </DialogHeader>
+   559→
+   560→              {inCall ? (
+   561→                /* ─── Video Call UI ─── */
+   562→                <div className="grid gap-4 py-4">
+   563→                  {/* Video area */}
+   564→                  <div className="relative bg-slate-900 rounded-xl aspect-video flex items-center justify-center overflow-hidden">
+   565→                    {camOn ? (
+   566→                      <div className="text-center text-slate-400">
+   567→                        <Video className="h-16 w-16 mx-auto mb-2" />
+   568→                        <p className="text-sm">Camera active</p>
+   569→                      </div>
+   570→                    ) : (
+   571→                      <div className="text-center text-slate-500">
+   572→                        <VideoOff className="h-16 w-16 mx-auto mb-2" />
+   573→                        <p className="text-sm">Camera off</p>
+   574→                      </div>
+   575→                    )}
+   576→                    {/* Timer */}
+   577→                    <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
+   578→                      <Circle className="h-2 w-2 fill-red-500 text-red-500" />
+   579→                      {formatTime(callElapsed)}
+   580→                    </div>
+   581→                    {/* Recording indicator */}
+   582→                    <div className="absolute top-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1">
+   583→                      🔴 REC
+   584→                    </div>
+   585→                    {/* Modality badge */}
+   586→                    <div className="absolute bottom-3 left-3">
+   587→                      <ModalityBadge modality={detailSession.modality} />
+   588→                    </div>
+   589→                  </div>
+   590→
+   591→                  {/* Controls */}
+   592→                  <div className="flex items-center justify-center gap-3">
+   593→                    <Button
+   594→                      size="lg"
+   595→                      variant={micOn ? 'outline' : 'destructive'}
+   596→                      className="rounded-full h-12 w-12 p-0"
+   597→                      onClick={() => setMicOn(!micOn)}
+   598→                    >
+   599→                      {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+   600→                    </Button>
+   601→                    <Button
+   602→                      size="lg"
+   603→                      variant={camOn ? 'outline' : 'destructive'}
+   604→                      className="rounded-full h-12 w-12 p-0"
+   605→                      onClick={() => setCamOn(!camOn)}
+   606→                    >
+   607→                      {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+   608→                    </Button>
+   609→                    <Button
+   610→                      size="lg"
+   611→                      variant="destructive"
+   612→                      className="rounded-full h-12 w-12 p-0"
+   613→                      onClick={handleEndCall}
+   614→                    >
+   615→                      <PhoneOff className="h-5 w-5" />
+   616→                    </Button>
+   617→                  </div>
+   618→
+   619→                  {/* Chat/Notes area */}
+   620→                  <div className="space-y-2">
+   621→                    <Label className="flex items-center gap-1 text-sm">
+   622→                      <MessageSquare className="h-4 w-4" /> Consultation Notes
+   623→                    </Label>
+   624→                    <Textarea
+   625→                      value={chatNotes}
+   626→                      onChange={(e) => setChatNotes(e.target.value)}
+   627→                      placeholder="Type notes during consultation..."
+   628→                      rows={4}
+   629→                    />
+   630→                  </div>
+   631→                </div>
+   632→              ) : showFeedback ? (
+   633→                /* ─── Post-Consultation Feedback ─── */
+   634→                <div className="grid gap-4 py-4">
+   635→                  <div className="text-center">
+   636→                    <p className="text-lg font-medium mb-1">Consultation Complete</p>
+   637→                    <p className="text-sm text-muted-foreground">Duration: {formatTime(callElapsed)}</p>
+   638→                  </div>
+   639→
+   640→                  <Separator />
+   641→
+   642→                  {/* Rating */}
+   643→                  <div className="space-y-2">
+   644→                    <Label>Rate this consultation</Label>
+   645→                    <div className="flex items-center gap-1">
+   646→                      {[1, 2, 3, 4, 5].map((star) => (
+   647→                        <Button
+   648→                          key={star}
+   649→                          variant="ghost"
+   650→                          size="sm"
+   651→                          className={`h-10 w-10 p-0 ${rating >= star ? 'text-yellow-500' : 'text-muted-foreground'}`}
+   652→                          onClick={() => setRating(star)}
+   653→                        >
+   654→                          <Star className={`h-6 w-6 ${rating >= star ? 'fill-current' : ''}`} />
+   655→                        </Button>
+   656→                      ))}
+   657→                    </div>
+   658→                  </div>
+   659→
+   660→                  {/* Feedback text */}
+   661→                  <div className="space-y-2">
+   662→                    <Label>Feedback (optional)</Label>
+   663→                    <Textarea
+   664→                      value={feedbackText}
+   665→                      onChange={(e) => setFeedbackText(e.target.value)}
+   666→                      placeholder="Share your experience..."
+   667→                      rows={3}
+   668→                    />
+   669→                  </div>
+   670→
+   671→                  <Separator />
+   672→
+   673→                  {/* Post-consultation actions */}
+   674→                  <div className="grid grid-cols-2 gap-3">
+   675→                    <Button variant="outline" className="gap-2" onClick={() => toast({ title: 'Prescription Created', description: 'New prescription drafted' })}>
+   676→                      <FileText className="h-4 w-4" /> Create Prescription
+   677→                    </Button>
+   678→                    <Button variant="outline" className="gap-2" onClick={() => toast({ title: 'Follow-up Scheduled', description: 'Follow-up appointment created' })}>
+   679→                      <Clock className="h-4 w-4" /> Schedule Follow-up
+   680→                    </Button>
+   681→                  </div>
+   682→
+   683→                  <DialogFooter>
+   684→                    <Button variant="outline" onClick={() => { setShowFeedback(false); setDetailSession(null); loadSessions() }}>Skip</Button>
+   685→                    <Button onClick={handleSubmitFeedback} disabled={rating === 0}>Submit Feedback</Button>
+   686→                  </DialogFooter>
+   687→                </div>
+   688→              ) : (
+   689→                /* ─── Session Detail View ─── */
+   690→                <div className="grid gap-3 py-4 text-sm">
+   691→                  <div className="grid grid-cols-2 gap-3">
+   692→                    <div>
+   693→                      <span className="text-muted-foreground">Status</span>
+   694→                      <div className="mt-1">
+   695→                        <Badge variant="outline" className={statusStyles[detailSession.status]}>
+   696→                          {detailSession.status.replace('_', ' ')}
+   697→                        </Badge>
+   698→                      </div>
+   699→                    </div>
+   700→                    <div>
+   701→                      <span className="text-muted-foreground">Modality</span>
+   702→                      <div className="mt-1">
+   703→                        <ModalityBadge modality={detailSession.modality} />
+   704→                      </div>
+   705→                    </div>
+   706→                  </div>
+   707→
+   708→                  <Separator />
+   709→
+   710→                  <div>
+   711→                    <span className="text-muted-foreground">Patient</span>
+   712→                    <p className="font-medium mt-0.5">{detailSession.patientName}</p>
+   713→                  </div>
+   714→                  <div>
+   715→                    <span className="text-muted-foreground">Practitioner</span>
+   716→                    <p className="font-medium mt-0.5">{detailSession.practitionerName}</p>
+   717→                  </div>
+   718→                  <div className="grid grid-cols-2 gap-3">
+   719→                    <div>
+   720→                      <span className="text-muted-foreground">Scheduled</span>
+   721→                      <p className="mt-0.5">{new Date(detailSession.scheduledAt).toLocaleString()}</p>
+   722→                    </div>
+   723→                    {detailSession.durationMinutes && (
+   724→                      <div>
+   725→                        <span className="text-muted-foreground">Duration</span>
+   726→                        <p className="mt-0.5">{detailSession.durationMinutes} min</p>
+   727→                      </div>
+   728→                    )}
+   729→                  </div>
+   730→
+   731→                  {detailSession.isRecording && (
+   732→                    <div className="flex items-center gap-2 text-red-600">
+   733→                      <Circle className="h-3 w-3 fill-current" />
+   734→                      <span className="text-xs font-medium">Session was recorded</span>
+   735→                    </div>
+   736→                  )}
+   737→
+   738→                  {detailSession.notes && (
+   739→                    <div>
+   740→                      <span className="text-muted-foreground">Notes</span>
+   741→                      <p className="mt-0.5">{detailSession.notes}</p>
+   742→                    </div>
+   743→                  )}
+   744→
+   745→                  {detailSession.rating !== null && (
+   746→                    <>
+   747→                      <Separator />
+   748→                      <div>
+   749→                        <span className="text-muted-foreground">Rating</span>
+   750→                        <div className="flex items-center gap-1 mt-1">
+   751→                          {[1, 2, 3, 4, 5].map((star) => (
+   752→                            <Star
+   753→                              key={star}
+   754→                              className={`h-4 w-4 ${(detailSession.rating ?? 0) >= star ? 'text-yellow-500 fill-current' : 'text-muted-foreground'}`}
+   755→                            />
+   756→                          ))}
+   757→                          <span className="text-xs text-muted-foreground ml-1">{detailSession.rating}/5</span>
+   758→                        </div>
+   759→                      </div>
+   760→                      {detailSession.feedback && (
+   761→                        <div>
+   762→                          <span className="text-muted-foreground">Feedback</span>
+   763→                          <p className="mt-0.5">{detailSession.feedback}</p>
+   764→                        </div>
+   765→                      )}
+   766→                    </>
+   767→                  )}
+   768→
+   769→                  <div className="grid grid-cols-2 gap-3">
+   770→                    <div>
+   771→                      <span className="text-muted-foreground">Prescription</span>
+   772→                      <p className="mt-0.5">{detailSession.prescriptionId ? '✓ Created' : '—'}</p>
+   773→                    </div>
+   774→                    <div>
+   775→                      <span className="text-muted-foreground">Follow-up</span>
+   776→                      <p className="mt-0.5">{detailSession.followUpScheduled ? '✓ Scheduled' : '—'}</p>
+   777→                    </div>
+   778→                  </div>
+   779→                </div>
+   780→              )}
+   781→
+   782→              {/* Detail view footer actions */}
+   783→              {!inCall && !showFeedback && detailSession && (
+   784→                <DialogFooter>
+   785→                  {(detailSession.status === 'SCHEDULED' || detailSession.status === 'WAITING') && (
+   786→                    <Button className="gap-1" onClick={() => handleJoinCall(detailSession)}>
+   787→                      <Video className="h-4 w-4" /> Join Call
+   788→                    </Button>
+   789→                  )}
+   790→                  {detailSession.status === 'SCHEDULED' && (
+   791→                    <Button variant="outline" className="gap-1 text-red-600" onClick={() => handleCancelSession(detailSession.id)}>
+   792→                      <PhoneOff className="h-4 w-4" /> Cancel
+   793→                    </Button>
+   794→                  )}
+   795→                  <Button variant="ghost" onClick={() => setDetailSession(null)}>Close</Button>
+   796→                </DialogFooter>
+   797→              )}
+   798→            </>
+   799→          )}
+   800→        </DialogContent>
+   801→      </Dialog>
+   802→    </motion.div>
+   803→  )
+   804→}
+   805→

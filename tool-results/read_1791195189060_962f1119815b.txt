@@ -1,0 +1,784 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useEffect } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  FileText,
+     7→  Brain,
+     8→  Check,
+     9→  Lock,
+    10→  Printer,
+    11→  Plus,
+    12→  Activity,
+    13→  Trash2,
+    14→  User,
+    15→  Calendar,
+    16→  Stethoscope,
+    17→  ClipboardList,
+    18→  Pill,
+    19→  Salad,
+    20→  Dumbbell,
+    21→  RotateCcw,
+    22→  ChevronDown,
+    23→  ChevronUp,
+    24→  Loader2,
+    25→} from 'lucide-react'
+    26→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    27→import { Button } from '@/components/ui/button'
+    28→import { Badge } from '@/components/ui/badge'
+    29→import { Input } from '@/components/ui/input'
+    30→import { Textarea } from '@/components/ui/textarea'
+    31→import { Separator } from '@/components/ui/separator'
+    32→import {
+    33→  Table,
+    34→  TableBody,
+    35→  TableCell,
+    36→  TableHead,
+    37→  TableHeader,
+    38→  TableRow,
+    39→} from '@/components/ui/table'
+    40→import {
+    41→  Dialog,
+    42→  DialogContent,
+    43→  DialogDescription,
+    44→  DialogFooter,
+    45→  DialogHeader,
+    46→  DialogTitle,
+    47→  DialogTrigger,
+    48→} from '@/components/ui/dialog'
+    49→import {
+    50→  Select,
+    51→  SelectContent,
+    52→  SelectItem,
+    53→  SelectTrigger,
+    54→  SelectValue,
+    55→} from '@/components/ui/select'
+    56→import { useAppStore } from '@/lib/store'
+    57→import { toast } from '@/hooks/use-toast'
+    58→
+    59→// ── Types ──────────────────────────────────────────────────────
+    60→
+    61→type DischargeCondition = 'STABLE' | 'IMPROVED' | 'CRITICAL' | 'EXPIRED'
+    62→
+    63→interface DischargeMedication {
+    64→  id: string
+    65→  name: string
+    66→  dosage: string
+    67→  frequency: string
+    68→  duration: string
+    69→}
+    70→
+    71→interface DischargeSummary {
+    72→  id: string
+    73→  patientId: string
+    74→  patientName: string
+    75→  admissionDate: string
+    76→  dischargeDate: string
+    77→  admittingDiagnosis: string
+    78→  dischargeDiagnosis: string
+    79→  chiefComplaints: string[]
+    80→  investigationsSummary: string
+    81→  treatmentGiven: string
+    82→  conditionAtDischarge: DischargeCondition
+    83→  medications: DischargeMedication[]
+    84→  followUpInstructions: string
+    85→  dietAdvice: string
+    86→  activityRestrictions: string
+    87→  isSigned: boolean
+    88→  isLocked: boolean
+    89→  createdBy: string
+    90→  createdAt: string
+    91→}
+    92→
+    93→// ── Mock Data ──────────────────────────────────────────────────
+    94→
+    95→const mockPatients = [
+    96→  { id: 'p1', name: 'Rajesh Kumar Sharma', age: 58, gender: 'Male', uhid: 'UHID-2026-001' },
+    97→  { id: 'p2', name: 'Priya Nair', age: 34, gender: 'Female', uhid: 'UHID-2026-002' },
+    98→  { id: 'p3', name: 'Mohammed Asif', age: 72, gender: 'Male', uhid: 'UHID-2026-003' },
+    99→  { id: 'p4', name: 'Lakshmi Iyer', age: 45, gender: 'Female', uhid: 'UHID-2026-004' },
+   100→]
+   101→
+   102→const mockSummaries: DischargeSummary[] = [
+   103→  {
+   104→    id: 'ds1',
+   105→    patientId: 'p1',
+   106→    patientName: 'Rajesh Kumar Sharma',
+   107→    admissionDate: '2026-09-28',
+   108→    dischargeDate: '2026-10-03',
+   109→    admittingDiagnosis: 'Acute Myocardial Infarction (STEMI)',
+   110→    dischargeDiagnosis: 'Acute Myocardial Infarction (STEMI) - Post Thrombolysis',
+   111→    chiefComplaints: ['Chest pain since 2 hours', 'Breathlessness', 'Sweating profusely'],
+   112→    investigationsSummary: 'ECG: ST elevation in V1-V4. Troponin I: 8.5 ng/mL (elevated). Echo: EF 45%, AWMA. Lipid profile: Total Cholesterol 268, LDL 185.',
+   113→    treatmentGiven: 'Thrombolysis with Tenecteplase. Antiplatelets (Aspirin + Clopidogrel). Statin (Atorvastatin 80mg). ACE inhibitor (Ramipril 2.5mg). Beta-blocker (Metoprolol 25mg). Heparin infusion for 24h.',
+   114→    conditionAtDischarge: 'IMPROVED',
+   115→    medications: [
+   116→      { id: 'm1', name: 'Aspirin', dosage: '75mg', frequency: 'Once daily', duration: 'Lifelong' },
+   117→      { id: 'm2', name: 'Clopidogrel', dosage: '75mg', frequency: 'Once daily', duration: '1 year' },
+   118→      { id: 'm3', name: 'Atorvastatin', dosage: '80mg', frequency: 'At bedtime', duration: 'Lifelong' },
+   119→      { id: 'm4', name: 'Ramipril', dosage: '2.5mg', frequency: 'Once daily', duration: 'Lifelong' },
+   120→      { id: 'm5', name: 'Metoprolol', dosage: '25mg', frequency: 'Twice daily', duration: 'Lifelong' },
+   121→    ],
+   122→    followUpInstructions: 'Cardiology OPD review in 7 days. Repeat Echo at 4-6 weeks. Stress test at 6 weeks if clinically stable. Watch for signs of heart failure.',
+   123→    dietAdvice: 'Low salt (<5g/day), low saturated fat diet. Include fruits, vegetables, whole grains. Avoid fried foods and red meat. Moderate protein intake.',
+   124→    activityRestrictions: 'No heavy lifting (>5kg) for 4 weeks. Gradual increase in walking - start with 10 min, increase by 5 min weekly. Avoid driving for 4 weeks. Cardiac rehabilitation referral.',
+   125→    isSigned: true,
+   126→    isLocked: true,
+   127→    createdBy: 'Dr. Anil Mehta',
+   128→    createdAt: '2026-10-03T14:30:00Z',
+   129→  },
+   130→  {
+   131→    id: 'ds2',
+   132→    patientId: 'p2',
+   133→    patientName: 'Priya Nair',
+   134→    admissionDate: '2026-09-30',
+   135→    dischargeDate: '2026-10-02',
+   136→    admittingDiagnosis: 'Acute Pyelonephritis',
+   137→    dischargeDiagnosis: 'Acute Pyelonephritis - Resolved',
+   138→    chiefComplaints: ['High grade fever since 3 days', 'Left flank pain', 'Burning micturition'],
+   139→    investigationsSummary: 'Urine R/E: Pus cells 40-50/hpf, RBCs 5-6/hpf. Urine culture: E. coli sensitive to Ciprofloxacin. CBC: WBC 14,200. Serum Creatinine 0.9 (normal).',
+   140→    treatmentGiven: 'IV Ciprofloxacin 200mg BD for 48h. Tab Ciprofloxacin 500mg BD thereafter. IV fluids. Antipyretics as needed.',
+   141→    conditionAtDischarge: 'STABLE',
+   142→    medications: [
+   143→      { id: 'm6', name: 'Ciprofloxacin', dosage: '500mg', frequency: 'Twice daily', duration: '5 more days' },
+   144→    ],
+   145→    followUpInstructions: 'Urine routine & culture repeat at 2 weeks. Nephrology OPD if recurrence. Maintain adequate hydration (2-3L/day).',
+   146→    dietAdvice: 'Plenty of oral fluids (2-3 litres/day). Avoid excessive caffeine. Normal diet otherwise.',
+   147→    activityRestrictions: 'No restrictions. Resume normal activities. Avoid prolonged sitting.',
+   148→    isSigned: false,
+   149→    isLocked: false,
+   150→    createdBy: 'Dr. Sunita Reddy',
+   151→    createdAt: '2026-10-02T11:00:00Z',
+   152→  },
+   153→]
+   154→
+   155→// ── Helpers ────────────────────────────────────────────────────
+   156→
+   157→const conditionBadge = (condition: DischargeCondition) => {
+   158→  const config: Record<DischargeCondition, { bg: string; text: string }> = {
+   159→    STABLE: { bg: 'bg-emerald-100', text: 'text-emerald-800' },
+   160→    IMPROVED: { bg: 'bg-blue-100', text: 'text-blue-800' },
+   161→    CRITICAL: { bg: 'bg-orange-100', text: 'text-orange-800' },
+   162→    EXPIRED: { bg: 'bg-red-100', text: 'text-red-800' },
+   163→  }
+   164→  const c = config[condition]
+   165→  return <Badge className={`${c.bg} ${c.text} hover:${c.bg}`}>{condition}</Badge>
+   166→}
+   167→
+   168→const formatDate = (dateStr: string) => {
+   169→  return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+   170→}
+   171→
+   172→// ── Animation ──────────────────────────────────────────────────
+   173→
+   174→const fadeSlide = {
+   175→  initial: { opacity: 0, y: 12 },
+   176→  animate: { opacity: 1, y: 0 },
+   177→  transition: { duration: 0.3 },
+   178→}
+   179→
+   180→// ── Component ──────────────────────────────────────────────────
+   181→
+   182→export function DischargeSummarySection() {
+   183→  const { setActiveSection } = useAppStore()
+   184→
+   185→  const [summaries, setSummaries] = useState<DischargeSummary[]>([])
+   186→  const [loading, setLoading] = useState(true)
+   187→  const [selectedPatientId, setSelectedPatientId] = useState<string>('')
+   188→  const [selectedSummary, setSelectedSummary] = useState<DischargeSummary | null>(null)
+   189→  const [isCreating, setIsCreating] = useState(false)
+   190→  const [aiLoading, setAiLoading] = useState(false)
+   191→  const [showNewForm, setShowNewForm] = useState(false)
+   192→
+   193→  // New summary form state
+   194→  const [form, setForm] = useState({
+   195→    admissionDate: '',
+   196→    dischargeDate: new Date().toISOString().split('T')[0],
+   197→    admittingDiagnosis: '',
+   198→    dischargeDiagnosis: '',
+   199→    chiefComplaints: [] as string[],
+   200→    investigationsSummary: '',
+   201→    treatmentGiven: '',
+   202→    conditionAtDischarge: 'STABLE' as DischargeCondition,
+   203→    medications: [] as DischargeMedication[],
+   204→    followUpInstructions: '',
+   205→    dietAdvice: '',
+   206→    activityRestrictions: '',
+   207→  })
+   208→  const [newComplaint, setNewComplaint] = useState('')
+   209→  const [newMedication, setNewMedication] = useState({ name: '', dosage: '', frequency: '', duration: '' })
+   210→
+   211→  // Fetch summaries
+   212→  useEffect(() => {
+   213→    const fetchSummaries = async () => {
+   214→      try {
+   215→        const res = await fetch('/api/discharge-summary')
+   216→        if (res.ok) {
+   217→          const data = await res.json()
+   218→          const summaries = data.data ?? data.summaries
+   219→          if (Array.isArray(summaries) && summaries.length > 0) {
+   220→            setSummaries(summaries)
+   221→          } else {
+   222→            setSummaries(mockSummaries)
+   223→          }
+   224→        } else {
+   225→          setSummaries(mockSummaries)
+   226→          toast({ title: 'Error', description: 'Failed to load discharge summaries', variant: 'destructive' })
+   227→        }
+   228→      } catch {
+   229→        setSummaries(mockSummaries)
+   230→        toast({ title: 'Error', description: 'Failed to load discharge summaries', variant: 'destructive' })
+   231→      } finally {
+   232→        setLoading(false)
+   233→      }
+   234→    }
+   235→    fetchSummaries()
+   236→  }, [])
+   237→
+   238→  const patientSummaries = useMemo(() => {
+   239→    if (!selectedPatientId) return summaries
+   240→    return summaries.filter(s => s.patientId === selectedPatientId)
+   241→  }, [summaries, selectedPatientId])
+   242→
+   243→  const addComplaint = () => {
+   244→    if (!newComplaint.trim()) return
+   245→    setForm(prev => ({ ...prev, chiefComplaints: [...prev.chiefComplaints, newComplaint.trim()] }))
+   246→    setNewComplaint('')
+   247→  }
+   248→
+   249→  const removeComplaint = (index: number) => {
+   250→    setForm(prev => ({ ...prev, chiefComplaints: prev.chiefComplaints.filter((_, i) => i !== index) }))
+   251→  }
+   252→
+   253→  const addMedication = () => {
+   254→    if (!newMedication.name.trim()) return
+   255→    const med: DischargeMedication = {
+   256→      id: `med-${Date.now()}`,
+   257→      name: newMedication.name,
+   258→      dosage: newMedication.dosage,
+   259→      frequency: newMedication.frequency,
+   260→      duration: newMedication.duration,
+   261→    }
+   262→    setForm(prev => ({ ...prev, medications: [...prev.medications, med] }))
+   263→    setNewMedication({ name: '', dosage: '', frequency: '', duration: '' })
+   264→  }
+   265→
+   266→  const removeMedication = (id: string) => {
+   267→    setForm(prev => ({ ...prev, medications: prev.medications.filter(m => m.id !== id) }))
+   268→  }
+   269→
+   270→  const handleAIGenerate = async () => {
+   271→    if (!selectedPatientId) {
+   272→      toast({ title: 'Select a patient first', description: 'Choose a patient to generate AI summary.', variant: 'destructive' })
+   273→      return
+   274→    }
+   275→    setAiLoading(true)
+   276→    try {
+   277→      const res = await fetch('/api/ai-draft', {
+   278→        method: 'POST',
+   279→        headers: { 'Content-Type': 'application/json' },
+   280→        body: JSON.stringify({
+   281→          patientId: selectedPatientId,
+   282→          modality: 'ALLOPATHY',
+   283→          task: 'DISCHARGE_SUMMARY',
+   284→          patientContext: {
+   285→            admittingDiagnosis: form.admittingDiagnosis,
+   286→            chiefComplaints: form.chiefComplaints,
+   287→            treatmentGiven: form.treatmentGiven,
+   288→          },
+   289→        }),
+   290→      })
+   291→      const data = await res.json()
+   292→      if (data.draft?.content) {
+   293→        setForm(prev => ({
+   294→          ...prev,
+   295→          dischargeDiagnosis: prev.dischargeDiagnosis || 'AI Draft - Review Required',
+   296→          followUpInstructions: data.draft.content.substring(0, 500),
+   297→        }))
+   298→        toast({ title: 'AI Draft Generated', description: 'Review the AI-generated content before signing.' })
+   299→      } else {
+   300→        toast({ title: 'AI generation returned no content', description: 'Please fill manually.', variant: 'destructive' })
+   301→      }
+   302→    } catch {
+   303→      toast({ title: 'AI generation failed', description: 'Please fill the summary manually.', variant: 'destructive' })
+   304→    } finally {
+   305→      setAiLoading(false)
+   306→    }
+   307→  }
+   308→
+   309→  const handleSaveSummary = () => {
+   310→    const patient = mockPatients.find(p => p.id === selectedPatientId)
+   311→    if (!patient || !form.admittingDiagnosis) {
+   312→      toast({ title: 'Missing required fields', description: 'Please select a patient and fill the admitting diagnosis.', variant: 'destructive' })
+   313→      return
+   314→    }
+   315→
+   316→    const newSummary: DischargeSummary = {
+   317→      id: `ds-${Date.now()}`,
+   318→      patientId: selectedPatientId,
+   319→      patientName: patient.name,
+   320→      admissionDate: form.admissionDate,
+   321→      dischargeDate: form.dischargeDate,
+   322→      admittingDiagnosis: form.admittingDiagnosis,
+   323→      dischargeDiagnosis: form.dischargeDiagnosis,
+   324→      chiefComplaints: form.chiefComplaints,
+   325→      investigationsSummary: form.investigationsSummary,
+   326→      treatmentGiven: form.treatmentGiven,
+   327→      conditionAtDischarge: form.conditionAtDischarge,
+   328→      medications: form.medications,
+   329→      followUpInstructions: form.followUpInstructions,
+   330→      dietAdvice: form.dietAdvice,
+   331→      activityRestrictions: form.activityRestrictions,
+   332→      isSigned: false,
+   333→      isLocked: false,
+   334→      createdBy: 'Current Clinician',
+   335→      createdAt: new Date().toISOString(),
+   336→    }
+   337→
+   338→    setSummaries(prev => [newSummary, ...prev])
+   339→    setShowNewForm(false)
+   340→    setForm({
+   341→      admissionDate: '',
+   342→      dischargeDate: new Date().toISOString().split('T')[0],
+   343→      admittingDiagnosis: '',
+   344→      dischargeDiagnosis: '',
+   345→      chiefComplaints: [],
+   346→      investigationsSummary: '',
+   347→      treatmentGiven: '',
+   348→      conditionAtDischarge: 'STABLE',
+   349→      medications: [],
+   350→      followUpInstructions: '',
+   351→      dietAdvice: '',
+   352→      activityRestrictions: '',
+   353→    })
+   354→    toast({ title: 'Discharge Summary Saved', description: `Summary for ${patient.name} saved as draft.` })
+   355→  }
+   356→
+   357→  const handleSignSummary = (summaryId: string) => {
+   358→    setSummaries(prev =>
+   359→      prev.map(s => s.id === summaryId ? { ...s, isSigned: true } : s)
+   360→    )
+   361→    toast({ title: 'Summary Signed', description: 'Discharge summary has been signed by clinician.' })
+   362→  }
+   363→
+   364→  const handleLockSummary = (summaryId: string) => {
+   365→    setSummaries(prev =>
+   366→      prev.map(s => s.id === summaryId ? { ...s, isLocked: true, isSigned: true } : s)
+   367→    )
+   368→    toast({ title: 'Summary Locked', description: 'Discharge summary is now locked and cannot be edited.' })
+   369→  }
+   370→
+   371→  const handlePrint = (summary: DischargeSummary) => {
+   372→    const printContent = `
+   373→      <html>
+   374→      <head><title>Discharge Summary - ${summary.patientName}</title>
+   375→      <style>
+   376→        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+   377→        h1 { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+   378→        h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+   379→        .field { margin-bottom: 8px; }
+   380→        .label { font-weight: bold; }
+   381→        .meds-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+   382→        .meds-table th, .meds-table td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 13px; }
+   383→      </style></head>
+   384→      <body>
+   385→        <h1>DISCHARGE SUMMARY</h1>
+   386→        <div class="field"><span class="label">Patient:</span> ${summary.patientName}</div>
+   387→        <div class="field"><span class="label">Admission Date:</span> ${formatDate(summary.admissionDate)}</div>
+   388→        <div class="field"><span class="label">Discharge Date:</span> ${formatDate(summary.dischargeDate)}</div>
+   389→        <div class="field"><span class="label">Admitting Diagnosis:</span> ${summary.admittingDiagnosis}</div>
+   390→        <div class="field"><span class="label">Discharge Diagnosis:</span> ${summary.dischargeDiagnosis}</div>
+   391→        <h2>Chief Complaints</h2>
+   392→        <ul>${summary.chiefComplaints.map(c => `<li>${c}</li>`).join('')}</ul>
+   393→        <h2>Investigations</h2>
+   394→        <p>${summary.investigationsSummary}</p>
+   395→        <h2>Treatment Given</h2>
+   396→        <p>${summary.treatmentGiven}</p>
+   397→        <div class="field"><span class="label">Condition at Discharge:</span> ${summary.conditionAtDischarge}</div>
+   398→        <h2>Discharge Medications</h2>
+   399→        <table class="meds-table">
+   400→          <tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th></tr>
+   401→          ${summary.medications.map(m => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.frequency}</td><td>${m.duration}</td></tr>`).join('')}
+   402→        </table>
+   403→        <h2>Follow-up Instructions</h2>
+   404→        <p>${summary.followUpInstructions}</p>
+   405→        <h2>Diet Advice</h2>
+   406→        <p>${summary.dietAdvice}</p>
+   407→        <h2>Activity Restrictions</h2>
+   408→        <p>${summary.activityRestrictions}</p>
+   409→        <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 10px;">
+   410→          <span class="label">Signed:</span> ${summary.isSigned ? 'Yes' : 'No'} | <span class="label">Locked:</span> ${summary.isLocked ? 'Yes' : 'No'}
+   411→        </div>
+   412→      </body></html>
+   413→    `
+   414→    const win = window.open('', '_blank')
+   415→    if (win) {
+   416→      win.document.write(printContent)
+   417→      win.document.close()
+   418→      win.print()
+   419→    }
+   420→  }
+   421→
+   422→  if (loading) {
+   423→    return (
+   424→      <div className="flex items-center justify-center h-64">
+   425→        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+   426→      </div>
+   427→    )
+   428→  }
+   429→
+   430→  return (
+   431→    <div className="space-y-6">
+   432→      {/* Header */}
+   433→      <motion.div {...fadeSlide}>
+   434→        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   435→          <div>
+   436→            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+   437→              <FileText className="h-6 w-6 text-primary" />
+   438→              Discharge Summary
+   439→            </h2>
+   440→            <p className="text-muted-foreground text-sm mt-1">
+   441→              Create, review, and sign discharge summaries for patients
+   442→            </p>
+   443→          </div>
+   444→          <div className="flex gap-2">
+   445→            <Button
+   446→              variant="outline"
+   447→              size="sm"
+   448→              onClick={() => {
+   449→                setSummaries(mockSummaries)
+   450→                toast({ title: 'Refreshed' })
+   451→              }}
+   452→            >
+   453→              <RotateCcw className="h-4 w-4 mr-1" /> Refresh
+   454→            </Button>
+   455→            <Button size="sm" onClick={() => setShowNewForm(true)}>
+   456→              <Plus className="h-4 w-4 mr-1" /> New Summary
+   457→            </Button>
+   458→          </div>
+   459→        </div>
+   460→      </motion.div>
+   461→
+   462→      {/* New Summary Form */}
+   463→      {showNewForm && (
+   464→        <motion.div {...fadeSlide}>
+   465→          <Card className="border-primary/30">
+   466→            <CardHeader>
+   467→              <CardTitle className="text-lg flex items-center gap-2">
+   468→                <ClipboardList className="h-5 w-5" /> Create New Discharge Summary
+   469→              </CardTitle>
+   470→              <CardDescription>Fill in all required fields. Use AI assist to draft content.</CardDescription>
+   471→            </CardHeader>
+   472→            <CardContent className="space-y-4">
+   473→              {/* Patient Selector */}
+   474→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   475→                <div>
+   476→                  <label className="text-sm font-medium mb-1 block">Patient *</label>
+   477→                  <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+   478→                    <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+   479→                    <SelectContent>
+   480→                      {mockPatients.map(p => (
+   481→                        <SelectItem key={p.id} value={p.id}>{p.name} ({p.uhid})</SelectItem>
+   482→                      ))}
+   483→                    </SelectContent>
+   484→                  </Select>
+   485→                </div>
+   486→                <div className="flex items-end">
+   487→                  <Button onClick={handleAIGenerate} disabled={aiLoading || !selectedPatientId} variant="outline" className="w-full">
+   488→                    {aiLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Brain className="h-4 w-4 mr-1" />}
+   489→                    AI Generate Summary
+   490→                  </Button>
+   491→                </div>
+   492→              </div>
+   493→
+   494→              {/* Dates */}
+   495→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   496→                <div>
+   497→                  <label className="text-sm font-medium mb-1 block">Admission Date *</label>
+   498→                  <Input type="date" value={form.admissionDate} onChange={e => setForm(prev => ({ ...prev, admissionDate: e.target.value }))} />
+   499→                </div>
+   500→                <div>
+   501→                  <label className="text-sm font-medium mb-1 block">Discharge Date</label>
+   502→                  <Input type="date" value={form.dischargeDate} onChange={e => setForm(prev => ({ ...prev, dischargeDate: e.target.value }))} />
+   503→                </div>
+   504→              </div>
+   505→
+   506→              {/* Diagnoses */}
+   507→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   508→                <div>
+   509→                  <label className="text-sm font-medium mb-1 block">Admitting Diagnosis *</label>
+   510→                  <Input placeholder="e.g., Acute Myocardial Infarction" value={form.admittingDiagnosis} onChange={e => setForm(prev => ({ ...prev, admittingDiagnosis: e.target.value }))} />
+   511→                </div>
+   512→                <div>
+   513→                  <label className="text-sm font-medium mb-1 block">Discharge Diagnosis</label>
+   514→                  <Input placeholder="e.g., AMI - Post Thrombolysis" value={form.dischargeDiagnosis} onChange={e => setForm(prev => ({ ...prev, dischargeDiagnosis: e.target.value }))} />
+   515→                </div>
+   516→              </div>
+   517→
+   518→              {/* Chief Complaints */}
+   519→              <div>
+   520→                <label className="text-sm font-medium mb-1 block">Chief Complaints</label>
+   521→                <div className="flex gap-2 mb-2">
+   522→                  <Input placeholder="Add a complaint" value={newComplaint} onChange={e => setNewComplaint(e.target.value)} onKeyDown={e => e.key === 'Enter' && addComplaint()} />
+   523→                  <Button variant="outline" size="sm" onClick={addComplaint}><Plus className="h-4 w-4" /></Button>
+   524→                </div>
+   525→                <div className="flex flex-wrap gap-2">
+   526→                  {form.chiefComplaints.map((c, i) => (
+   527→                    <Badge key={i} variant="secondary" className="cursor-pointer" onClick={() => removeComplaint(i)}>
+   528→                      {c} <Trash2 className="h-3 w-3 ml-1" />
+   529→                    </Badge>
+   530→                  ))}
+   531→                </div>
+   532→              </div>
+   533→
+   534→              {/* Investigations, Treatment */}
+   535→              <div>
+   536→                <label className="text-sm font-medium mb-1 block">Investigations Summary</label>
+   537→                <Textarea placeholder="Lab results, imaging findings..." rows={3} value={form.investigationsSummary} onChange={e => setForm(prev => ({ ...prev, investigationsSummary: e.target.value }))} />
+   538→              </div>
+   539→              <div>
+   540→                <label className="text-sm font-medium mb-1 block">Treatment Given</label>
+   541→                <Textarea placeholder="Medications, procedures performed..." rows={3} value={form.treatmentGiven} onChange={e => setForm(prev => ({ ...prev, treatmentGiven: e.target.value }))} />
+   542→              </div>
+   543→
+   544→              {/* Condition at Discharge */}
+   545→              <div>
+   546→                <label className="text-sm font-medium mb-1 block">Condition at Discharge</label>
+   547→                <Select value={form.conditionAtDischarge} onValueChange={(v) => setForm(prev => ({ ...prev, conditionAtDischarge: v as DischargeCondition }))}>
+   548→                  <SelectTrigger><SelectValue /></SelectTrigger>
+   549→                  <SelectContent>
+   550→                    <SelectItem value="STABLE">STABLE</SelectItem>
+   551→                    <SelectItem value="IMPROVED">IMPROVED</SelectItem>
+   552→                    <SelectItem value="CRITICAL">CRITICAL</SelectItem>
+   553→                    <SelectItem value="EXPIRED">EXPIRED</SelectItem>
+   554→                  </SelectContent>
+   555→                </Select>
+   556→              </div>
+   557→
+   558→              {/* Discharge Medications */}
+   559→              <div>
+   560→                <label className="text-sm font-medium mb-1 block flex items-center gap-1"><Pill className="h-4 w-4" /> Medications on Discharge</label>
+   561→                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2">
+   562→                  <Input placeholder="Medicine" value={newMedication.name} onChange={e => setNewMedication(prev => ({ ...prev, name: e.target.value }))} />
+   563→                  <Input placeholder="Dosage" value={newMedication.dosage} onChange={e => setNewMedication(prev => ({ ...prev, dosage: e.target.value }))} />
+   564→                  <Input placeholder="Frequency" value={newMedication.frequency} onChange={e => setNewMedication(prev => ({ ...prev, frequency: e.target.value }))} />
+   565→                  <Input placeholder="Duration" value={newMedication.duration} onChange={e => setNewMedication(prev => ({ ...prev, duration: e.target.value }))} />
+   566→                  <Button variant="outline" size="sm" onClick={addMedication}><Plus className="h-4 w-4 mr-1" />Add</Button>
+   567→                </div>
+   568→                {form.medications.length > 0 && (
+   569→                  <Table>
+   570→                    <TableHeader>
+   571→                      <TableRow>
+   572→                        <TableHead>Medicine</TableHead>
+   573→                        <TableHead>Dosage</TableHead>
+   574→                        <TableHead>Frequency</TableHead>
+   575→                        <TableHead>Duration</TableHead>
+   576→                        <TableHead className="w-10"></TableHead>
+   577→                      </TableRow>
+   578→                    </TableHeader>
+   579→                    <TableBody>
+   580→                      {form.medications.map(med => (
+   581→                        <TableRow key={med.id}>
+   582→                          <TableCell>{med.name}</TableCell>
+   583→                          <TableCell>{med.dosage}</TableCell>
+   584→                          <TableCell>{med.frequency}</TableCell>
+   585→                          <TableCell>{med.duration}</TableCell>
+   586→                          <TableCell>
+   587→                            <Button variant="ghost" size="sm" onClick={() => removeMedication(med.id)}><Trash2 className="h-3 w-3 text-red-500" /></Button>
+   588→                          </TableCell>
+   589→                        </TableRow>
+   590→                      ))}
+   591→                    </TableBody>
+   592→                  </Table>
+   593→                )}
+   594→              </div>
+   595→
+   596→              {/* Follow-up, Diet, Activity */}
+   597→              <div>
+   598→                <label className="text-sm font-medium mb-1 block flex items-center gap-1"><Stethoscope className="h-4 w-4" /> Follow-up Instructions</label>
+   599→                <Textarea placeholder="OPD review schedule, repeat investigations..." rows={2} value={form.followUpInstructions} onChange={e => setForm(prev => ({ ...prev, followUpInstructions: e.target.value }))} />
+   600→              </div>
+   601→              <div>
+   602→                <label className="text-sm font-medium mb-1 block flex items-center gap-1"><Salad className="h-4 w-4" /> Diet Advice</label>
+   603→                <Textarea placeholder="Dietary recommendations..." rows={2} value={form.dietAdvice} onChange={e => setForm(prev => ({ ...prev, dietAdvice: e.target.value }))} />
+   604→              </div>
+   605→              <div>
+   606→                <label className="text-sm font-medium mb-1 block flex items-center gap-1"><Dumbbell className="h-4 w-4" /> Activity Restrictions</label>
+   607→                <Textarea placeholder="Physical activity limitations..." rows={2} value={form.activityRestrictions} onChange={e => setForm(prev => ({ ...prev, activityRestrictions: e.target.value }))} />
+   608→              </div>
+   609→
+   610→              <div className="flex gap-2 justify-end">
+   611→                <Button variant="outline" onClick={() => setShowNewForm(false)}>Cancel</Button>
+   612→                <Button onClick={handleSaveSummary}>
+   613→                  <Check className="h-4 w-4 mr-1" /> Save Summary
+   614→                </Button>
+   615→              </div>
+   616→            </CardContent>
+   617→          </Card>
+   618→        </motion.div>
+   619→      )}
+   620→
+   621→      {/* Patient Filter */}
+   622→      <motion.div {...fadeSlide}>
+   623→        <Card>
+   624→          <CardContent className="p-4">
+   625→            <div className="flex flex-col sm:flex-row gap-3 items-center">
+   626→              <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+   627→                <SelectTrigger className="w-full sm:w-[280px]">
+   628→                  <User className="h-4 w-4 mr-2" />
+   629→                  <SelectValue placeholder="All Patients" />
+   630→                </SelectTrigger>
+   631→                <SelectContent>
+   632→                  <SelectItem value="ALL">All Patients</SelectItem>
+   633→                  {mockPatients.map(p => (
+   634→                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+   635→                  ))}
+   636→                </SelectContent>
+   637→              </Select>
+   638→              <span className="text-sm text-muted-foreground">
+   639→                {patientSummaries.length} summary{patientSummaries.length !== 1 ? 'ies' : 'y'} found
+   640→              </span>
+   641→            </div>
+   642→          </CardContent>
+   643→        </Card>
+   644→      </motion.div>
+   645→
+   646→      {/* Summary List */}
+   647→      <motion.div {...fadeSlide}>
+   648→        <div className="space-y-4">
+   649→          {patientSummaries.length === 0 ? (
+   650→            <Card>
+   651→              <CardContent className="py-12 text-center text-muted-foreground">
+   652→                <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+   653→                <p>No discharge summaries found.</p>
+   654→                <p className="text-sm mt-1">Create a new summary to get started.</p>
+   655→              </CardContent>
+   656→            </Card>
+   657→          ) : (
+   658→            patientSummaries.map(summary => (
+   659→              <Card key={summary.id} className={selectedSummary?.id === summary.id ? 'border-primary ring-1 ring-primary/20' : ''}>
+   660→                <CardHeader className="pb-3">
+   661→                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+   662→                    <div>
+   663→                      <CardTitle className="text-base flex items-center gap-2">
+   664→                        {summary.patientName}
+   665→                        {conditionBadge(summary.conditionAtDischarge)}
+   666→                        {summary.isLocked && <Badge variant="secondary" className="text-[10px]"><Lock className="h-3 w-3 mr-1" />Locked</Badge>}
+   667→                        {summary.isSigned && !summary.isLocked && <Badge className="bg-emerald-100 text-emerald-800 text-[10px] hover:bg-emerald-100"><Check className="h-3 w-3 mr-1" />Signed</Badge>}
+   668→                      </CardTitle>
+   669→                      <CardDescription className="text-xs mt-1">
+   670→                        Admit: {formatDate(summary.admissionDate)} → Discharge: {formatDate(summary.dischargeDate)} | By: {summary.createdBy}
+   671→                      </CardDescription>
+   672→                    </div>
+   673→                    <div className="flex gap-1.5">
+   674→                      <Button variant="ghost" size="sm" onClick={() => handlePrint(summary)}>
+   675→                        <Printer className="h-4 w-4" />
+   676→                      </Button>
+   677→                      {!summary.isSigned && (
+   678→                        <Button variant="outline" size="sm" onClick={() => handleSignSummary(summary.id)}>
+   679→                          <Check className="h-4 w-4 mr-1" /> Sign
+   680→                        </Button>
+   681→                      )}
+   682→                      {summary.isSigned && !summary.isLocked && (
+   683→                        <Button variant="outline" size="sm" onClick={() => handleLockSummary(summary.id)}>
+   684→                          <Lock className="h-4 w-4 mr-1" /> Lock
+   685→                        </Button>
+   686→                      )}
+   687→                      <Button
+   688→                        variant="ghost"
+   689→                        size="sm"
+   690→                        onClick={() => setSelectedSummary(selectedSummary?.id === summary.id ? null : summary)}
+   691→                      >
+   692→                        {selectedSummary?.id === summary.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+   693→                      </Button>
+   694→                    </div>
+   695→                  </div>
+   696→                </CardHeader>
+   697→
+   698→                {/* Expanded Detail */}
+   699→                {selectedSummary?.id === summary.id && (
+   700→                  <CardContent className="pt-0 space-y-4">
+   701→                    <Separator />
+   702→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   703→                      <div>
+   704→                        <p className="text-xs font-medium text-muted-foreground mb-1">Admitting Diagnosis</p>
+   705→                        <p className="text-sm">{summary.admittingDiagnosis}</p>
+   706→                      </div>
+   707→                      <div>
+   708→                        <p className="text-xs font-medium text-muted-foreground mb-1">Discharge Diagnosis</p>
+   709→                        <p className="text-sm">{summary.dischargeDiagnosis || '—'}</p>
+   710→                      </div>
+   711→                    </div>
+   712→
+   713→                    <div>
+   714→                      <p className="text-xs font-medium text-muted-foreground mb-1">Chief Complaints</p>
+   715→                      <div className="flex flex-wrap gap-1.5">
+   716→                        {summary.chiefComplaints.map((c, i) => (
+   717→                          <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+   718→                        ))}
+   719→                      </div>
+   720→                    </div>
+   721→
+   722→                    <div>
+   723→                      <p className="text-xs font-medium text-muted-foreground mb-1">Investigations</p>
+   724→                      <p className="text-sm whitespace-pre-wrap">{summary.investigationsSummary}</p>
+   725→                    </div>
+   726→
+   727→                    <div>
+   728→                      <p className="text-xs font-medium text-muted-foreground mb-1">Treatment Given</p>
+   729→                      <p className="text-sm whitespace-pre-wrap">{summary.treatmentGiven}</p>
+   730→                    </div>
+   731→
+   732→                    <div>
+   733→                      <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1"><Pill className="h-3 w-3" /> Discharge Medications</p>
+   734→                      {summary.medications.length > 0 ? (
+   735→                        <Table>
+   736→                          <TableHeader>
+   737→                            <TableRow>
+   738→                              <TableHead>Medicine</TableHead>
+   739→                              <TableHead>Dosage</TableHead>
+   740→                              <TableHead>Frequency</TableHead>
+   741→                              <TableHead>Duration</TableHead>
+   742→                            </TableRow>
+   743→                          </TableHeader>
+   744→                          <TableBody>
+   745→                            {summary.medications.map(med => (
+   746→                              <TableRow key={med.id}>
+   747→                                <TableCell className="font-medium">{med.name}</TableCell>
+   748→                                <TableCell>{med.dosage}</TableCell>
+   749→                                <TableCell>{med.frequency}</TableCell>
+   750→                                <TableCell>{med.duration}</TableCell>
+   751→                              </TableRow>
+   752→                            ))}
+   753→                          </TableBody>
+   754→                        </Table>
+   755→                      ) : (
+   756→                        <p className="text-sm text-muted-foreground">No medications</p>
+   757→                      )}
+   758→                    </div>
+   759→
+   760→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   761→                      <div>
+   762→                        <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1"><Stethoscope className="h-3 w-3" /> Follow-up</p>
+   763→                        <p className="text-sm whitespace-pre-wrap">{summary.followUpInstructions || '—'}</p>
+   764→                      </div>
+   765→                      <div>
+   766→                        <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1"><Salad className="h-3 w-3" /> Diet Advice</p>
+   767→                        <p className="text-sm whitespace-pre-wrap">{summary.dietAdvice || '—'}</p>
+   768→                      </div>
+   769→                      <div>
+   770→                        <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1"><Dumbbell className="h-3 w-3" /> Activity</p>
+   771→                        <p className="text-sm whitespace-pre-wrap">{summary.activityRestrictions || '—'}</p>
+   772→                      </div>
+   773→                    </div>
+   774→                  </CardContent>
+   775→                )}
+   776→              </Card>
+   777→            ))
+   778→          )}
+   779→        </div>
+   780→      </motion.div>
+   781→    </div>
+   782→  )
+   783→}
+   784→

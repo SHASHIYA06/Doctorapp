@@ -1,0 +1,612 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useEffect } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Package,
+     7→  AlertTriangle,
+     8→  TrendingDown,
+     9→  Plus,
+    10→  Search,
+    11→  IndianRupee,
+    12→  Minus,
+    13→  RotateCcw,
+    14→  Calendar,
+    15→  Hash,
+    16→  Filter,
+    17→  ChevronDown,
+    18→  ChevronUp,
+    19→  CheckCircle2,
+    20→  XCircle,
+    21→  Clock,
+    22→} from 'lucide-react'
+    23→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    24→import { Button } from '@/components/ui/button'
+    25→import { Badge } from '@/components/ui/badge'
+    26→import { Input } from '@/components/ui/input'
+    27→import { Separator } from '@/components/ui/separator'
+    28→import {
+    29→  Table,
+    30→  TableBody,
+    31→  TableCell,
+    32→  TableHead,
+    33→  TableHeader,
+    34→  TableRow,
+    35→} from '@/components/ui/table'
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogDescription,
+    40→  DialogFooter,
+    41→  DialogHeader,
+    42→  DialogTitle,
+    43→  DialogTrigger,
+    44→} from '@/components/ui/dialog'
+    45→import {
+    46→  Select,
+    47→  SelectContent,
+    48→  SelectItem,
+    49→  SelectTrigger,
+    50→  SelectValue,
+    51→} from '@/components/ui/select'
+    52→import { useAppStore } from '@/lib/store'
+    53→import { toast } from '@/hooks/use-toast'
+    54→
+    55→// ── Types ──────────────────────────────────────────────────────
+    56→
+    57→type AvailabilityStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'
+    58→
+    59→interface InventoryItem {
+    60→  id: string
+    61→  medicineName: string
+    62→  genericName: string
+    63→  currentStock: number
+    64→  mrp: number
+    65→  batchNumber: string
+    66→  expiryDate: string
+    67→  threshold: number
+    68→  category: string
+    69→  manufacturer: string
+    70→  unit: string
+    71→  lastUpdated: string
+    72→}
+    73→
+    74→interface StockUpdateForm {
+    75→  itemId: string
+    76→  action: 'add' | 'reduce'
+    77→  quantity: number
+    78→  reason: string
+    79→}
+    80→
+    81→// ── Mock Data ──────────────────────────────────────────────────
+    82→
+    83→const mockInventory: InventoryItem[] = [
+    84→  { id: '1', medicineName: 'Dolo 650', genericName: 'Paracetamol', currentStock: 250, mrp: 32, batchNumber: 'DL-2026-001', expiryDate: '2027-06-15', threshold: 50, category: 'Analgesic', manufacturer: 'Micro Labs Ltd', unit: 'Tablet', lastUpdated: '2026-10-01T09:30:00Z' },
+    85→  { id: '2', medicineName: 'Azithromycin 500mg', genericName: 'Azithromycin', currentStock: 8, mrp: 85, batchNumber: 'AZ-2026-042', expiryDate: '2027-03-20', threshold: 20, category: 'Antibiotic', manufacturer: 'Alkem Laboratories', unit: 'Tablet', lastUpdated: '2026-10-02T11:15:00Z' },
+    86→  { id: '3', medicineName: 'Metformin 500mg', genericName: 'Metformin', currentStock: 0, mrp: 15, batchNumber: 'MT-2026-118', expiryDate: '2028-01-10', threshold: 100, category: 'Antidiabetic', manufacturer: 'USV Pvt Ltd', unit: 'Tablet', lastUpdated: '2026-09-28T14:00:00Z' },
+    87→  { id: '4', medicineName: 'Amlodipine 5mg', genericName: 'Amlodipine', currentStock: 120, mrp: 42, batchNumber: 'AM-2026-077', expiryDate: '2027-09-30', threshold: 30, category: 'Antihypertensive', manufacturer: 'Lupin Ltd', unit: 'Tablet', lastUpdated: '2026-10-03T08:45:00Z' },
+    88→  { id: '5', medicineName: 'Omeprazole 20mg', genericName: 'Omeprazole', currentStock: 5, mrp: 28, batchNumber: 'OM-2026-203', expiryDate: '2027-04-18', threshold: 25, category: 'PPI', manufacturer: 'Dr Reddys', unit: 'Capsule', lastUpdated: '2026-10-02T16:20:00Z' },
+    89→  { id: '6', medicineName: 'Cetirizine 10mg', genericName: 'Cetirizine', currentStock: 180, mrp: 18, batchNumber: 'CT-2026-055', expiryDate: '2028-03-25', threshold: 40, category: 'Antihistamine', manufacturer: 'Cipla Ltd', unit: 'Tablet', lastUpdated: '2026-10-01T10:00:00Z' },
+    90→  { id: '7', medicineName: 'Amoxicillin 500mg', genericName: 'Amoxicillin', currentStock: 0, mrp: 55, batchNumber: 'AX-2026-089', expiryDate: '2027-02-14', threshold: 30, category: 'Antibiotic', manufacturer: 'GlaxoSmithKline', unit: 'Capsule', lastUpdated: '2026-09-25T12:30:00Z' },
+    91→  { id: '8', medicineName: 'Atorvastatin 10mg', genericName: 'Atorvastatin', currentStock: 95, mrp: 65, batchNumber: 'AT-2026-144', expiryDate: '2027-11-20', threshold: 25, category: 'Statin', manufacturer: 'Sun Pharma', unit: 'Tablet', lastUpdated: '2026-10-03T07:00:00Z' },
+    92→  { id: '9', medicineName: 'Pantoprazole 40mg', genericName: 'Pantoprazole', currentStock: 3, mrp: 72, batchNumber: 'PT-2026-312', expiryDate: '2026-10-25', threshold: 20, category: 'PPI', manufacturer: 'Alkem Laboratories', unit: 'Injection', lastUpdated: '2026-10-02T09:10:00Z' },
+    93→  { id: '10', medicineName: 'Ciprofloxacin 500mg', genericName: 'Ciprofloxacin', currentStock: 45, mrp: 38, batchNumber: 'CP-2026-098', expiryDate: '2027-07-08', threshold: 20, category: 'Antibiotic', manufacturer: 'Ranbaxy', unit: 'Tablet', lastUpdated: '2026-10-01T15:45:00Z' },
+    94→  { id: '11', medicineName: 'Losartan 50mg', genericName: 'Losartan', currentStock: 7, mrp: 48, batchNumber: 'LS-2026-066', expiryDate: '2027-08-12', threshold: 30, category: 'Antihypertensive', manufacturer: 'Torrent Pharma', unit: 'Tablet', lastUpdated: '2026-10-03T11:30:00Z' },
+    95→  { id: '12', medicineName: 'Montelukast 10mg', genericName: 'Montelukast', currentStock: 200, mrp: 95, batchNumber: 'ML-2026-177', expiryDate: '2028-02-28', threshold: 35, category: 'Anti-asthmatic', manufacturer: 'Sun Pharma', unit: 'Tablet', lastUpdated: '2026-10-02T08:20:00Z' },
+    96→]
+    97→
+    98→// ── Helpers ────────────────────────────────────────────────────
+    99→
+   100→const getAvailabilityStatus = (item: InventoryItem): AvailabilityStatus => {
+   101→  if (item.currentStock === 0) return 'OUT_OF_STOCK'
+   102→  if (item.currentStock < item.threshold) return 'LOW_STOCK'
+   103→  return 'IN_STOCK'
+   104→}
+   105→
+   106→const isExpiringSoon = (expiryDate: string, days: number = 30): boolean => {
+   107→  const expiry = new Date(expiryDate)
+   108→  const now = new Date()
+   109→  const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+   110→  return diff > 0 && diff <= days
+   111→}
+   112→
+   113→const isExpired = (expiryDate: string): boolean => {
+   114→  return new Date(expiryDate) < new Date()
+   115→}
+   116→
+   117→const formatDate = (dateStr: string) => {
+   118→  return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+   119→}
+   120→
+   121→const statusBadge = (status: AvailabilityStatus) => {
+   122→  switch (status) {
+   123→    case 'IN_STOCK':
+   124→      return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">In Stock</Badge>
+   125→    case 'LOW_STOCK':
+   126→      return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Low Stock</Badge>
+   127→    case 'OUT_OF_STOCK':
+   128→      return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Out of Stock</Badge>
+   129→  }
+   130→}
+   131→
+   132→// ── Animation ──────────────────────────────────────────────────
+   133→
+   134→const fadeSlide = {
+   135→  initial: { opacity: 0, y: 12 },
+   136→  animate: { opacity: 1, y: 0 },
+   137→  transition: { duration: 0.3 },
+   138→}
+   139→
+   140→// ── Component ──────────────────────────────────────────────────
+   141→
+   142→export function InventorySection() {
+   143→  const { setActiveSection } = useAppStore()
+   144→
+   145→  const [inventory, setInventory] = useState<InventoryItem[]>([])
+   146→  const [loading, setLoading] = useState(true)
+   147→  const [searchQuery, setSearchQuery] = useState('')
+   148→  const [filterStatus, setFilterStatus] = useState<'ALL' | AvailabilityStatus>('ALL')
+   149→  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+   150→  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
+   151→  const [updateForm, setUpdateForm] = useState<StockUpdateForm>({ itemId: '', action: 'add', quantity: 0, reason: '' })
+   152→  const [sortField, setSortField] = useState<'name' | 'stock' | 'mrp' | 'expiry'>('name')
+   153→  const [sortAsc, setSortAsc] = useState(true)
+   154→
+   155→  // Fetch inventory
+   156→  useEffect(() => {
+   157→    const fetchInventory = async () => {
+   158→      try {
+   159→        const res = await fetch('/api/inventory')
+   160→        if (res.ok) {
+   161→          const data = await res.json()
+   162→          const items = data.data ?? data.items
+   163→          if (Array.isArray(items) && items.length > 0) {
+   164→            setInventory(items)
+   165→          } else {
+   166→            setInventory(mockInventory)
+   167→          }
+   168→        } else {
+   169→          setInventory(mockInventory)
+   170→          toast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+   171→        }
+   172→      } catch {
+   173→        setInventory(mockInventory)
+   174→        toast({ title: 'Error', description: 'Failed to load inventory', variant: 'destructive' })
+   175→      } finally {
+   176→        setLoading(false)
+   177→      }
+   178→    }
+   179→    fetchInventory()
+   180→  }, [])
+   181→
+   182→  // Stats
+   183→  const stats = useMemo(() => {
+   184→    const total = inventory.length
+   185→    const inStock = inventory.filter(i => getAvailabilityStatus(i) === 'IN_STOCK').length
+   186→    const lowStock = inventory.filter(i => getAvailabilityStatus(i) === 'LOW_STOCK').length
+   187→    const outOfStock = inventory.filter(i => getAvailabilityStatus(i) === 'OUT_OF_STOCK').length
+   188→    const totalValue = inventory.reduce((sum, i) => sum + i.currentStock * i.mrp, 0)
+   189→    return { total, inStock, lowStock, outOfStock, totalValue }
+   190→  }, [inventory])
+   191→
+   192→  // Filtered & sorted items
+   193→  const filteredItems = useMemo(() => {
+   194→    let items = [...inventory]
+   195→
+   196→    // Search
+   197→    if (searchQuery) {
+   198→      const q = searchQuery.toLowerCase()
+   199→      items = items.filter(i =>
+   200→        i.medicineName.toLowerCase().includes(q) ||
+   201→        i.genericName.toLowerCase().includes(q) ||
+   202→        i.batchNumber.toLowerCase().includes(q)
+   203→      )
+   204→    }
+   205→
+   206→    // Filter by status
+   207→    if (filterStatus !== 'ALL') {
+   208→      items = items.filter(i => getAvailabilityStatus(i) === filterStatus)
+   209→    }
+   210→
+   211→    // Sort
+   212→    items.sort((a, b) => {
+   213→      let cmp = 0
+   214→      switch (sortField) {
+   215→        case 'name': cmp = a.medicineName.localeCompare(b.medicineName); break
+   216→        case 'stock': cmp = a.currentStock - b.currentStock; break
+   217→        case 'mrp': cmp = a.mrp - b.mrp; break
+   218→        case 'expiry': cmp = new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime(); break
+   219→      }
+   220→      return sortAsc ? cmp : -cmp
+   221→    })
+   222→
+   223→    return items
+   224→  }, [inventory, searchQuery, filterStatus, sortField, sortAsc])
+   225→
+   226→  // Auto-reorder suggestions
+   227→  const reorderSuggestions = useMemo(() => {
+   228→    return inventory.filter(i => i.currentStock < i.threshold && i.currentStock > 0)
+   229→  }, [inventory])
+   230→
+   231→  // Out of stock items
+   232→  const outOfStockItems = useMemo(() => {
+   233→    return inventory.filter(i => i.currentStock === 0)
+   234→  }, [inventory])
+   235→
+   236→  // Expiring soon items
+   237→  const expiringSoonItems = useMemo(() => {
+   238→    return inventory.filter(i => isExpiringSoon(i.expiryDate, 30))
+   239→  }, [inventory])
+   240→
+   241→  const handleSort = (field: typeof sortField) => {
+   242→    if (sortField === field) {
+   243→      setSortAsc(!sortAsc)
+   244→    } else {
+   245→      setSortField(field)
+   246→      setSortAsc(true)
+   247→    }
+   248→  }
+   249→
+   250→  const SortIcon = ({ field }: { field: typeof sortField }) => {
+   251→    if (sortField !== field) return null
+   252→    return sortAsc ? <ChevronUp className="h-3 w-3 inline ml-1" /> : <ChevronDown className="h-3 w-3 inline ml-1" />
+   253→  }
+   254→
+   255→  const handleStockUpdate = () => {
+   256→    if (!selectedItem || updateForm.quantity <= 0) return
+   257→
+   258→    setInventory(prev =>
+   259→      prev.map(item => {
+   260→        if (item.id !== selectedItem.id) return item
+   261→        const newStock = updateForm.action === 'add'
+   262→          ? item.currentStock + updateForm.quantity
+   263→          : Math.max(0, item.currentStock - updateForm.quantity)
+   264→        return { ...item, currentStock: newStock, lastUpdated: new Date().toISOString() }
+   265→      })
+   266→    )
+   267→
+   268→    toast({
+   269→      title: `Stock ${updateForm.action === 'add' ? 'Added' : 'Reduced'}`,
+   270→      description: `${updateForm.quantity} units of ${selectedItem.medicineName} ${updateForm.action === 'add' ? 'added to' : 'removed from'} inventory.`,
+   271→    })
+   272→
+   273→    setUpdateDialogOpen(false)
+   274→    setUpdateForm({ itemId: '', action: 'add', quantity: 0, reason: '' })
+   275→    setSelectedItem(null)
+   276→  }
+   277→
+   278→  if (loading) {
+   279→    return (
+   280→      <div className="flex items-center justify-center h-64">
+   281→        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+   282→      </div>
+   283→    )
+   284→  }
+   285→
+   286→  return (
+   287→    <div className="space-y-6">
+   288→      {/* Header */}
+   289→      <motion.div {...fadeSlide}>
+   290→        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   291→          <div>
+   292→            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+   293→              <Package className="h-6 w-6 text-primary" />
+   294→              Pharmacy Inventory
+   295→            </h2>
+   296→            <p className="text-muted-foreground text-sm mt-1">
+   297→              Track stock levels, expiry dates, and auto-reorder suggestions
+   298→            </p>
+   299→          </div>
+   300→          <Button
+   301→            variant="outline"
+   302→            size="sm"
+   303→            onClick={() => {
+   304→              setInventory(mockInventory)
+   305→              toast({ title: 'Inventory Refreshed', description: 'Data reloaded from source.' })
+   306→            }}
+   307→          >
+   308→            <RotateCcw className="h-4 w-4 mr-1" /> Refresh
+   309→          </Button>
+   310→        </div>
+   311→      </motion.div>
+   312→
+   313→      {/* Stats Cards */}
+   314→      <motion.div {...fadeSlide} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+   315→        <Card>
+   316→          <CardContent className="p-4">
+   317→            <div className="flex items-center gap-2">
+   318→              <Package className="h-4 w-4 text-primary" />
+   319→              <span className="text-xs text-muted-foreground">Total Items</span>
+   320→            </div>
+   321→            <p className="text-2xl font-bold mt-1">{stats.total}</p>
+   322→          </CardContent>
+   323→        </Card>
+   324→        <Card>
+   325→          <CardContent className="p-4">
+   326→            <div className="flex items-center gap-2">
+   327→              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+   328→              <span className="text-xs text-muted-foreground">In Stock</span>
+   329→            </div>
+   330→            <p className="text-2xl font-bold mt-1 text-emerald-600">{stats.inStock}</p>
+   331→          </CardContent>
+   332→        </Card>
+   333→        <Card>
+   334→          <CardContent className="p-4">
+   335→            <div className="flex items-center gap-2">
+   336→              <AlertTriangle className="h-4 w-4 text-amber-600" />
+   337→              <span className="text-xs text-muted-foreground">Low Stock</span>
+   338→            </div>
+   339→            <p className="text-2xl font-bold mt-1 text-amber-600">{stats.lowStock}</p>
+   340→          </CardContent>
+   341→        </Card>
+   342→        <Card>
+   343→          <CardContent className="p-4">
+   344→            <div className="flex items-center gap-2">
+   345→              <XCircle className="h-4 w-4 text-red-600" />
+   346→              <span className="text-xs text-muted-foreground">Out of Stock</span>
+   347→            </div>
+   348→            <p className="text-2xl font-bold mt-1 text-red-600">{stats.outOfStock}</p>
+   349→          </CardContent>
+   350→        </Card>
+   351→        <Card className="col-span-2 sm:col-span-1">
+   352→          <CardContent className="p-4">
+   353→            <div className="flex items-center gap-2">
+   354→              <IndianRupee className="h-4 w-4 text-primary" />
+   355→              <span className="text-xs text-muted-foreground">Total Value</span>
+   356→            </div>
+   357→            <p className="text-2xl font-bold mt-1">₹{stats.totalValue.toLocaleString('en-IN')}</p>
+   358→          </CardContent>
+   359→        </Card>
+   360→      </motion.div>
+   361→
+   362→      {/* Alerts Row */}
+   363→      {(reorderSuggestions.length > 0 || expiringSoonItems.length > 0) && (
+   364→        <motion.div {...fadeSlide} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   365→          {reorderSuggestions.length > 0 && (
+   366→            <Card className="border-amber-200 bg-amber-50/50">
+   367→              <CardHeader className="pb-2">
+   368→                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-800">
+   369→                  <TrendingDown className="h-4 w-4" /> Auto-Reorder Suggestions ({reorderSuggestions.length})
+   370→                </CardTitle>
+   371→              </CardHeader>
+   372→              <CardContent className="pt-0">
+   373→                <div className="space-y-1 max-h-32 overflow-y-auto">
+   374→                  {reorderSuggestions.map(item => (
+   375→                    <div key={item.id} className="flex items-center justify-between text-xs">
+   376→                      <span className="font-medium">{item.medicineName}</span>
+   377→                      <span className="text-amber-700">Stock: {item.currentStock} / Threshold: {item.threshold}</span>
+   378→                    </div>
+   379→                  ))}
+   380→                </div>
+   381→              </CardContent>
+   382→            </Card>
+   383→          )}
+   384→          {expiringSoonItems.length > 0 && (
+   385→            <Card className="border-red-200 bg-red-50/50">
+   386→              <CardHeader className="pb-2">
+   387→                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-800">
+   388→                  <Calendar className="h-4 w-4" /> Expiring Within 30 Days ({expiringSoonItems.length})
+   389→                </CardTitle>
+   390→              </CardHeader>
+   391→              <CardContent className="pt-0">
+   392→                <div className="space-y-1 max-h-32 overflow-y-auto">
+   393→                  {expiringSoonItems.map(item => (
+   394→                    <div key={item.id} className="flex items-center justify-between text-xs">
+   395→                      <span className="font-medium">{item.medicineName}</span>
+   396→                      <span className="text-red-700">Exp: {formatDate(item.expiryDate)} (Batch: {item.batchNumber})</span>
+   397→                    </div>
+   398→                  ))}
+   399→                </div>
+   400→              </CardContent>
+   401→            </Card>
+   402→          )}
+   403→        </motion.div>
+   404→      )}
+   405→
+   406→      {/* Search & Filter */}
+   407→      <motion.div {...fadeSlide}>
+   408→        <Card>
+   409→          <CardContent className="p-4">
+   410→            <div className="flex flex-col sm:flex-row gap-3">
+   411→              <div className="relative flex-1">
+   412→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   413→                <Input
+   414→                  placeholder="Search by medicine name, generic name, or batch..."
+   415→                  value={searchQuery}
+   416→                  onChange={e => setSearchQuery(e.target.value)}
+   417→                  className="pl-9"
+   418→                />
+   419→              </div>
+   420→              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
+   421→                <SelectTrigger className="w-full sm:w-[180px]">
+   422→                  <Filter className="h-4 w-4 mr-2" />
+   423→                  <SelectValue placeholder="Filter by status" />
+   424→                </SelectTrigger>
+   425→                <SelectContent>
+   426→                  <SelectItem value="ALL">All Items</SelectItem>
+   427→                  <SelectItem value="IN_STOCK">In Stock</SelectItem>
+   428→                  <SelectItem value="LOW_STOCK">Low Stock</SelectItem>
+   429→                  <SelectItem value="OUT_OF_STOCK">Out of Stock</SelectItem>
+   430→                </SelectContent>
+   431→              </Select>
+   432→            </div>
+   433→          </CardContent>
+   434→        </Card>
+   435→      </motion.div>
+   436→
+   437→      {/* Stock Table */}
+   438→      <motion.div {...fadeSlide}>
+   439→        <Card>
+   440→          <CardHeader>
+   441→            <CardTitle className="text-lg">Stock Overview</CardTitle>
+   442→            <CardDescription>
+   443→              {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''} found
+   444→            </CardDescription>
+   445→          </CardHeader>
+   446→          <CardContent>
+   447→            <Table>
+   448→              <TableHeader>
+   449→                <TableRow>
+   450→                  <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
+   451→                    Medicine <SortIcon field="name" />
+   452→                  </TableHead>
+   453→                  <TableHead>Batch</TableHead>
+   454→                  <TableHead className="cursor-pointer" onClick={() => handleSort('stock')}>
+   455→                    Stock <SortIcon field="stock" />
+   456→                  </TableHead>
+   457→                  <TableHead className="cursor-pointer" onClick={() => handleSort('mrp')}>
+   458→                    MRP <SortIcon field="mrp" />
+   459→                  </TableHead>
+   460→                  <TableHead className="cursor-pointer" onClick={() => handleSort('expiry')}>
+   461→                    Expiry <SortIcon field="expiry" />
+   462→                  </TableHead>
+   463→                  <TableHead>Status</TableHead>
+   464→                  <TableHead className="text-right">Actions</TableHead>
+   465→                </TableRow>
+   466→              </TableHeader>
+   467→              <TableBody>
+   468→                {filteredItems.length === 0 ? (
+   469→                  <TableRow>
+   470→                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+   471→                      No items found matching your criteria.
+   472→                    </TableCell>
+   473→                  </TableRow>
+   474→                ) : (
+   475→                  filteredItems.map(item => {
+   476→                    const status = getAvailabilityStatus(item)
+   477→                    const expired = isExpired(item.expiryDate)
+   478→                    const expiring = isExpiringSoon(item.expiryDate, 30)
+   479→                    return (
+   480→                      <TableRow key={item.id}>
+   481→                        <TableCell>
+   482→                          <div>
+   483→                            <span className="font-medium">{item.medicineName}</span>
+   484→                            <span className="text-muted-foreground text-xs block">{item.genericName} • {item.category}</span>
+   485→                          </div>
+   486→                        </TableCell>
+   487→                        <TableCell>
+   488→                          <span className="font-mono text-xs">{item.batchNumber}</span>
+   489→                        </TableCell>
+   490→                        <TableCell>
+   491→                          <span className={status === 'LOW_STOCK' ? 'text-red-600 font-semibold' : status === 'OUT_OF_STOCK' ? 'text-gray-500' : ''}>
+   492→                            {item.currentStock} {item.unit}{item.currentStock !== 1 ? 's' : ''}
+   493→                          </span>
+   494→                        </TableCell>
+   495→                        <TableCell>
+   496→                          <span className="flex items-center gap-0.5">
+   497→                            <IndianRupee className="h-3 w-3" />{item.mrp}
+   498→                          </span>
+   499→                        </TableCell>
+   500→                        <TableCell>
+   501→                          <div className="flex items-center gap-1">
+   502→                            <span className={expired ? 'text-red-600 font-semibold' : expiring ? 'text-amber-600 font-semibold' : ''}>
+   503→                              {formatDate(item.expiryDate)}
+   504→                            </span>
+   505→                            {expired && <Badge variant="destructive" className="text-[10px] px-1 py-0">EXPIRED</Badge>}
+   506→                            {!expired && expiring && <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1 py-0 hover:bg-amber-100">EXPIRING</Badge>}
+   507→                          </div>
+   508→                        </TableCell>
+   509→                        <TableCell>{statusBadge(status)}</TableCell>
+   510→                        <TableCell className="text-right">
+   511→                          <Dialog open={updateDialogOpen && selectedItem?.id === item.id} onOpenChange={(open) => {
+   512→                            if (open) {
+   513→                              setSelectedItem(item)
+   514→                              setUpdateForm({ itemId: item.id, action: 'add', quantity: 0, reason: '' })
+   515→                            } else {
+   516→                              setUpdateDialogOpen(false)
+   517→                              setSelectedItem(null)
+   518→                            }
+   519→                          }}>
+   520→                            <DialogTrigger asChild>
+   521→                              <Button variant="ghost" size="sm" onClick={() => {
+   522→                                setSelectedItem(item)
+   523→                                setUpdateForm({ itemId: item.id, action: 'add', quantity: 0, reason: '' })
+   524→                                setUpdateDialogOpen(true)
+   525→                              }}>
+   526→                                <Plus className="h-4 w-4" />
+   527→                              </Button>
+   528→                            </DialogTrigger>
+   529→                            <DialogContent>
+   530→                              <DialogHeader>
+   531→                                <DialogTitle>Update Stock — {item.medicineName}</DialogTitle>
+   532→                                <DialogDescription>
+   533→                                  Current stock: {item.currentStock} {item.unit}s | Batch: {item.batchNumber}
+   534→                                </DialogDescription>
+   535→                              </DialogHeader>
+   536→                              <div className="space-y-4 py-2">
+   537→                                <Select value={updateForm.action} onValueChange={(v) => setUpdateForm(prev => ({ ...prev, action: v as 'add' | 'reduce' }))}>
+   538→                                  <SelectTrigger>
+   539→                                    <SelectValue placeholder="Action" />
+   540→                                  </SelectTrigger>
+   541→                                  <SelectContent>
+   542→                                    <SelectItem value="add">Add Stock</SelectItem>
+   543→                                    <SelectItem value="reduce">Reduce Stock</SelectItem>
+   544→                                  </SelectContent>
+   545→                                </Select>
+   546→                                <Input
+   547→                                  type="number"
+   548→                                  min={1}
+   549→                                  placeholder="Quantity"
+   550→                                  value={updateForm.quantity || ''}
+   551→                                  onChange={e => setUpdateForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 0 }))}
+   552→                                />
+   553→                                <Input
+   554→                                  placeholder="Reason (e.g., New shipment, Damaged, Returned)"
+   555→                                  value={updateForm.reason}
+   556→                                  onChange={e => setUpdateForm(prev => ({ ...prev, reason: e.target.value }))}
+   557→                                />
+   558→                              </div>
+   559→                              <DialogFooter>
+   560→                                <Button variant="outline" onClick={() => setUpdateDialogOpen(false)}>Cancel</Button>
+   561→                                <Button
+   562→                                  onClick={handleStockUpdate}
+   563→                                  disabled={updateForm.quantity <= 0}
+   564→                                  className={updateForm.action === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}
+   565→                                >
+   566→                                  {updateForm.action === 'add' ? <Plus className="h-4 w-4 mr-1" /> : <Minus className="h-4 w-4 mr-1" />}
+   567→                                  {updateForm.action === 'add' ? 'Add' : 'Reduce'} {updateForm.quantity || 0} Units
+   568→                                </Button>
+   569→                              </DialogFooter>
+   570→                            </DialogContent>
+   571→                          </Dialog>
+   572→                        </TableCell>
+   573→                      </TableRow>
+   574→                    )
+   575→                  })
+   576→                )}
+   577→              </TableBody>
+   578→            </Table>
+   579→          </CardContent>
+   580→        </Card>
+   581→      </motion.div>
+   582→
+   583→      {/* Out of Stock Summary */}
+   584→      {outOfStockItems.length > 0 && (
+   585→        <motion.div {...fadeSlide}>
+   586→          <Card className="border-red-200">
+   587→            <CardHeader>
+   588→              <CardTitle className="text-lg flex items-center gap-2 text-red-700">
+   589→                <XCircle className="h-5 w-5" /> Out of Stock Items
+   590→              </CardTitle>
+   591→              <CardDescription>These items need immediate restocking</CardDescription>
+   592→            </CardHeader>
+   593→            <CardContent>
+   594→              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   595→                {outOfStockItems.map(item => (
+   596→                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border border-red-100 bg-red-50/30">
+   597→                    <div>
+   598→                      <p className="font-medium text-sm">{item.medicineName}</p>
+   599→                      <p className="text-xs text-muted-foreground">{item.genericName} • {item.manufacturer}</p>
+   600→                    </div>
+   601→                    <Badge variant="destructive" className="text-[10px]">OUT</Badge>
+   602→                  </div>
+   603→                ))}
+   604→              </div>
+   605→            </CardContent>
+   606→          </Card>
+   607→        </motion.div>
+   608→      )}
+   609→    </div>
+   610→  )
+   611→}
+   612→

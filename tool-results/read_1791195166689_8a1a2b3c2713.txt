@@ -1,0 +1,698 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Stethoscope,
+     7→  Pill,
+     8→  FlaskConical,
+     9→  Syringe,
+    10→  ArrowRightLeft,
+    11→  LogIn,
+    12→  LogOut,
+    13→  FileText,
+    14→  Calendar,
+    15→  Filter,
+    16→  ChevronDown,
+    17→  ChevronRight,
+    18→  Clock,
+    19→  User,
+    20→  Activity,
+    21→  CalendarDays,
+    22→} from 'lucide-react'
+    23→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    24→import { Button } from '@/components/ui/button'
+    25→import { Badge } from '@/components/ui/badge'
+    26→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    27→import { ScrollArea } from '@/components/ui/scroll-area'
+    28→import { Skeleton } from '@/components/ui/skeleton'
+    29→import { Separator } from '@/components/ui/separator'
+    30→import { Input } from '@/components/ui/input'
+    31→import { useAppStore } from '@/lib/store'
+    32→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    33→import { toast } from '@/hooks/use-toast'
+    34→
+    35→// ── Types ────────────────────────────────────────────────────────────────
+    36→
+    37→type TimelineEventType =
+    38→  | 'ENCOUNTER'
+    39→  | 'PRESCRIPTION'
+    40→  | 'LAB_RESULT'
+    41→  | 'VACCINATION'
+    42→  | 'REFERRAL'
+    43→  | 'ADMISSION'
+    44→  | 'DISCHARGE'
+    45→  | 'NOTE'
+    46→  | 'FOLLOW_UP'
+    47→
+    48→type TimelineModality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
+    49→
+    50→interface TimelineEvent {
+    51→  id: string
+    52→  patientId: string
+    53→  eventType: TimelineEventType
+    54→  modality: TimelineModality
+    55→  title: string
+    56→  description: string
+    57→  timestamp: string
+    58→  isSignificant: boolean
+    59→  data: Record<string, unknown>
+    60→}
+    61→
+    62→interface Patient {
+    63→  id: string
+    64→  firstName: string
+    65→  lastName: string
+    66→}
+    67→
+    68→// ── Constants ────────────────────────────────────────────────────────────
+    69→
+    70→const EVENT_TYPE_CONFIG: Record<TimelineEventType, { icon: React.ElementType; label: string }> = {
+    71→  ENCOUNTER: { icon: Stethoscope, label: 'Encounter' },
+    72→  PRESCRIPTION: { icon: Pill, label: 'Prescription' },
+    73→  LAB_RESULT: { icon: FlaskConical, label: 'Lab Result' },
+    74→  VACCINATION: { icon: Syringe, label: 'Vaccination' },
+    75→  REFERRAL: { icon: ArrowRightLeft, label: 'Referral' },
+    76→  ADMISSION: { icon: LogIn, label: 'Admission' },
+    77→  DISCHARGE: { icon: LogOut, label: 'Discharge' },
+    78→  NOTE: { icon: FileText, label: 'Clinical Note' },
+    79→  FOLLOW_UP: { icon: Calendar, label: 'Follow-up' },
+    80→}
+    81→
+    82→const MODALITY_COLORS: Record<TimelineModality, { dot: string; line: string; bg: string; text: string }> = {
+    83→  ALLOPATHY: {
+    84→    dot: 'bg-teal-500 border-teal-600',
+    85→    line: 'bg-teal-300 dark:bg-teal-700',
+    86→    bg: 'bg-teal-50 dark:bg-teal-950',
+    87→    text: 'text-teal-700 dark:text-teal-300',
+    88→  },
+    89→  AYURVEDA: {
+    90→    dot: 'bg-amber-500 border-amber-600',
+    91→    line: 'bg-amber-300 dark:bg-amber-700',
+    92→    bg: 'bg-amber-50 dark:bg-amber-950',
+    93→    text: 'text-amber-700 dark:text-amber-300',
+    94→  },
+    95→  HOMEOPATHY: {
+    96→    dot: 'bg-purple-500 border-purple-600',
+    97→    line: 'bg-purple-300 dark:bg-purple-700',
+    98→    bg: 'bg-purple-50 dark:bg-purple-950',
+    99→    text: 'text-purple-700 dark:text-purple-300',
+   100→  },
+   101→}
+   102→
+   103→// ── Sample Data ──────────────────────────────────────────────────────────
+   104→
+   105→const SAMPLE_EVENTS: TimelineEvent[] = [
+   106→  {
+   107→    id: 'evt-1',
+   108→    patientId: 'p-1',
+   109→    eventType: 'ADMISSION',
+   110→    modality: 'ALLOPATHY',
+   111→    title: 'Emergency Admission — Chest Pain',
+   112→    description: 'Patient admitted via ER with acute chest pain, BP 160/100, HR 110',
+   113→    timestamp: '2025-01-15T08:30:00Z',
+   114→    isSignificant: true,
+   115→    data: { ward: 'ICU', bed: 'B3', admittingDoctor: 'Dr. R. Sharma', vitals: { bp: '160/100', hr: 110, temp: 37.2 } },
+   116→  },
+   117→  {
+   118→    id: 'evt-2',
+   119→    patientId: 'p-1',
+   120→    eventType: 'ENCOUNTER',
+   121→    modality: 'ALLOPATHY',
+   122→    title: 'Cardiology Consultation',
+   123→    description: 'Cardiologist evaluation; ECG shows ST elevation; troponin elevated',
+   124→    timestamp: '2025-01-15T10:00:00Z',
+   125→    isSignificant: true,
+   126→    data: { doctor: 'Dr. A. Patel', department: 'Cardiology', findings: 'ST elevation V1-V4, Troponin I: 2.8 ng/mL' },
+   127→  },
+   128→  {
+   129→    id: 'evt-3',
+   130→    patientId: 'p-1',
+   131→    eventType: 'LAB_RESULT',
+   132→    modality: 'ALLOPATHY',
+   133→    title: 'Cardiac Biomarkers',
+   134→    description: 'Troponin I: 2.8 ng/mL (↑), CK-MB: 45 U/L (↑), BNP: 320 pg/mL',
+   135→    timestamp: '2025-01-15T11:30:00Z',
+   136→    isSignificant: true,
+   137→    data: { troponinI: '2.8 ng/mL', ckmb: '45 U/L', bnp: '320 pg/mL', referenceRange: 'Troponin <0.04, CK-MB <25, BNP <100' },
+   138→  },
+   139→  {
+   140→    id: 'evt-4',
+   141→    patientId: 'p-1',
+   142→    eventType: 'PRESCRIPTION',
+   143→    modality: 'ALLOPATHY',
+   144→    title: 'Anti-platelet & Statin Therapy',
+   145→    description: 'Aspirin 325mg, Clopidogrel 75mg, Atorvastatin 80mg',
+   146→    timestamp: '2025-01-15T12:00:00Z',
+   147→    isSignificant: false,
+   148→    data: { medications: ['Aspirin 325mg OD', 'Clopidogrel 75mg OD', 'Atorvastatin 80mg HS'] },
+   149→  },
+   150→  {
+   151→    id: 'evt-5',
+   152→    patientId: 'p-1',
+   153→    eventType: 'NOTE',
+   154→    modality: 'ALLOPATHY',
+   155→    title: 'Progress Note — Day 1',
+   156→    description: 'Patient stable on medications. Pain controlled. Monitoring continued.',
+   157→    timestamp: '2025-01-16T09:00:00Z',
+   158→    isSignificant: false,
+   159→    data: { noteType: 'PROGRESS', author: 'Dr. R. Sharma', content: 'Patient stable. Pain 2/10. Continue monitoring.' },
+   160→  },
+   161→  {
+   162→    id: 'evt-6',
+   163→    patientId: 'p-1',
+   164→    eventType: 'REFERRAL',
+   165→    modality: 'AYURVEDA',
+   166→    title: 'Ayurveda Cardiac Rehab Referral',
+   167→    description: 'Referred for post-MI cardiac rehabilitation with Arjuna therapy',
+   168→    timestamp: '2025-01-17T14:00:00Z',
+   169→    isSignificant: false,
+   170→    data: { referredTo: 'Vaidya S. Joshi', reason: 'Post-MI cardiac rehabilitation', therapy: 'Arjuna kwath + Pranayama' },
+   171→  },
+   172→  {
+   173→    id: 'evt-7',
+   174→    patientId: 'p-1',
+   175→    eventType: 'DISCHARGE',
+   176→    modality: 'ALLOPATHY',
+   177→    title: 'Discharge — Stable Condition',
+   178→    description: 'Discharged with medication plan and follow-up in 7 days',
+   179→    timestamp: '2025-01-18T10:00:00Z',
+   180→    isSignificant: true,
+   181→    data: { dischargeSummary: 'NSTEMI managed conservatively. Discharge meds: Aspirin, Clopidogrel, Atorvastatin, Metoprolol.', followUpDate: '2025-01-25' },
+   182→  },
+   183→  {
+   184→    id: 'evt-8',
+   185→    patientId: 'p-1',
+   186→    eventType: 'VACCINATION',
+   187→    modality: 'ALLOPATHY',
+   188→    title: 'Influenza Vaccine',
+   189→    description: 'Annual flu vaccine administered prior to discharge',
+   190→    timestamp: '2025-01-18T09:30:00Z',
+   191→    isSignificant: false,
+   192→    data: { vaccine: 'Influenza (Quadrivalent)', batchNo: 'FL2025-0412', site: 'Left deltoid' },
+   193→  },
+   194→  {
+   195→    id: 'evt-9',
+   196→    patientId: 'p-1',
+   197→    eventType: 'FOLLOW_UP',
+   198→    modality: 'ALLOPATHY',
+   199→    title: 'Cardiology Follow-up',
+   200→    description: 'Post-discharge follow-up appointment scheduled',
+   201→    timestamp: '2025-01-25T10:00:00Z',
+   202→    isSignificant: false,
+   203→    data: { doctor: 'Dr. A. Patel', department: 'Cardiology', type: 'POST_DISCHARGE' },
+   204→  },
+   205→  {
+   206→    id: 'evt-10',
+   207→    patientId: 'p-1',
+   208→    eventType: 'ENCOUNTER',
+   209→    modality: 'AYURVEDA',
+   210→    title: 'Ayurveda Wellness Consultation',
+   211→    description: 'Arjuna kwath prescribed; Pranayama and dietary modifications advised',
+   212→    timestamp: '2025-02-01T11:00:00Z',
+   213→    isSignificant: false,
+   214→    data: { practitioner: 'Vaidya S. Joshi', chikitsa: 'Hridya Rog Chikitsa', duration: '45 min' },
+   215→  },
+   216→  {
+   217→    id: 'evt-11',
+   218→    patientId: 'p-1',
+   219→    eventType: 'LAB_RESULT',
+   220→    modality: 'ALLOPATHY',
+   221→    title: 'Lipid Panel — Follow-up',
+   222→    description: 'Total Cholesterol: 185, LDL: 110, HDL: 45, TG: 150',
+   223→    timestamp: '2025-02-05T08:00:00Z',
+   224→    isSignificant: false,
+   225→    data: { totalChol: 185, ldl: 110, hdl: 45, triglycerides: 150 },
+   226→  },
+   227→  {
+   228→    id: 'evt-12',
+   229→    patientId: 'p-1',
+   230→    eventType: 'PRESCRIPTION',
+   231→    modality: 'AYURVEDA',
+   232→    title: 'Arjuna Kwath + Guggulu',
+   233→    description: 'Arjuna kwath 30ml BD, Guggulu 500mg BD',
+   234→    timestamp: '2025-02-01T11:30:00Z',
+   235→    isSignificant: false,
+   236→    data: { medications: ['Arjuna Twak Kwath 30ml BD', 'Guggulu 500mg BD'] },
+   237→  },
+   238→]
+   239→
+   240→// ── Helpers ──────────────────────────────────────────────────────────────
+   241→
+   242→function formatDate(iso: string): string {
+   243→  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+   244→}
+   245→
+   246→function formatTime(iso: string): string {
+   247→  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+   248→}
+   249→
+   250→function formatRelative(iso: string): string {
+   251→  const diff = Date.now() - new Date(iso).getTime()
+   252→  const days = Math.floor(diff / 86400000)
+   253→  if (days === 0) return 'Today'
+   254→  if (days === 1) return 'Yesterday'
+   255→  if (days < 30) return `${days}d ago`
+   256→  if (days < 365) return `${Math.floor(days / 30)}mo ago`
+   257→  return `${Math.floor(days / 365)}y ago`
+   258→}
+   259→
+   260→// ── Component ────────────────────────────────────────────────────────────
+   261→
+   262→const fadeSlide = {
+   263→  initial: { opacity: 0, y: 12 },
+   264→  animate: { opacity: 1, y: 0 },
+   265→  transition: { duration: 0.3 },
+   266→}
+   267→
+   268→export function PatientTimelineSection() {
+   269→  const { selectedPatientId, setSelectedPatientId } = useAppStore()
+   270→
+   271→  const [patients, setPatients] = useState<Patient[]>([])
+   272→  const [events, setEvents] = useState<TimelineEvent[]>([])
+   273→  const [loading, setLoading] = useState(true)
+   274→  const [patientsLoading, setPatientsLoading] = useState(true)
+   275→  const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
+   276→
+   277→  // Filters
+   278→  const [filterEventType, setFilterEventType] = useState<string>('ALL')
+   279→  const [filterModality, setFilterModality] = useState<string>('ALL')
+   280→  const [filterDateFrom, setFilterDateFrom] = useState('')
+   281→  const [filterDateTo, setFilterDateTo] = useState('')
+   282→  const [showFilters, setShowFilters] = useState(false)
+   283→
+   284→  const localPatientId = selectedPatientId ?? 'p-1'
+   285→
+   286→  // ── Load patients ────────────────────────────────────────────────────
+   287→  const loadPatients = useCallback(async () => {
+   288→    try {
+   289→      const res = await fetch('/api/patients')
+   290→      const json = await res.json()
+   291→      const list = json.data ?? json.patients ?? []
+   292→      setPatients(list)
+   293→    } catch {
+   294→      toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+   295→    } finally {
+   296→      setPatientsLoading(false)
+   297→    }
+   298→  }, [])
+   299→
+   300→  useEffect(() => { loadPatients() }, [loadPatients])
+   301→
+   302→  // ── Load timeline ────────────────────────────────────────────────────
+   303→  const loadTimeline = useCallback(async () => {
+   304→    setLoading(true)
+   305→    try {
+   306→      const res = await fetch(`/api/patient-timeline?patientId=${localPatientId}`)
+   307→      if (res.ok) {
+   308→        const json = await res.json()
+   309→        const list = json.data ?? json.events ?? []
+   310→        setEvents(Array.isArray(list) && list.length > 0 ? list : SAMPLE_EVENTS)
+   311→      } else {
+   312→        setEvents(SAMPLE_EVENTS)
+   313→      }
+   314→    } catch {
+   315→      setEvents(SAMPLE_EVENTS)
+   316→    } finally {
+   317→      setLoading(false)
+   318→    }
+   319→  }, [localPatientId])
+   320→
+   321→  useEffect(() => { loadTimeline() }, [loadTimeline])
+   322→
+   323→  // ── Filtered events ──────────────────────────────────────────────────
+   324→  const filteredEvents = useMemo(() => {
+   325→    let result = [...events]
+   326→
+   327→    if (filterEventType !== 'ALL') {
+   328→      result = result.filter((e) => e.eventType === filterEventType)
+   329→    }
+   330→    if (filterModality !== 'ALL') {
+   331→      result = result.filter((e) => e.modality === filterModality)
+   332→    }
+   333→    if (filterDateFrom) {
+   334→      result = result.filter((e) => new Date(e.timestamp) >= new Date(filterDateFrom))
+   335→    }
+   336→    if (filterDateTo) {
+   337→      const to = new Date(filterDateTo)
+   338→      to.setHours(23, 59, 59, 999)
+   339→      result = result.filter((e) => new Date(e.timestamp) <= to)
+   340→    }
+   341→
+   342→    result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+   343→    return result
+   344→  }, [events, filterEventType, filterModality, filterDateFrom, filterDateTo])
+   345→
+   346→  // ── Stats ────────────────────────────────────────────────────────────
+   347→  const stats = useMemo(() => {
+   348→    const sorted = [...events].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+   349→    const lastEncounter = sorted.find((e) => e.eventType === 'ENCOUNTER')
+   350→    const nextFollowUp = sorted
+   351→      .filter((e) => e.eventType === 'FOLLOW_UP' && new Date(e.timestamp) >= new Date())
+   352→      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0]
+   353→
+   354→    return {
+   355→      totalEvents: events.length,
+   356→      lastVisit: lastEncounter ? formatDate(lastEncounter.timestamp) : 'N/A',
+   357→      nextFollowUp: nextFollowUp ? formatDate(nextFollowUp.timestamp) : 'None scheduled',
+   358→    }
+   359→  }, [events])
+   360→
+   361→  // ── Render ───────────────────────────────────────────────────────────
+   362→
+   363→  return (
+   364→    <motion.div {...fadeSlide} className="space-y-6">
+   365→      {/* Header */}
+   366→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   367→        <div>
+   368→          <h2 className="text-2xl font-bold tracking-tight">Patient Timeline</h2>
+   369→          <p className="text-sm text-muted-foreground">Visual event history across all modalities</p>
+   370→        </div>
+   371→        <div className="flex items-center gap-2">
+   372→          <Select
+   373→            value={localPatientId}
+   374→            onValueChange={(v) => setSelectedPatientId(v)}
+   375→          >
+   376→            <SelectTrigger className="w-[200px]">
+   377→              <User className="h-4 w-4 mr-2 text-muted-foreground" />
+   378→              <SelectValue placeholder="Select patient" />
+   379→            </SelectTrigger>
+   380→            <SelectContent>
+   381→              {patientsLoading ? (
+   382→                <SelectItem value="loading" disabled>Loading…</SelectItem>
+   383→              ) : patients.length === 0 ? (
+   384→                <SelectItem value="demo" disabled>Demo Patient</SelectItem>
+   385→              ) : (
+   386→                patients.map((p) => (
+   387→                  <SelectItem key={p.id} value={p.id}>
+   388→                    {p.firstName} {p.lastName}
+   389→                  </SelectItem>
+   390→                ))
+   391→              )}
+   392→            </SelectContent>
+   393→          </Select>
+   394→          <Button
+   395→            variant="outline"
+   396→            size="sm"
+   397→            onClick={() => setShowFilters(!showFilters)}
+   398→            className="gap-1"
+   399→          >
+   400→            <Filter className="h-4 w-4" />
+   401→            <span className="hidden sm:inline">Filters</span>
+   402→          </Button>
+   403→        </div>
+   404→      </div>
+   405→
+   406→      {/* Stats Cards */}
+   407→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   408→        <Card>
+   409→          <CardContent className="p-4 flex items-center gap-3">
+   410→            <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900">
+   411→              <Activity className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   412→            </div>
+   413→            <div>
+   414→              <p className="text-sm text-muted-foreground">Total Events</p>
+   415→              <p className="text-xl font-bold">{stats.totalEvents}</p>
+   416→            </div>
+   417→          </CardContent>
+   418→        </Card>
+   419→        <Card>
+   420→          <CardContent className="p-4 flex items-center gap-3">
+   421→            <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900">
+   422→              <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   423→            </div>
+   424→            <div>
+   425→              <p className="text-sm text-muted-foreground">Last Visit</p>
+   426→              <p className="text-xl font-bold">{stats.lastVisit}</p>
+   427→            </div>
+   428→          </CardContent>
+   429→        </Card>
+   430→        <Card>
+   431→          <CardContent className="p-4 flex items-center gap-3">
+   432→            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+   433→              <CalendarDays className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+   434→            </div>
+   435→            <div>
+   436→              <p className="text-sm text-muted-foreground">Next Follow-up</p>
+   437→              <p className="text-xl font-bold">{stats.nextFollowUp}</p>
+   438→            </div>
+   439→          </CardContent>
+   440→        </Card>
+   441→      </div>
+   442→
+   443→      {/* Filters Panel */}
+   444→      <AnimatePresence>
+   445→        {showFilters && (
+   446→          <motion.div
+   447→            initial={{ height: 0, opacity: 0 }}
+   448→            animate={{ height: 'auto', opacity: 1 }}
+   449→            exit={{ height: 0, opacity: 0 }}
+   450→            className="overflow-hidden"
+   451→          >
+   452→            <Card>
+   453→              <CardContent className="p-4">
+   454→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   455→                  <div className="space-y-1.5">
+   456→                    <label className="text-xs font-medium text-muted-foreground">Event Type</label>
+   457→                    <Select value={filterEventType} onValueChange={setFilterEventType}>
+   458→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   459→                      <SelectContent>
+   460→                        <SelectItem value="ALL">All Types</SelectItem>
+   461→                        {Object.entries(EVENT_TYPE_CONFIG).map(([key, cfg]) => (
+   462→                          <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+   463→                        ))}
+   464→                      </SelectContent>
+   465→                    </Select>
+   466→                  </div>
+   467→                  <div className="space-y-1.5">
+   468→                    <label className="text-xs font-medium text-muted-foreground">Modality</label>
+   469→                    <Select value={filterModality} onValueChange={setFilterModality}>
+   470→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   471→                      <SelectContent>
+   472→                        <SelectItem value="ALL">All Modalities</SelectItem>
+   473→                        <SelectItem value="ALLOPATHY">Allopathy</SelectItem>
+   474→                        <SelectItem value="AYURVEDA">Ayurveda</SelectItem>
+   475→                        <SelectItem value="HOMEOPATHY">Homeopathy</SelectItem>
+   476→                      </SelectContent>
+   477→                    </Select>
+   478→                  </div>
+   479→                  <div className="space-y-1.5">
+   480→                    <label className="text-xs font-medium text-muted-foreground">From Date</label>
+   481→                    <Input
+   482→                      type="date"
+   483→                      value={filterDateFrom}
+   484→                      onChange={(e) => setFilterDateFrom(e.target.value)}
+   485→                    />
+   486→                  </div>
+   487→                  <div className="space-y-1.5">
+   488→                    <label className="text-xs font-medium text-muted-foreground">To Date</label>
+   489→                    <Input
+   490→                      type="date"
+   491→                      value={filterDateTo}
+   492→                      onChange={(e) => setFilterDateTo(e.target.value)}
+   493→                    />
+   494→                  </div>
+   495→                </div>
+   496→                <div className="mt-3 flex justify-end">
+   497→                  <Button
+   498→                    variant="ghost"
+   499→                    size="sm"
+   500→                    onClick={() => {
+   501→                      setFilterEventType('ALL')
+   502→                      setFilterModality('ALL')
+   503→                      setFilterDateFrom('')
+   504→                      setFilterDateTo('')
+   505→                    }}
+   506→                  >
+   507→                    Clear Filters
+   508→                  </Button>
+   509→                </div>
+   510→              </CardContent>
+   511→            </Card>
+   512→          </motion.div>
+   513→        )}
+   514→      </AnimatePresence>
+   515→
+   516→      {/* Active filter badges */}
+   517→      {(filterEventType !== 'ALL' || filterModality !== 'ALL' || filterDateFrom || filterDateTo) && (
+   518→        <div className="flex flex-wrap gap-2">
+   519→          {filterEventType !== 'ALL' && (
+   520→            <Badge variant="secondary" className="gap-1">
+   521→              {EVENT_TYPE_CONFIG[filterEventType as TimelineEventType]?.label ?? filterEventType}
+   522→              <button onClick={() => setFilterEventType('ALL')} className="ml-1 hover:text-destructive">×</button>
+   523→            </Badge>
+   524→          )}
+   525→          {filterModality !== 'ALL' && (
+   526→            <Badge variant="secondary" className="gap-1">
+   527→              {filterModality}
+   528→              <button onClick={() => setFilterModality('ALL')} className="ml-1 hover:text-destructive">×</button>
+   529→            </Badge>
+   530→          )}
+   531→          {filterDateFrom && (
+   532→            <Badge variant="secondary" className="gap-1">
+   533→              From: {filterDateFrom}
+   534→              <button onClick={() => setFilterDateFrom('')} className="ml-1 hover:text-destructive">×</button>
+   535→            </Badge>
+   536→          )}
+   537→          {filterDateTo && (
+   538→            <Badge variant="secondary" className="gap-1">
+   539→              To: {filterDateTo}
+   540→              <button onClick={() => setFilterDateTo('')} className="ml-1 hover:text-destructive">×</button>
+   541→            </Badge>
+   542→          )}
+   543→        </div>
+   544→      )}
+   545→
+   546→      {/* Timeline */}
+   547→      <Card>
+   548→        <CardHeader className="pb-3">
+   549→          <CardTitle className="text-lg">Event Timeline</CardTitle>
+   550→          <CardDescription>{filteredEvents.length} events found</CardDescription>
+   551→        </CardHeader>
+   552→        <CardContent>
+   553→          {loading ? (
+   554→            <div className="space-y-4">
+   555→              {[1, 2, 3, 4].map((i) => (
+   556→                <div key={i} className="flex items-start gap-4">
+   557→                  <Skeleton className="h-10 w-10 rounded-full" />
+   558→                  <div className="space-y-2 flex-1">
+   559→                    <Skeleton className="h-4 w-3/4" />
+   560→                    <Skeleton className="h-3 w-1/2" />
+   561→                  </div>
+   562→                </div>
+   563→              ))}
+   564→            </div>
+   565→          ) : filteredEvents.length === 0 ? (
+   566→            <div className="text-center py-12 text-muted-foreground">
+   567→              <Activity className="h-10 w-10 mx-auto mb-3 opacity-40" />
+   568→              <p className="font-medium">No events found</p>
+   569→              <p className="text-sm">Try adjusting the filters</p>
+   570→            </div>
+   571→          ) : (
+   572→            <ScrollArea className="max-h-[600px]">
+   573→              <div className="relative">
+   574→                {/* Vertical line */}
+   575→                <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-border" />
+   576→
+   577→                <div className="space-y-0">
+   578→                  {filteredEvents.map((event, idx) => {
+   579→                    const typeCfg = EVENT_TYPE_CONFIG[event.eventType]
+   580→                    const modCfg = MODALITY_COLORS[event.modality]
+   581→                    const IconComp = typeCfg.icon
+   582→                    const isExpanded = expandedEvent === event.id
+   583→
+   584→                    return (
+   585→                      <motion.div
+   586→                        key={event.id}
+   587→                        initial={{ opacity: 0, x: -12 }}
+   588→                        animate={{ opacity: 1, x: 0 }}
+   589→                        transition={{ delay: idx * 0.04, duration: 0.25 }}
+   590→                        className="relative flex items-start gap-4 pb-6 last:pb-0"
+   591→                      >
+   592→                        {/* Dot + Icon */}
+   593→                        <div className="relative z-10 flex-shrink-0">
+   594→                          <div
+   595→                            className={`
+   596→                              flex items-center justify-center rounded-full border-2
+   597→                              ${event.isSignificant ? 'h-10 w-10' : 'h-8 w-8'}
+   598→                              ${modCfg.dot}
+   599→                            `}
+   600→                          >
+   601→                            <IconComp
+   602→                              className={`${event.isSignificant ? 'h-5 w-5' : 'h-4 w-4'} text-white`}
+   603→                            />
+   604→                          </div>
+   605→                        </div>
+   606→
+   607→                        {/* Content */}
+   608→                        <div className={`flex-1 min-w-0 ${isExpanded ? '' : 'cursor-pointer'}`} onClick={() => setExpandedEvent(isExpanded ? null : event.id)}>
+   609→                          <div className={`rounded-lg border p-3 ${modCfg.bg} transition-all hover:shadow-sm`}>
+   610→                            {/* Desktop: full layout */}
+   611→                            <div className="hidden sm:block">
+   612→                              <div className="flex items-start justify-between gap-2">
+   613→                                <div className="min-w-0">
+   614→                                  <div className="flex items-center gap-2 flex-wrap">
+   615→                                    <span className={`font-semibold text-sm ${event.isSignificant ? 'font-bold' : ''}`}>
+   616→                                      {event.title}
+   617→                                    </span>
+   618→                                    {event.isSignificant && (
+   619→                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Significant</Badge>
+   620→                                    )}
+   621→                                  </div>
+   622→                                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+   623→                                    {event.description}
+   624→                                  </p>
+   625→                                </div>
+   626→                                <div className="flex items-center gap-2 flex-shrink-0">
+   627→                                  <ModalityBadge modality={event.modality} />
+   628→                                  <Badge variant="outline" className="text-[10px]">
+   629→                                    {typeCfg.label}
+   630→                                  </Badge>
+   631→                                </div>
+   632→                              </div>
+   633→                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+   634→                                <span>{formatDate(event.timestamp)}</span>
+   635→                                <span>{formatTime(event.timestamp)}</span>
+   636→                                <span className="text-muted-foreground/60">{formatRelative(event.timestamp)}</span>
+   637→                              </div>
+   638→                            </div>
+   639→
+   640→                            {/* Mobile: simplified layout */}
+   641→                            <div className="sm:hidden">
+   642→                              <div className="flex items-center gap-2">
+   643→                                <span className={`font-medium text-sm ${event.isSignificant ? 'font-bold' : ''}`}>
+   644→                                  {event.title}
+   645→                                </span>
+   646→                                {event.isSignificant && (
+   647→                                  <Badge variant="destructive" className="text-[10px] px-1 py-0">!</Badge>
+   648→                                )}
+   649→                              </div>
+   650→                              <div className="flex items-center gap-2 mt-1">
+   651→                                <ModalityBadge modality={event.modality} />
+   652→                                <span className="text-xs text-muted-foreground">{formatRelative(event.timestamp)}</span>
+   653→                              </div>
+   654→                            </div>
+   655→
+   656→                            {/* Expandable detail */}
+   657→                            <AnimatePresence>
+   658→                              {isExpanded && (
+   659→                                <motion.div
+   660→                                  initial={{ height: 0, opacity: 0 }}
+   661→                                  animate={{ height: 'auto', opacity: 1 }}
+   662→                                  exit={{ height: 0, opacity: 0 }}
+   663→                                  className="overflow-hidden"
+   664→                                >
+   665→                                  <Separator className="my-2" />
+   666→                                  <div className="text-xs space-y-1">
+   667→                                    <p className="font-medium text-muted-foreground">Event Data</p>
+   668→                                    <pre className="bg-background/50 rounded p-2 text-[11px] leading-relaxed overflow-x-auto max-h-48 overflow-y-auto">
+   669→                                      {JSON.stringify(event.data, null, 2)}
+   670→                                    </pre>
+   671→                                  </div>
+   672→                                </motion.div>
+   673→                              )}
+   674→                            </AnimatePresence>
+   675→
+   676→                            {/* Expand indicator */}
+   677→                            <div className="flex items-center justify-center mt-1">
+   678→                              {isExpanded ? (
+   679→                                <ChevronDown className="h-3 w-3 text-muted-foreground/50" />
+   680→                              ) : (
+   681→                                <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+   682→                              )}
+   683→                            </div>
+   684→                          </div>
+   685→                        </div>
+   686→                      </motion.div>
+   687→                    )
+   688→                  })}
+   689→                </div>
+   690→              </div>
+   691→            </ScrollArea>
+   692→          )}
+   693→        </CardContent>
+   694→      </Card>
+   695→    </motion.div>
+   696→  )
+   697→}
+   698→

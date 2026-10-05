@@ -1,0 +1,632 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Upload,
+     7→  FileText,
+     8→  ScanLine,
+     9→  CheckCircle2,
+    10→  Eye,
+    11→  Search,
+    12→  File,
+    13→  Plus,
+    14→  Clock,
+    15→  ShieldCheck,
+    16→  X,
+    17→} from 'lucide-react'
+    18→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    19→import { Button } from '@/components/ui/button'
+    20→import { Badge } from '@/components/ui/badge'
+    21→import { Input } from '@/components/ui/input'
+    22→import { Label } from '@/components/ui/label'
+    23→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    24→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    25→import { Progress } from '@/components/ui/progress'
+    26→import { Separator } from '@/components/ui/separator'
+    27→import { Skeleton } from '@/components/ui/skeleton'
+    28→import { useAppStore } from '@/lib/store'
+    29→import { toast } from '@/hooks/use-toast'
+    30→
+    31→// ─── Types ────────────────────────────────────────────────────────────
+    32→
+    33→type DocType =
+    34→  | 'PRESCRIPTION'
+    35→  | 'LAB_REPORT'
+    36→  | 'ID_PROOF'
+    37→  | 'INSURANCE_CARD'
+    38→  | 'DISCHARGE_SUMMARY'
+    39→  | 'REFERRAL_LETTER'
+    40→  | 'OTHER'
+    41→
+    42→type DocStatus = 'UPLOADED' | 'OCR_PROCESSING' | 'OCR_COMPLETE' | 'REVIEW' | 'VERIFIED'
+    43→
+    44→const DOC_TYPES: { value: DocType; label: string; icon: React.ElementType }[] = [
+    45→  { value: 'PRESCRIPTION', label: 'Prescription', icon: FileText },
+    46→  { value: 'LAB_REPORT', label: 'Lab Report', icon: ScanLine },
+    47→  { value: 'ID_PROOF', label: 'ID Proof', icon: ShieldCheck },
+    48→  { value: 'INSURANCE_CARD', label: 'Insurance Card', icon: ShieldCheck },
+    49→  { value: 'DISCHARGE_SUMMARY', label: 'Discharge Summary', icon: FileText },
+    50→  { value: 'REFERRAL_LETTER', label: 'Referral Letter', icon: File },
+    51→  { value: 'OTHER', label: 'Other', icon: File },
+    52→]
+    53→
+    54→interface Document {
+    55→  id: string
+    56→  patientId: string
+    57→  patientName: string
+    58→  type: DocType
+    59→  fileName: string
+    60→  fileSize: number
+    61→  fileType: string
+    62→  status: DocStatus
+    63→  ocrText: string | null
+    64→  ocrConfidence: number | null
+    65→  aiSummary: string | null
+    66→  verifiedBy: string | null
+    67→  verifiedAt: string | null
+    68→  createdAt: string
+    69→}
+    70→
+    71→interface Patient {
+    72→  id: string
+    73→  firstName: string
+    74→  lastName: string
+    75→}
+    76→
+    77→// ─── Style Maps ───────────────────────────────────────────────────────
+    78→
+    79→const docTypeIcons: Record<DocType, React.ElementType> = {
+    80→  PRESCRIPTION: FileText,
+    81→  LAB_REPORT: ScanLine,
+    82→  ID_PROOF: ShieldCheck,
+    83→  INSURANCE_CARD: ShieldCheck,
+    84→  DISCHARGE_SUMMARY: FileText,
+    85→  REFERRAL_LETTER: File,
+    86→  OTHER: File,
+    87→}
+    88→
+    89→const statusStyles: Record<DocStatus, string> = {
+    90→  UPLOADED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    91→  OCR_PROCESSING: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    92→  OCR_COMPLETE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    93→  REVIEW: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
+    94→  VERIFIED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    95→}
+    96→
+    97→const statusSteps: DocStatus[] = ['UPLOADED', 'OCR_PROCESSING', 'OCR_COMPLETE', 'REVIEW', 'VERIFIED']
+    98→
+    99→const fadeSlide = {
+   100→  initial: { opacity: 0, y: 12 },
+   101→  animate: { opacity: 1, y: 0 },
+   102→  transition: { duration: 0.3 },
+   103→}
+   104→
+   105→function formatFileSize(bytes: number): string {
+   106→  if (bytes < 1024) return `${bytes} B`
+   107→  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+   108→  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+   109→}
+   110→
+   111→// ─── Component ────────────────────────────────────────────────────────
+   112→
+   113→export function DocumentsSection() {
+   114→  const [patients, setPatients] = useState<Patient[]>([])
+   115→  const [documents, setDocuments] = useState<Document[]>([])
+   116→  const [loading, setLoading] = useState(true)
+   117→  const [searchQuery, setSearchQuery] = useState('')
+   118→  const [filterType, setFilterType] = useState<string>('ALL')
+   119→  const [filterStatus, setFilterStatus] = useState<string>('ALL')
+   120→
+   121→  // Upload form
+   122→  const [uploadOpen, setUploadOpen] = useState(false)
+   123→  const [formPatientId, setFormPatientId] = useState('')
+   124→  const [formDocType, setFormDocType] = useState<DocType>('PRESCRIPTION')
+   125→  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+   126→  const [uploading, setUploading] = useState(false)
+   127→
+   128→  // Detail dialog
+   129→  const [detailDoc, setDetailDoc] = useState<Document | null>(null)
+   130→
+   131→  // ─── Data Loading ─────────────────────────────────────────────────
+   132→
+   133→  useEffect(() => {
+   134→    fetch('/api/patients')
+   135→      .then((r) => r.json())
+   136→      .then((d) => {
+   137→        const list = d.data ?? d.patients ?? []
+   138→        setPatients(list)
+   139→        if (list.length > 0) setFormPatientId(list[0].id)
+   140→      })
+   141→      .catch(() => {
+   142→        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+   143→      })
+   144→  }, [])
+   145→
+   146→  const loadDocuments = useCallback(async () => {
+   147→    setLoading(true)
+   148→    try {
+   149→      const params = new URLSearchParams()
+   150→      if (filterType !== 'ALL') params.set('type', filterType)
+   151→      if (filterStatus !== 'ALL') params.set('status', filterStatus)
+   152→      if (searchQuery) params.set('search', searchQuery)
+   153→      const res = await fetch(`/api/documents?${params.toString()}`)
+   154→      const data = await res.json()
+   155→      setDocuments(data.data ?? data.documents ?? [])
+   156→    } catch {
+   157→      toast({ title: 'Error', description: 'Failed to load documents', variant: 'destructive' })
+   158→    } finally {
+   159→      setLoading(false)
+   160→    }
+   161→  }, [filterType, filterStatus, searchQuery])
+   162→
+   163→  useEffect(() => { loadDocuments() }, [loadDocuments])
+   164→
+   165→  // ─── Stats ────────────────────────────────────────────────────────
+   166→
+   167→  const stats = {
+   168→    total: documents.length,
+   169→    verified: documents.filter((d) => d.status === 'VERIFIED').length,
+   170→    pendingReview: documents.filter((d) => d.status === 'REVIEW').length,
+   171→    ocrProcessed: documents.filter((d) => d.ocrConfidence !== null).length,
+   172→  }
+   173→
+   174→  // ─── Actions ──────────────────────────────────────────────────────
+   175→
+   176→  const handleUpload = async () => {
+   177→    if (!formPatientId || !selectedFile) {
+   178→      toast({ title: 'Validation', description: 'Select patient and file', variant: 'destructive' })
+   179→      return
+   180→    }
+   181→    setUploading(true)
+   182→    try {
+   183→      const formData = new FormData()
+   184→      formData.append('file', selectedFile)
+   185→      formData.append('patientId', formPatientId)
+   186→      formData.append('type', formDocType)
+   187→      const res = await fetch('/api/documents', {
+   188→        method: 'POST',
+   189→        body: formData,
+   190→      })
+   191→      if (res.ok) {
+   192→        toast({ title: 'Document Uploaded', description: 'OCR processing will begin automatically' })
+   193→        setUploadOpen(false)
+   194→        setSelectedFile(null)
+   195→        loadDocuments()
+   196→      } else {
+   197→        toast({ title: 'Error', description: 'Failed to upload document', variant: 'destructive' })
+   198→      }
+   199→    } catch {
+   200→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   201→    } finally {
+   202→      setUploading(false)
+   203→    }
+   204→  }
+   205→
+   206→  const handleVerify = async (docId: string) => {
+   207→    try {
+   208→      const res = await fetch('/api/documents', {
+   209→        method: 'PUT',
+   210→        headers: { 'Content-Type': 'application/json' },
+   211→        body: JSON.stringify({ id: docId, status: 'VERIFIED' }),
+   212→      })
+   213→      if (res.ok) {
+   214→        toast({ title: 'Document Verified', description: 'Document has been verified successfully' })
+   215→        loadDocuments()
+   216→        setDetailDoc(null)
+   217→      }
+   218→    } catch {
+   219→      toast({ title: 'Error', description: 'Failed to verify document', variant: 'destructive' })
+   220→    }
+   221→  }
+   222→
+   223→  const handleSendToReview = async (docId: string) => {
+   224→    try {
+   225→      const res = await fetch('/api/documents', {
+   226→        method: 'PUT',
+   227→        headers: { 'Content-Type': 'application/json' },
+   228→        body: JSON.stringify({ id: docId, status: 'REVIEW' }),
+   229→      })
+   230→      if (res.ok) {
+   231→        toast({ title: 'Sent to Review', description: 'Document moved to review queue' })
+   232→        loadDocuments()
+   233→      }
+   234→    } catch {
+   235→      toast({ title: 'Error', description: 'Failed to update document', variant: 'destructive' })
+   236→    }
+   237→  }
+   238→
+   239→  // ─── Filtered docs ────────────────────────────────────────────────
+   240→
+   241→  const filteredDocs = documents.filter((doc) => {
+   242→    if (searchQuery) {
+   243→      const q = searchQuery.toLowerCase()
+   244→      if (
+   245→        !doc.fileName.toLowerCase().includes(q) &&
+   246→        !doc.patientName.toLowerCase().includes(q) &&
+   247→        !doc.type.toLowerCase().includes(q)
+   248→      )
+   249→        return false
+   250→    }
+   251→    return true
+   252→  })
+   253→
+   254→  // ─── Render ───────────────────────────────────────────────────────
+   255→
+   256→  return (
+   257→    <motion.div {...fadeSlide} className="space-y-4">
+   258→      {/* Stats Cards */}
+   259→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   260→        {[
+   261→          { label: 'Total Documents', value: stats.total, icon: File, color: 'text-slate-600 dark:text-slate-400' },
+   262→          { label: 'Verified', value: stats.verified, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400' },
+   263→          { label: 'Pending Review', value: stats.pendingReview, icon: Clock, color: 'text-violet-600 dark:text-violet-400' },
+   264→          { label: 'OCR Processed', value: stats.ocrProcessed, icon: ScanLine, color: 'text-teal-600 dark:text-teal-400' },
+   265→        ].map((s) => (
+   266→          <Card key={s.label}>
+   267→            <CardContent className="p-4 flex items-center gap-3">
+   268→              <s.icon className={`h-5 w-5 ${s.color}`} />
+   269→              <div>
+   270→                <p className="text-2xl font-bold">{s.value}</p>
+   271→                <p className="text-xs text-muted-foreground">{s.label}</p>
+   272→              </div>
+   273→            </CardContent>
+   274→          </Card>
+   275→        ))}
+   276→      </div>
+   277→
+   278→      {/* Toolbar */}
+   279→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   280→        <div className="flex items-center gap-2 flex-wrap">
+   281→          <div className="relative">
+   282→            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+   283→            <Input
+   284→              placeholder="Search documents..."
+   285→              className="w-56 pl-8 h-8"
+   286→              value={searchQuery}
+   287→              onChange={(e) => setSearchQuery(e.target.value)}
+   288→            />
+   289→          </div>
+   290→          <Select value={filterType} onValueChange={setFilterType}>
+   291→            <SelectTrigger className="w-36 h-8"><SelectValue placeholder="Type" /></SelectTrigger>
+   292→            <SelectContent>
+   293→              <SelectItem value="ALL">All Types</SelectItem>
+   294→              {DOC_TYPES.map((dt) => (
+   295→                <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
+   296→              ))}
+   297→            </SelectContent>
+   298→          </Select>
+   299→          <Select value={filterStatus} onValueChange={setFilterStatus}>
+   300→            <SelectTrigger className="w-32 h-8"><SelectValue placeholder="Status" /></SelectTrigger>
+   301→            <SelectContent>
+   302→              <SelectItem value="ALL">All Status</SelectItem>
+   303→              <SelectItem value="UPLOADED">Uploaded</SelectItem>
+   304→              <SelectItem value="OCR_PROCESSING">OCR Processing</SelectItem>
+   305→              <SelectItem value="OCR_COMPLETE">OCR Complete</SelectItem>
+   306→              <SelectItem value="REVIEW">Review</SelectItem>
+   307→              <SelectItem value="VERIFIED">Verified</SelectItem>
+   308→            </SelectContent>
+   309→          </Select>
+   310→        </div>
+   311→
+   312→        <div className="sm:ml-auto">
+   313→          <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+   314→            <DialogTrigger asChild>
+   315→              <Button className="gap-2">
+   316→                <Upload className="h-4 w-4" />
+   317→                Upload Document
+   318→              </Button>
+   319→            </DialogTrigger>
+   320→            <DialogContent className="max-w-lg">
+   321→              <DialogHeader>
+   322→                <DialogTitle className="flex items-center gap-2">
+   323→                  <Upload className="h-5 w-5" />
+   324→                  Upload Document
+   325→                </DialogTitle>
+   326→                <DialogDescription>Upload a document with OCR and AI processing</DialogDescription>
+   327→              </DialogHeader>
+   328→              <div className="grid gap-4 py-4">
+   329→                {/* Patient */}
+   330→                <div className="space-y-2">
+   331→                  <Label>Patient</Label>
+   332→                  <Select value={formPatientId} onValueChange={setFormPatientId}>
+   333→                    <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+   334→                    <SelectContent>
+   335→                      {patients.map((p) => (
+   336→                        <SelectItem key={p.id} value={p.id}>
+   337→                          {p.firstName} {p.lastName}
+   338→                        </SelectItem>
+   339→                      ))}
+   340→                    </SelectContent>
+   341→                  </Select>
+   342→                </div>
+   343→
+   344→                {/* Document Type */}
+   345→                <div className="space-y-2">
+   346→                  <Label>Document Type</Label>
+   347→                  <Select value={formDocType} onValueChange={(v) => setFormDocType(v as DocType)}>
+   348→                    <SelectTrigger><SelectValue /></SelectTrigger>
+   349→                    <SelectContent>
+   350→                      {DOC_TYPES.map((dt) => (
+   351→                        <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
+   352→                      ))}
+   353→                    </SelectContent>
+   354→                  </Select>
+   355→                </div>
+   356→
+   357→                {/* File Upload (drag-and-drop visual, file input) */}
+   358→                <div className="space-y-2">
+   359→                  <Label>File</Label>
+   360→                  <div
+   361→                    className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-colors"
+   362→                    onClick={() => document.getElementById('doc-file-input')?.click()}
+   363→                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+   364→                    onDrop={(e) => {
+   365→                      e.preventDefault(); e.stopPropagation()
+   366→                      const file = e.dataTransfer.files?.[0]
+   367→                      if (file) setSelectedFile(file)
+   368→                    }}
+   369→                  >
+   370→                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+   371→                    {selectedFile ? (
+   372→                      <div className="text-sm">
+   373→                        <p className="font-medium">{selectedFile.name}</p>
+   374→                        <p className="text-muted-foreground">{formatFileSize(selectedFile.size)} • {selectedFile.type || 'unknown'}</p>
+   375→                      </div>
+   376→                    ) : (
+   377→                      <p className="text-sm text-muted-foreground">
+   378→                        Click to select or drag &amp; drop a file here
+   379→                      </p>
+   380→                    )}
+   381→                    <input
+   382→                      id="doc-file-input"
+   383→                      type="file"
+   384→                      className="hidden"
+   385→                      onChange={(e) => {
+   386→                        const file = e.target.files?.[0]
+   387→                        if (file) setSelectedFile(file)
+   388→                      }}
+   389→                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+   390→                    />
+   391→                  </div>
+   392→                </div>
+   393→              </div>
+   394→              <DialogFooter>
+   395→                <Button variant="outline" onClick={() => { setUploadOpen(false); setSelectedFile(null) }}>Cancel</Button>
+   396→                <Button onClick={handleUpload} disabled={uploading || !selectedFile}>
+   397→                  {uploading ? 'Uploading...' : 'Upload & Process'}
+   398→                </Button>
+   399→              </DialogFooter>
+   400→            </DialogContent>
+   401→          </Dialog>
+   402→        </div>
+   403→      </div>
+   404→
+   405→      {/* Document List */}
+   406→      <Card>
+   407→        <CardHeader>
+   408→          <CardTitle className="text-base flex items-center gap-2">
+   409→            <FileText className="h-5 w-5" />
+   410→            Documents
+   411→          </CardTitle>
+   412→          <CardDescription>Uploaded documents with OCR processing and verification workflow</CardDescription>
+   413→        </CardHeader>
+   414→        <CardContent>
+   415→          {loading ? (
+   416→            <div className="space-y-2">
+   417→              {[1, 2, 3, 4].map((i) => (
+   418→                <Skeleton key={i} className="h-14 w-full" />
+   419→              ))}
+   420→            </div>
+   421→          ) : (
+   422→            <div className="space-y-2 max-h-96 overflow-y-auto">
+   423→              {filteredDocs.map((doc) => {
+   424→                const TypeIcon = docTypeIcons[doc.type]
+   425→                return (
+   426→                  <div
+   427→                    key={doc.id}
+   428→                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+   429→                  >
+   430→                    <div className="shrink-0 h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+   431→                      <TypeIcon className="h-5 w-5 text-muted-foreground" />
+   432→                    </div>
+   433→                    <div className="flex-1 min-w-0">
+   434→                      <p className="font-medium text-sm truncate">{doc.fileName}</p>
+   435→                      <p className="text-xs text-muted-foreground">
+   436→                        {doc.patientName} • {formatFileSize(doc.fileSize)} • {DOC_TYPES.find((d) => d.value === doc.type)?.label}
+   437→                      </p>
+   438→                    </div>
+   439→                    <Badge variant="outline" className={statusStyles[doc.status]}>
+   440→                      {doc.status.replace('_', ' ')}
+   441→                    </Badge>
+   442→                    <div className="flex items-center gap-1">
+   443→                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setDetailDoc(doc)}>
+   444→                        <Eye className="h-3.5 w-3.5" />
+   445→                      </Button>
+   446→                      {doc.status === 'REVIEW' && (
+   447→                        <Button
+   448→                          size="sm"
+   449→                          variant="outline"
+   450→                          className="h-7 gap-1 text-xs text-green-700 dark:text-green-400"
+   451→                          onClick={() => handleVerify(doc.id)}
+   452→                        >
+   453→                          <CheckCircle2 className="h-3 w-3" /> Verify
+   454→                        </Button>
+   455→                      )}
+   456→                      {doc.status === 'OCR_COMPLETE' && (
+   457→                        <Button
+   458→                          size="sm"
+   459→                          variant="outline"
+   460→                          className="h-7 gap-1 text-xs"
+   461→                          onClick={() => handleSendToReview(doc.id)}
+   462→                        >
+   463→                          <Eye className="h-3 w-3" /> Review
+   464→                        </Button>
+   465→                      )}
+   466→                    </div>
+   467→                  </div>
+   468→                )
+   469→              })}
+   470→              {filteredDocs.length === 0 && (
+   471→                <div className="text-center text-muted-foreground py-8">
+   472→                  No documents found
+   473→                </div>
+   474→              )}
+   475→            </div>
+   476→          )}
+   477→        </CardContent>
+   478→      </Card>
+   479→
+   480→      {/* Detail Dialog */}
+   481→      <Dialog open={!!detailDoc} onOpenChange={(open) => !open && setDetailDoc(null)}>
+   482→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   483→          {detailDoc && (
+   484→            <>
+   485→              <DialogHeader>
+   486→                <DialogTitle className="flex items-center gap-2">
+   487→                  {(() => { const I = docTypeIcons[detailDoc.type]; return <I className="h-5 w-5" /> })()}
+   488→                  Document Detail
+   489→                </DialogTitle>
+   490→                <DialogDescription>{detailDoc.fileName}</DialogDescription>
+   491→              </DialogHeader>
+   492→              <div className="grid gap-4 py-4 text-sm">
+   493→                {/* Workflow steps */}
+   494→                <div>
+   495→                  <Label className="text-xs text-muted-foreground">Verification Workflow</Label>
+   496→                  <div className="flex items-center gap-1 mt-2">
+   497→                    {statusSteps.map((step, i) => {
+   498→                      const stepIdx = statusSteps.indexOf(detailDoc.status)
+   499→                      const isDone = i <= stepIdx
+   500→                      const isCurrent = step === detailDoc.status
+   501→                      return (
+   502→                        <div key={step} className="flex items-center gap-1">
+   503→                          <div
+   504→                            className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+   505→                              isCurrent
+   506→                                ? 'bg-teal-500 text-white'
+   507→                                : isDone
+   508→                                ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300'
+   509→                                : 'bg-muted text-muted-foreground'
+   510→                            }`}
+   511→                          >
+   512→                            {isDone ? '✓' : i + 1}
+   513→                          </div>
+   514→                          {i < statusSteps.length - 1 && (
+   515→                            <div className={`h-0.5 w-4 ${isDone && i < stepIdx ? 'bg-teal-400' : 'bg-muted'}`} />
+   516→                          )}
+   517→                        </div>
+   518→                      )
+   519→                    })}
+   520→                  </div>
+   521→                  <div className="flex items-center gap-3 mt-1">
+   522→                    {statusSteps.map((step) => (
+   523→                      <span key={step} className="text-[9px] text-muted-foreground w-6 text-center">
+   524→                        {step === 'OCR_PROCESSING' ? 'OCR' : step.slice(0, 4)}
+   525→                      </span>
+   526→                    ))}
+   527→                  </div>
+   528→                </div>
+   529→
+   530→                <Separator />
+   531→
+   532→                <div className="grid grid-cols-2 gap-3">
+   533→                  <div>
+   534→                    <span className="text-muted-foreground">Type</span>
+   535→                    <p className="font-medium mt-0.5">{DOC_TYPES.find((d) => d.value === detailDoc.type)?.label}</p>
+   536→                  </div>
+   537→                  <div>
+   538→                    <span className="text-muted-foreground">Status</span>
+   539→                    <div className="mt-0.5">
+   540→                      <Badge variant="outline" className={statusStyles[detailDoc.status]}>
+   541→                        {detailDoc.status.replace('_', ' ')}
+   542→                      </Badge>
+   543→                    </div>
+   544→                  </div>
+   545→                </div>
+   546→                <div className="grid grid-cols-2 gap-3">
+   547→                  <div>
+   548→                    <span className="text-muted-foreground">Patient</span>
+   549→                    <p className="font-medium mt-0.5">{detailDoc.patientName}</p>
+   550→                  </div>
+   551→                  <div>
+   552→                    <span className="text-muted-foreground">File Size</span>
+   553→                    <p className="mt-0.5">{formatFileSize(detailDoc.fileSize)}</p>
+   554→                  </div>
+   555→                </div>
+   556→
+   557→                {/* OCR Results */}
+   558→                {detailDoc.ocrText && (
+   559→                  <>
+   560→                    <Separator />
+   561→                    <div>
+   562→                      <Label className="flex items-center gap-1">
+   563→                        <ScanLine className="h-3.5 w-3.5" /> OCR Result
+   564→                      </Label>
+   565→                      <div className="mt-2 p-3 rounded-md bg-muted/50 text-xs max-h-32 overflow-y-auto">
+   566→                        {detailDoc.ocrText}
+   567→                      </div>
+   568→                      {detailDoc.ocrConfidence !== null && (
+   569→                        <div className="mt-2">
+   570→                          <div className="flex justify-between text-xs mb-1">
+   571→                            <span className="text-muted-foreground">OCR Confidence</span>
+   572→                            <span className="font-medium">{detailDoc.ocrConfidence}%</span>
+   573→                          </div>
+   574→                          <Progress
+   575→                            value={detailDoc.ocrConfidence}
+   576→                            className="h-2"
+   577→                          />
+   578→                        </div>
+   579→                      )}
+   580→                    </div>
+   581→                  </>
+   582→                )}
+   583→
+   584→                {/* AI Summary */}
+   585→                {detailDoc.aiSummary && (
+   586→                  <div>
+   587→                    <Label className="flex items-center gap-1">
+   588→                      🤖 AI Summary
+   589→                    </Label>
+   590→                    <div className="mt-2 p-3 rounded-md border text-xs">
+   591→                      {detailDoc.aiSummary}
+   592→                    </div>
+   593→                  </div>
+   594→                )}
+   595→
+   596→                {/* Verification Info */}
+   597→                {detailDoc.verifiedBy && (
+   598→                  <>
+   599→                    <Separator />
+   600→                    <div className="flex items-center gap-2">
+   601→                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+   602→                      <div>
+   603→                        <p className="text-xs font-medium">Verified by {detailDoc.verifiedBy}</p>
+   604→                        <p className="text-xs text-muted-foreground">
+   605→                          {new Date(detailDoc.verifiedAt!).toLocaleString()}
+   606→                        </p>
+   607→                      </div>
+   608→                    </div>
+   609→                  </>
+   610→                )}
+   611→
+   612→                <div>
+   613→                  <span className="text-muted-foreground">Uploaded</span>
+   614→                  <p className="mt-0.5">{new Date(detailDoc.createdAt).toLocaleString()}</p>
+   615→                </div>
+   616→              </div>
+   617→              <DialogFooter>
+   618→                {detailDoc.status === 'REVIEW' && (
+   619→                  <Button className="gap-1" onClick={() => handleVerify(detailDoc.id)}>
+   620→                    <CheckCircle2 className="h-4 w-4" /> Verify Document
+   621→                  </Button>
+   622→                )}
+   623→                <Button variant="ghost" onClick={() => setDetailDoc(null)}>Close</Button>
+   624→              </DialogFooter>
+   625→            </>
+   626→          )}
+   627→        </DialogContent>
+   628→      </Dialog>
+   629→    </motion.div>
+   630→  )
+   631→}
+   632→

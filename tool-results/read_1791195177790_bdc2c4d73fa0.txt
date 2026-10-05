@@ -1,0 +1,745 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  AlertTriangle,
+     7→  Shield,
+     8→  Pill,
+     9→  Beaker,
+    10→  FileWarning,
+    11→  Brain,
+    12→  CheckCircle2,
+    13→  X,
+    14→  Filter,
+    15→  Bell,
+    16→  BellOff,
+    17→  ChevronDown,
+    18→  ExternalLink,
+    19→  AlertCircle,
+    20→  Ban,
+    21→} from 'lucide-react'
+    22→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    23→import { Button } from '@/components/ui/button'
+    24→import { Badge } from '@/components/ui/badge'
+    25→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+    26→import { Input } from '@/components/ui/input'
+    27→import { Textarea } from '@/components/ui/textarea'
+    28→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    29→import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+    30→import { Separator } from '@/components/ui/separator'
+    31→import { Skeleton } from '@/components/ui/skeleton'
+    32→import { useAppStore } from '@/lib/store'
+    33→import { toast } from '@/hooks/use-toast'
+    34→
+    35→// ─── Types ───────────────────────────────────────────────────────────────────
+    36→
+    37→type CDSAlertType =
+    38→  | 'DRUG_INTERACTION'
+    39→  | 'ALLERGY'
+    40→  | 'DUPLICATE'
+    41→  | 'DOSAGE'
+    42→  | 'CONTRAINDICATION'
+    43→  | 'LAB_ALERT'
+    44→  | 'RECALL'
+    45→  | 'GUIDELINE'
+    46→
+    47→type CDSSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
+    48→
+    49→interface CDSAlert {
+    50→  id: string
+    51→  type: CDSAlertType
+    52→  severity: CDSSeverity
+    53→  title: string
+    54→  description: string
+    55→  evidenceReference: string
+    56→  suggestedAction: string
+    57→  overrideable: boolean
+    58→  acknowledged: boolean
+    59→  acknowledgedBy: string | null
+    60→  acknowledgedAt: string | null
+    61→  overridden: boolean
+    62→  overrideReason: string | null
+    63→  createdAt: string
+    64→  patientId: string
+    65→  patientName: string
+    66→}
+    67→
+    68→// ─── Config Maps ─────────────────────────────────────────────────────────────
+    69→
+    70→const ALERT_TYPE_CONFIG: Record<CDSAlertType, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
+    71→  DRUG_INTERACTION: {
+    72→    label: 'Drug Interaction',
+    73→    icon: Pill,
+    74→    color: 'text-red-600 dark:text-red-400',
+    75→    bgColor: 'bg-red-50 dark:bg-red-950/30',
+    76→  },
+    77→  ALLERGY: {
+    78→    label: 'Allergy',
+    79→    icon: AlertCircle,
+    80→    color: 'text-orange-600 dark:text-orange-400',
+    81→    bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+    82→  },
+    83→  DUPLICATE: {
+    84→    label: 'Duplicate Therapy',
+    85→    icon: FileWarning,
+    86→    color: 'text-amber-600 dark:text-amber-400',
+    87→    bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+    88→  },
+    89→  DOSAGE: {
+    90→    label: 'Dosage Range',
+    91→    icon: Beaker,
+    92→    color: 'text-purple-600 dark:text-purple-400',
+    93→    bgColor: 'bg-purple-50 dark:bg-purple-950/30',
+    94→  },
+    95→  CONTRAINDICATION: {
+    96→    label: 'Contraindication',
+    97→    icon: Ban,
+    98→    color: 'text-red-600 dark:text-red-400',
+    99→    bgColor: 'bg-red-50 dark:bg-red-950/30',
+   100→  },
+   101→  LAB_ALERT: {
+   102→    label: 'Lab Alert',
+   103→    icon: Beaker,
+   104→    color: 'text-cyan-600 dark:text-cyan-400',
+   105→    bgColor: 'bg-cyan-50 dark:bg-cyan-950/30',
+   106→  },
+   107→  RECALL: {
+   108→    label: 'Medicine Recall',
+   109→    icon: AlertTriangle,
+   110→    color: 'text-red-600 dark:text-red-400',
+   111→    bgColor: 'bg-red-50 dark:bg-red-950/30',
+   112→  },
+   113→  GUIDELINE: {
+   114→    label: 'Clinical Guideline',
+   115→    icon: Brain,
+   116→    color: 'text-emerald-600 dark:text-emerald-400',
+   117→    bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
+   118→  },
+   119→}
+   120→
+   121→const SEVERITY_CONFIG: Record<CDSSeverity, { label: string; badgeClass: string }> = {
+   122→  INFO: {
+   123→    label: 'Info',
+   124→    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+   125→  },
+   126→  WARNING: {
+   127→    label: 'Warning',
+   128→    badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   129→  },
+   130→  CRITICAL: {
+   131→    label: 'Critical',
+   132→    badgeClass: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   133→  },
+   134→}
+   135→
+   136→const SEVERITY_ORDER: Record<CDSSeverity, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 }
+   137→
+   138→// ─── Demo Data ───────────────────────────────────────────────────────────────
+   139→
+   140→const DEMO_ALERTS: CDSAlert[] = [
+   141→  {
+   142→    id: 'cds-1',
+   143→    type: 'DRUG_INTERACTION',
+   144→    severity: 'CRITICAL',
+   145→    title: 'Warfarin + Aspirin - Increased bleeding risk',
+   146→    description: 'Concurrent use of Warfarin and Aspirin significantly increases the risk of major bleeding events. INR monitoring recommended.',
+   147→    evidenceReference: 'Cochrane Review 2019; BMJ 2020; DOI:10.1136/bmj.m1234',
+   148→    suggestedAction: 'Consider alternative analgesic (e.g., Paracetamol). If combination necessary, monitor INR weekly and reduce Warfarin dose by 25%.',
+   149→    overrideable: true,
+   150→    acknowledged: false,
+   151→    acknowledgedBy: null,
+   152→    acknowledgedAt: null,
+   153→    overridden: false,
+   154→    overrideReason: null,
+   155→    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+   156→    patientId: 'p-001',
+   157→    patientName: 'Rajesh Kumar',
+   158→  },
+   159→  {
+   160→    id: 'cds-2',
+   161→    type: 'DOSAGE',
+   162→    severity: 'WARNING',
+   163→    title: 'Metformin dose 2000mg exceeds renal-adjusted limit',
+   164→    description: 'Patient eGFR is 35 mL/min. Maximum Metformin dose for eGFR 30-45 is 1000mg/day. Current order is 2000mg/day.',
+   165→    evidenceReference: 'NICE NG28; ADA Standards of Care 2024',
+   166→    suggestedAction: 'Reduce Metformin to 1000mg/day. Monitor renal function every 3 months. Consider alternative if eGFR < 30.',
+   167→    overrideable: true,
+   168→    acknowledged: false,
+   169→    acknowledgedBy: null,
+   170→    acknowledgedAt: null,
+   171→    overridden: false,
+   172→    overrideReason: null,
+   173→    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+   174→    patientId: 'p-001',
+   175→    patientName: 'Rajesh Kumar',
+   176→  },
+   177→  {
+   178→    id: 'cds-3',
+   179→    type: 'ALLERGY',
+   180→    severity: 'CRITICAL',
+   181→    title: 'Patient allergic to Penicillin - Amoxicillin ordered',
+   182→    description: 'Patient has documented Penicillin allergy (anaphylaxis). Amoxicillin is a penicillin-class antibiotic and is contraindicated.',
+   183→    evidenceReference: 'Patient allergy record; NICE Drug Allergy Guidelines',
+   184→    suggestedAction: 'Switch to non-penicillin alternative: Azithromycin 500mg or Ciprofloxacin 500mg based on infection type.',
+   185→    overrideable: false,
+   186→    acknowledged: false,
+   187→    acknowledgedBy: null,
+   188→    acknowledgedAt: null,
+   189→    overridden: false,
+   190→    overrideReason: null,
+   191→    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+   192→    patientId: 'p-002',
+   193→    patientName: 'Priya Sharma',
+   194→  },
+   195→  {
+   196→    id: 'cds-4',
+   197→    type: 'GUIDELINE',
+   198→    severity: 'INFO',
+   199→    title: 'Consider HbA1c monitoring for diabetic patient',
+   200→    description: 'Patient on Metformin for Type 2 DM. No HbA1c ordered in last 90 days. Guideline recommends HbA1c every 3 months for unstable diabetes.',
+   201→    evidenceReference: 'ADA Standards of Care 2024; ICMR Guidelines 2023',
+   202→    suggestedAction: 'Order HbA1c test. Schedule diabetes review appointment. Assess dietary compliance.',
+   203→    overrideable: true,
+   204→    acknowledged: false,
+   205→    acknowledgedBy: null,
+   206→    acknowledgedAt: null,
+   207→    overridden: false,
+   208→    overrideReason: null,
+   209→    createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+   210→    patientId: 'p-001',
+   211→    patientName: 'Rajesh Kumar',
+   212→  },
+   213→  {
+   214→    id: 'cds-5',
+   215→    type: 'RECALL',
+   216→    severity: 'WARNING',
+   217→    title: 'Ranitidine batch under CDSCO recall',
+   218→    description: 'Ranitidine 150mg (Batch: RAN2024A) has been recalled by CDSCO due to NDMA impurity above acceptable limits.',
+   219→    evidenceReference: 'CDSCO Recall Notice RCL-2024-089; IPC PvPI Alert',
+   220→    suggestedAction: 'Discontinue Ranitidine. Switch to Famotidine 20mg or Pantoprazole 40mg as alternative.',
+   221→    overrideable: false,
+   222→    acknowledged: false,
+   223→    acknowledgedBy: null,
+   224→    acknowledgedAt: null,
+   225→    overridden: false,
+   226→    overrideReason: null,
+   227→    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+   228→    patientId: 'p-003',
+   229→    patientName: 'Amit Patel',
+   230→  },
+   231→]
+   232→
+   233→// ─── Animation ───────────────────────────────────────────────────────────────
+   234→
+   235→const fadeSlide = {
+   236→  initial: { opacity: 0, y: 12 },
+   237→  animate: { opacity: 1, y: 0 },
+   238→  transition: { duration: 0.3 },
+   239→}
+   240→
+   241→// ─── Component ───────────────────────────────────────────────────────────────
+   242→
+   243→export function CDSSection() {
+   244→  const { selectedPatientId } = useAppStore()
+   245→
+   246→  const [alerts, setAlerts] = useState<CDSAlert[]>([])
+   247→  const [loading, setLoading] = useState(true)
+   248→
+   249→  // Filters
+   250→  const [filterType, setFilterType] = useState<string>('ALL')
+   251→  const [filterSeverity, setFilterSeverity] = useState<string>('ALL')
+   252→  const [filterAck, setFilterAck] = useState<string>('ALL')
+   253→
+   254→  // Override dialog
+   255→  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
+   256→  const [overrideAlert, setOverrideAlert] = useState<CDSAlert | null>(null)
+   257→  const [overrideReason, setOverrideReason] = useState('')
+   258→  const [overrideSubmitting, setOverrideSubmitting] = useState(false)
+   259→
+   260→  // Acknowledge submitting
+   261→  const [ackSubmitting, setAckSubmitting] = useState<string | null>(null)
+   262→
+   263→  // ── Fetch alerts ──
+   264→  useEffect(() => {
+   265→    setLoading(true)
+   266→    fetch('/api/cds')
+   267→      .then((r) => r.json())
+   268→      .then((d) => {
+   269→        const data = d.data ?? d.alerts ?? []
+   270→        if (Array.isArray(data) && data.length > 0) {
+   271→          setAlerts(data)
+   272→        } else {
+   273→          setAlerts(DEMO_ALERTS)
+   274→        }
+   275→      })
+   276→      .catch(() => setAlerts(DEMO_ALERTS))
+   277→      .finally(() => setLoading(false))
+   278→  }, [selectedPatientId])
+   279→
+   280→  // ── Filtered alerts ──
+   281→  const filteredAlerts = alerts
+   282→    .filter((a) => filterType === 'ALL' || a.type === filterType)
+   283→    .filter((a) => filterSeverity === 'ALL' || a.severity === filterSeverity)
+   284→    .filter((a) => {
+   285→      if (filterAck === 'ALL') return true
+   286→      if (filterAck === 'ACKNOWLEDGED') return a.acknowledged
+   287→      if (filterAck === 'UNACKNOWLEDGED') return !a.acknowledged
+   288→      return true
+   289→    })
+   290→    .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
+   291→
+   292→  const activeCount = alerts.filter((a) => !a.acknowledged).length
+   293→  const criticalCount = alerts.filter((a) => a.severity === 'CRITICAL' && !a.acknowledged).length
+   294→  const warningCount = alerts.filter((a) => a.severity === 'WARNING' && !a.acknowledged).length
+   295→  const infoCount = alerts.filter((a) => a.severity === 'INFO' && !a.acknowledged).length
+   296→
+   297→  // ── Acknowledge single alert ──
+   298→  const handleAcknowledge = useCallback(async (alertId: string) => {
+   299→    setAckSubmitting(alertId)
+   300→    try {
+   301→      const res = await fetch('/api/cds', {
+   302→        method: 'PUT',
+   303→        headers: { 'Content-Type': 'application/json' },
+   304→        body: JSON.stringify({ id: alertId, action: 'acknowledge' }),
+   305→      })
+   306→      if (res.ok) {
+   307→        setAlerts((prev) =>
+   308→          prev.map((a) =>
+   309→            a.id === alertId
+   310→              ? { ...a, acknowledged: true, acknowledgedBy: 'Dr. Current User', acknowledgedAt: new Date().toISOString() }
+   311→              : a
+   312→          )
+   313→        )
+   314→        toast({ title: 'Alert Acknowledged', description: 'Clinical decision support alert acknowledged' })
+   315→      } else {
+   316→        // Still update locally for demo
+   317→        setAlerts((prev) =>
+   318→          prev.map((a) =>
+   319→            a.id === alertId
+   320→              ? { ...a, acknowledged: true, acknowledgedBy: 'Dr. Current User', acknowledgedAt: new Date().toISOString() }
+   321→              : a
+   322→          )
+   323→        )
+   324→        toast({ title: 'Alert Acknowledged' })
+   325→      }
+   326→    } catch {
+   327→      // Local update for demo
+   328→      setAlerts((prev) =>
+   329→        prev.map((a) =>
+   330→          a.id === alertId
+   331→            ? { ...a, acknowledged: true, acknowledgedBy: 'Dr. Current User', acknowledgedAt: new Date().toISOString() }
+   332→            : a
+   333→        )
+   334→      )
+   335→      toast({ title: 'Alert Acknowledged' })
+   336→    } finally {
+   337→      setAckSubmitting(null)
+   338→    }
+   339→  }, [])
+   340→
+   341→  // ── Acknowledge all non-critical ──
+   342→  const handleAcknowledgeAll = async () => {
+   343→    const nonCriticalUnacked = alerts.filter((a) => !a.acknowledged && a.severity !== 'CRITICAL')
+   344→    if (nonCriticalUnacked.length === 0) {
+   345→      toast({ title: 'No alerts to acknowledge', description: 'All non-critical alerts are already acknowledged' })
+   346→      return
+   347→    }
+   348→    try {
+   349→      await fetch('/api/cds', {
+   350→        method: 'PUT',
+   351→        headers: { 'Content-Type': 'application/json' },
+   352→        body: JSON.stringify({ action: 'acknowledge_all', excludeCritical: true }),
+   353→      })
+   354→    } catch {
+   355→      // Continue with local update
+   356→    }
+   357→    setAlerts((prev) =>
+   358→      prev.map((a) =>
+   359→        !a.acknowledged && a.severity !== 'CRITICAL'
+   360→          ? { ...a, acknowledged: true, acknowledgedBy: 'Dr. Current User', acknowledgedAt: new Date().toISOString() }
+   361→          : a
+   362→      )
+   363→    )
+   364→    toast({
+   365→      title: `${nonCriticalUnacked.length} Alerts Acknowledged`,
+   366→      description: 'All non-critical alerts have been acknowledged',
+   367→    })
+   368→  }
+   369→
+   370→  // ── Override alert ──
+   371→  const handleOverride = async () => {
+   372→    if (!overrideAlert || !overrideReason.trim()) {
+   373→      toast({ title: 'Validation Error', description: 'Override reason is required', variant: 'destructive' })
+   374→      return
+   375→    }
+   376→    setOverrideSubmitting(true)
+   377→    try {
+   378→      await fetch('/api/cds', {
+   379→        method: 'PUT',
+   380→        headers: { 'Content-Type': 'application/json' },
+   381→        body: JSON.stringify({ id: overrideAlert.id, action: 'override', reason: overrideReason }),
+   382→      })
+   383→    } catch {
+   384→      // Continue with local update
+   385→    }
+   386→    setAlerts((prev) =>
+   387→      prev.map((a) =>
+   388→        a.id === overrideAlert!.id
+   389→          ? {
+   390→              ...a,
+   391→              overridden: true,
+   392→              overrideReason: overrideReason,
+   393→              acknowledged: true,
+   394→              acknowledgedBy: 'Dr. Current User',
+   395→              acknowledgedAt: new Date().toISOString(),
+   396→            }
+   397→          : a
+   398→      )
+   399→    )
+   400→    toast({ title: 'Alert Overridden', description: 'Override reason has been recorded' })
+   401→    setOverrideDialogOpen(false)
+   402→    setOverrideAlert(null)
+   403→    setOverrideReason('')
+   404→    setOverrideSubmitting(false)
+   405→  }
+   406→
+   407→  const openOverride = (alert: CDSAlert) => {
+   408→    setOverrideAlert(alert)
+   409→    setOverrideReason('')
+   410→    setOverrideDialogOpen(true)
+   411→  }
+   412→
+   413→  // ── Loading skeleton ──
+   414→  if (loading) {
+   415→    return (
+   416→      <div className="space-y-3">
+   417→        {[1, 2, 3, 4].map((i) => (
+   418→          <Skeleton key={i} className="h-28 w-full rounded-lg" />
+   419→        ))}
+   420→      </div>
+   421→    )
+   422→  }
+   423→
+   424→  return (
+   425→    <motion.div {...fadeSlide} className="space-y-4">
+   426→      {/* ── Stats Row ── */}
+   427→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   428→        <Card>
+   429→          <CardContent className="p-4 text-center">
+   430→            <div className="flex items-center justify-center gap-2 mb-1">
+   431→              <Bell className="h-4 w-4 text-amber-600" />
+   432→              <span className="text-2xl font-bold">{activeCount}</span>
+   433→            </div>
+   434→            <p className="text-xs text-muted-foreground">Active Alerts</p>
+   435→          </CardContent>
+   436→        </Card>
+   437→        <Card>
+   438→          <CardContent className="p-4 text-center">
+   439→            <div className="flex items-center justify-center gap-2 mb-1">
+   440→              <AlertTriangle className="h-4 w-4 text-red-600" />
+   441→              <span className="text-2xl font-bold text-red-600">{criticalCount}</span>
+   442→            </div>
+   443→            <p className="text-xs text-muted-foreground">Critical</p>
+   444→          </CardContent>
+   445→        </Card>
+   446→        <Card>
+   447→          <CardContent className="p-4 text-center">
+   448→            <div className="flex items-center justify-center gap-2 mb-1">
+   449→              <AlertCircle className="h-4 w-4 text-amber-600" />
+   450→              <span className="text-2xl font-bold text-amber-600">{warningCount}</span>
+   451→            </div>
+   452→            <p className="text-xs text-muted-foreground">Warnings</p>
+   453→          </CardContent>
+   454→        </Card>
+   455→        <Card>
+   456→          <CardContent className="p-4 text-center">
+   457→            <div className="flex items-center justify-center gap-2 mb-1">
+   458→              <Brain className="h-4 w-4 text-blue-600" />
+   459→              <span className="text-2xl font-bold text-blue-600">{infoCount}</span>
+   460→            </div>
+   461→            <p className="text-xs text-muted-foreground">Info / Guideline</p>
+   462→          </CardContent>
+   463→        </Card>
+   464→      </div>
+   465→
+   466→      {/* ── Header & Filters ── */}
+   467→      <Card>
+   468→        <CardHeader className="pb-3">
+   469→          <div className="flex items-start justify-between gap-2 flex-wrap">
+   470→            <div>
+   471→              <CardTitle className="text-base flex items-center gap-2">
+   472→                <Shield className="h-5 w-5" />
+   473→                Clinical Decision Support Alerts
+   474→                {activeCount > 0 && (
+   475→                  <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 ml-1">
+   476→                    {activeCount} active
+   477→                  </Badge>
+   478→                )}
+   479→              </CardTitle>
+   480→              <CardDescription>Real-time clinical alerts for patient safety and guideline adherence</CardDescription>
+   481→            </div>
+   482→            <Button
+   483→              variant="outline"
+   484→              size="sm"
+   485→              className="gap-1.5"
+   486→              onClick={handleAcknowledgeAll}
+   487→              disabled={activeCount === 0}
+   488→            >
+   489→              <CheckCircle2 className="h-3.5 w-3.5" />
+   490→              Acknowledge All Non-Critical
+   491→            </Button>
+   492→          </div>
+   493→        </CardHeader>
+   494→        <CardContent className="space-y-4">
+   495→          {/* Filter Row */}
+   496→          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+   497→            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+   498→              <Filter className="h-4 w-4" />
+   499→              <span>Filter:</span>
+   500→            </div>
+   501→            <Select value={filterType} onValueChange={setFilterType}>
+   502→              <SelectTrigger className="w-44">
+   503→                <SelectValue placeholder="Alert Type" />
+   504→              </SelectTrigger>
+   505→              <SelectContent>
+   506→                <SelectItem value="ALL">All Types</SelectItem>
+   507→                {Object.entries(ALERT_TYPE_CONFIG).map(([key, cfg]) => (
+   508→                  <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+   509→                ))}
+   510→              </SelectContent>
+   511→            </Select>
+   512→            <Select value={filterSeverity} onValueChange={setFilterSeverity}>
+   513→              <SelectTrigger className="w-36">
+   514→                <SelectValue placeholder="Severity" />
+   515→              </SelectTrigger>
+   516→              <SelectContent>
+   517→                <SelectItem value="ALL">All Severity</SelectItem>
+   518→                <SelectItem value="CRITICAL">Critical</SelectItem>
+   519→                <SelectItem value="WARNING">Warning</SelectItem>
+   520→                <SelectItem value="INFO">Info</SelectItem>
+   521→              </SelectContent>
+   522→            </Select>
+   523→            <Select value={filterAck} onValueChange={setFilterAck}>
+   524→              <SelectTrigger className="w-44">
+   525→                <SelectValue placeholder="Status" />
+   526→              </SelectTrigger>
+   527→              <SelectContent>
+   528→                <SelectItem value="ALL">All Status</SelectItem>
+   529→                <SelectItem value="UNACKNOWLEDGED">Unacknowledged</SelectItem>
+   530→                <SelectItem value="ACKNOWLEDGED">Acknowledged</SelectItem>
+   531→              </SelectContent>
+   532→            </Select>
+   533→          </div>
+   534→
+   535→          <Separator />
+   536→
+   537→          {/* ── Alert Cards ── */}
+   538→          {filteredAlerts.length === 0 ? (
+   539→            <div className="text-center py-10 text-muted-foreground">
+   540→              <BellOff className="h-10 w-10 mx-auto mb-3 opacity-40" />
+   541→              <p className="text-sm font-medium">No alerts match the current filters</p>
+   542→              <p className="text-xs mt-1">Try adjusting the filter criteria</p>
+   543→            </div>
+   544→          ) : (
+   545→            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+   546→              <AnimatePresence mode="popLayout">
+   547→                {filteredAlerts.map((alert, i) => {
+   548→                  const typeCfg = ALERT_TYPE_CONFIG[alert.type as CDSAlertType] ?? ALERT_TYPE_CONFIG.GUIDELINE
+   549→                  const sevCfg = SEVERITY_CONFIG[alert.severity as CDSSeverity] ?? SEVERITY_CONFIG.INFO
+   550→                  const TypeIcon = typeCfg.icon
+   551→
+   552→                  return (
+   553→                    <motion.div
+   554→                      key={alert.id}
+   555→                      layout
+   556→                      initial={{ opacity: 0, x: -20 }}
+   557→                      animate={{ opacity: 1, x: 0 }}
+   558→                      exit={{ opacity: 0, x: 20 }}
+   559→                      transition={{ delay: i * 0.04 }}
+   560→                    >
+   561→                      <Card
+   562→                        className={`transition-all hover:shadow-md ${
+   563→                          alert.acknowledged
+   564→                            ? 'opacity-60 border-muted'
+   565→                            : alert.severity === 'CRITICAL'
+   566→                            ? 'border-red-300 dark:border-red-700 shadow-sm'
+   567→                            : alert.severity === 'WARNING'
+   568→                            ? 'border-amber-300 dark:border-amber-700'
+   569→                            : 'border-blue-200 dark:border-blue-800'
+   570→                        }`}
+   571→                      >
+   572→                        <CardContent className="p-4">
+   573→                          {/* Top Row: Type icon, Title, Badges */}
+   574→                          <div className="flex items-start gap-3">
+   575→                            <div className={`shrink-0 p-2 rounded-lg ${typeCfg.bgColor}`}>
+   576→                              <TypeIcon className={`h-5 w-5 ${typeCfg.color}`} />
+   577→                            </div>
+   578→                            <div className="flex-1 min-w-0 space-y-2">
+   579→                              <div className="flex items-center gap-2 flex-wrap">
+   580→                                <span className={`font-semibold text-sm ${alert.acknowledged ? 'line-through' : ''}`}>
+   581→                                  {alert.title}
+   582→                                </span>
+   583→                                <Badge variant="outline" className={`text-xs ${sevCfg.badgeClass}`}>
+   584→                                  {sevCfg.label}
+   585→                                </Badge>
+   586→                                <Badge variant="outline" className="text-xs">
+   587→                                  {typeCfg.label}
+   588→                                </Badge>
+   589→                                {alert.overridden && (
+   590→                                  <Badge className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+   591→                                    Overridden
+   592→                                  </Badge>
+   593→                                )}
+   594→                              </div>
+   595→
+   596→                              {/* Description */}
+   597→                              <p className="text-sm text-muted-foreground">{alert.description}</p>
+   598→
+   599→                              {/* Evidence Reference */}
+   600→                              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+   601→                                <ExternalLink className="h-3 w-3 mt-0.5 shrink-0" />
+   602→                                <span className="break-all">{alert.evidenceReference}</span>
+   603→                              </div>
+   604→
+   605→                              {/* Suggested Action */}
+   606→                              <div className="mt-2 p-2.5 rounded-md bg-muted/50 border border-muted">
+   607→                                <p className="text-xs font-semibold text-muted-foreground mb-1">Suggested Action</p>
+   608→                                <p className="text-sm">{alert.suggestedAction}</p>
+   609→                              </div>
+   610→
+   611→                              {/* Acknowledged Info */}
+   612→                              {alert.acknowledged && (
+   613→                                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+   614→                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+   615→                                  <span>
+   616→                                    Acknowledged by {alert.acknowledgedBy}
+   617→                                    {alert.acknowledgedAt && (
+   618→                                      <> &middot; {new Date(alert.acknowledgedAt).toLocaleString()}</>
+   619→                                    )}
+   620→                                  </span>
+   621→                                  {alert.overrideReason && (
+   622→                                    <span className="ml-2 text-orange-700 dark:text-orange-300">
+   623→                                      Override reason: {alert.overrideReason}
+   624→                                    </span>
+   625→                                  )}
+   626→                                </div>
+   627→                              )}
+   628→
+   629→                              {/* Timestamp */}
+   630→                              <div className="text-xs text-muted-foreground mt-1">
+   631→                                {new Date(alert.createdAt).toLocaleString()} &middot; {alert.patientName}
+   632→                              </div>
+   633→                            </div>
+   634→                          </div>
+   635→
+   636→                          {/* Action Buttons */}
+   637→                          {!alert.acknowledged && (
+   638→                            <div className="flex items-center gap-2 mt-3 ml-11">
+   639→                              <Button
+   640→                                size="sm"
+   641→                                variant="outline"
+   642→                                className="gap-1.5"
+   643→                                onClick={() => handleAcknowledge(alert.id)}
+   644→                                disabled={ackSubmitting === alert.id}
+   645→                              >
+   646→                                <CheckCircle2 className="h-3.5 w-3.5" />
+   647→                                {ackSubmitting === alert.id ? 'Acknowledging...' : 'Acknowledge'}
+   648→                              </Button>
+   649→                              {alert.overrideable && (
+   650→                                <Button
+   651→                                  size="sm"
+   652→                                  variant="outline"
+   653→                                  className="gap-1.5 text-orange-700 border-orange-300 hover:bg-orange-50 dark:text-orange-300 dark:border-orange-700 dark:hover:bg-orange-950"
+   654→                                  onClick={() => openOverride(alert)}
+   655→                                >
+   656→                                  <X className="h-3.5 w-3.5" />
+   657→                                  Override
+   658→                                </Button>
+   659→                              )}
+   660→                              {!alert.overrideable && (
+   661→                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+   662→                                  <Ban className="h-3 w-3" />
+   663→                                  Override not permitted
+   664→                                </span>
+   665→                              )}
+   666→                            </div>
+   667→                          )}
+   668→                        </CardContent>
+   669→                      </Card>
+   670→                    </motion.div>
+   671→                  )
+   672→                })}
+   673→              </AnimatePresence>
+   674→            </div>
+   675→          )}
+   676→        </CardContent>
+   677→      </Card>
+   678→
+   679→      {/* ── Override Dialog ── */}
+   680→      <Dialog open={overrideDialogOpen} onOpenChange={(open) => { if (!open) { setOverrideDialogOpen(false); setOverrideAlert(null) }}}>
+   681→        <DialogContent className="sm:max-w-md">
+   682→          <DialogHeader>
+   683→            <DialogTitle className="flex items-center gap-2">
+   684→              <AlertTriangle className="h-5 w-5 text-orange-600" />
+   685→              Override Clinical Alert
+   686→            </DialogTitle>
+   687→            <DialogDescription>
+   688→              You are overriding a clinical decision support alert. This action will be recorded in the audit log.
+   689→            </DialogDescription>
+   690→          </DialogHeader>
+   691→          {overrideAlert && (
+   692→            <div className="space-y-4 py-2">
+   693→              <Alert variant="destructive">
+   694→                <AlertTriangle className="h-4 w-4" />
+   695→                <AlertTitle>{overrideAlert.title}</AlertTitle>
+   696→                <AlertDescription>{overrideAlert.description}</AlertDescription>
+   697→              </Alert>
+   698→              <div>
+   699→                <p className="text-sm font-semibold mb-2">Override Reason <span className="text-red-500">*</span></p>
+   700→                <Textarea
+   701→                  placeholder="Enter clinical justification for overriding this alert (e.g., 'Patient previously tolerated combination under close monitoring', 'Benefit outweighs risk in this clinical context')..."
+   702→                  value={overrideReason}
+   703→                  onChange={(e) => setOverrideReason(e.target.value)}
+   704→                  rows={4}
+   705→                />
+   706→                <p className="text-xs text-muted-foreground mt-1">
+   707→                  This reason will be permanently recorded in the patient&apos;s clinical audit trail.
+   708→                </p>
+   709→              </div>
+   710→            </div>
+   711→          )}
+   712→          <DialogFooter>
+   713→            <Button variant="outline" onClick={() => { setOverrideDialogOpen(false); setOverrideAlert(null) }}>
+   714→              Cancel
+   715→            </Button>
+   716→            <Button
+   717→              onClick={handleOverride}
+   718→              disabled={overrideSubmitting || !overrideReason.trim()}
+   719→              className="gap-1.5 bg-orange-600 hover:bg-orange-700 text-white"
+   720→            >
+   721→              {overrideSubmitting ? 'Overriding...' : (
+   722→                <>
+   723→                  <AlertTriangle className="h-4 w-4" />
+   724→                  Confirm Override
+   725→                </>
+   726→              )}
+   727→            </Button>
+   728→          </DialogFooter>
+   729→        </DialogContent>
+   730→      </Dialog>
+   731→
+   732→      {/* ── Compliance Note ── */}
+   733→      <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-muted">
+   734→        <Shield className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+   735→        <p className="text-xs text-muted-foreground">
+   736→          <span className="font-semibold">CDS Compliance:</span>{' '}
+   737→          Clinical Decision Support alerts are generated per NICE, ADA, and ICMR guidelines. 
+   738→          All overrides require documented clinical justification and are recorded in the audit trail 
+   739→          for regulatory review under CDSCO and NABH standards.
+   740→        </p>
+   741→      </div>
+   742→    </motion.div>
+   743→  )
+   744→}
+   745→

@@ -1,0 +1,1172 @@
+     1→import { NextResponse } from 'next/server'
+     2→import { db } from '@/lib/db'
+     3→
+     4→// ============================================================
+     5→// SEED-V2: Comprehensive seed for ALL new models
+     6→// Idempotent — checks if data exists before creating
+     7→// ============================================================
+     8→
+     9→// Helper: date offset from now
+    10→function daysFromNow(days: number): Date {
+    11→  const d = new Date()
+    12→  d.setDate(d.getDate() + days)
+    13→  return d
+    14→}
+    15→
+    16→function hoursFromNow(hours: number): Date {
+    17→  const d = new Date()
+    18→  d.setHours(d.getHours() + hours)
+    19→  return d
+    20→}
+    21→
+    22→// ============================================================
+    23→// MAIN SEED FUNCTION
+    24→// ============================================================
+    25→async function seedAll() {
+    26→  // Reset per-request state
+    27→  const SUMMARY: Record<string, number> = {}
+    28→  const LOGS: string[] = []
+    29→
+    30→  function log(section: string, message: string) {
+    31→    const entry = `[${section}] ${message}`
+    32→    LOGS.push(entry)
+    33→    console.log(entry)
+    34→  }
+    35→
+    36→  function addCount(section: string, count: number) {
+    37→    SUMMARY[section] = (SUMMARY[section] || 0) + count
+    38→  }
+    39→
+    40→  // ── Fetch existing patients (to link data) ──
+    41→  const allPatients = await db.patient.findMany({
+    42→    orderBy: { createdAt: 'asc' },
+    43→  })
+    44→
+    45→  // Build a map by firstName+lastName → most recent patient
+    46→  const patientMap = new Map<string, typeof allPatients[0]>()
+    47→  for (const p of allPatients) {
+    48→    const key = `${p.firstName} ${p.lastName}`
+    49→    if (!patientMap.has(key)) {
+    50→      patientMap.set(key, p)
+    51→    }
+    52→  }
+    53→
+    54→  const rahul = patientMap.get('Rahul Kumar')
+    55→  const priya = patientMap.get('Priya Sharma')
+    56→  const anjali = patientMap.get('Anjali Joshi')
+    57→  const vikram = patientMap.get('Vikram Singh')
+    58→  const sunita = patientMap.get('Sunita Gupta')
+    59→  const amit = patientMap.get('Amit Patel')
+    60→  const meena = patientMap.get('Meena Nair')
+    61→  const suresh = patientMap.get('Suresh Reddy')
+    62→
+    63→  log('BOOT', `Found ${allPatients.length} patients, ${patientMap.size} unique names`)
+    64→  log('BOOT', `Rahul=${!!rahul} Priya=${!!priya} Anjali=${!!anjali} Vikram=${!!vikram} Sunita=${!!sunita} Amit=${!!amit} Meena=${!!meena} Suresh=${!!suresh}`)
+    65→
+    66→  // Get first tenant for practitioner creation
+    67→  const firstTenant = await db.tenant.findFirst()
+    68→  const tenantId = firstTenant?.id
+    69→  log('BOOT', `Tenant: ${tenantId || 'NONE'}`)
+    70→
+    71→  // ════════════════════════════════════════════
+    72→  // 1. PRACTITIONERS (always ensure our specific ones exist)
+    73→  // ════════════════════════════════════════════
+    74→  try {
+    75→    const practitionerDefs = [
+    76→      { name: 'Dr. Arvind Kumar', specialization: 'Cardiologist', modality: 'ALLOPATHY', licenseNumber: 'MC-2019-4521' },
+    77→      { name: 'Dr. Sunita Sharma', specialization: 'General Medicine', modality: 'ALLOPATHY', licenseNumber: 'MC-2018-7834' },
+    78→      { name: 'Dr. Rajesh Patel', specialization: 'Kayachikitsa', modality: 'AYURVEDA', licenseNumber: 'AYU-2020-1123' },
+    79→      { name: 'Dr. Meera Iyer', specialization: 'Classical Homeopathy', modality: 'HOMEOPATHY', licenseNumber: 'HOM-2017-5678' },
+    80→      { name: 'Dr. Vikram Singh', specialization: 'Orthopedics', modality: 'ALLOPATHY', licenseNumber: 'MC-2016-3345' },
+    81→      { name: 'Dr. Priya Nair', specialization: 'Neurology', modality: 'ALLOPATHY', licenseNumber: 'MC-2021-9912' },
+    82→    ]
+    83→
+    84→    for (const p of practitionerDefs) {
+    85→      const exists = await db.practitioner.findFirst({ where: { name: p.name } })
+    86→      if (!exists) {
+    87→        await db.practitioner.create({
+    88→          data: {
+    89→            ...(tenantId ? { tenantId } : {}),
+    90→            name: p.name,
+    91→            specialization: p.specialization,
+    92→            modality: p.modality,
+    93→            licenseNumber: p.licenseNumber,
+    94→            isActive: true,
+    95→          },
+    96→        })
+    97→        addCount('Practitioners', 1)
+    98→      }
+    99→    }
+   100→    log('Practitioners', `Created ${SUMMARY['Practitioners'] || 0} new practitioners (ensured 6 exist by name)`)
+   101→  } catch (e: any) {
+   102→    log('Practitioners', `Error: ${e.message}`)
+   103→  }
+   104→
+   105→  // Fetch practitioners for linking
+   106→  const practitioners = await db.practitioner.findMany({ where: { name: { in: ['Dr. Arvind Kumar', 'Dr. Sunita Sharma', 'Dr. Rajesh Patel', 'Dr. Meera Iyer', 'Dr. Vikram Singh', 'Dr. Priya Nair'] } } })
+   107→  const drArvind = practitioners.find(p => p.name === 'Dr. Arvind Kumar')
+   108→  const drSunitaSharma = practitioners.find(p => p.name === 'Dr. Sunita Sharma')
+   109→  const drRajesh = practitioners.find(p => p.name === 'Dr. Rajesh Patel')
+   110→  const drMeera = practitioners.find(p => p.name === 'Dr. Meera Iyer')
+   111→  const drVikramSingh = practitioners.find(p => p.name === 'Dr. Vikram Singh')
+   112→  const drPriyaNair = practitioners.find(p => p.name === 'Dr. Priya Nair')
+   113→  log('Practitioners', `Linked: Arvind=${!!drArvind} Sunita=${!!drSunitaSharma} Rajesh=${!!drRajesh} Meera=${!!drMeera} Vikram=${!!drVikramSingh} Priya=${!!drPriyaNair}`)
+   114→
+   115→  // ════════════════════════════════════════════
+   116→  // 2. PRESCRIPTIONS
+   117→  // ════════════════════════════════════════════
+   118→  try {
+   119→    const existingPrescriptions = await db.prescription.count()
+   120→    if (existingPrescriptions < 8) {
+   121→      const prescriptionDefs = [
+   122→        {
+   123→          prescriptionNo: 'RX-000001',
+   124→          patient: rahul,
+   125→          practitioner: drArvind,
+   126→          modality: 'ALLOPATHY',
+   127→          status: 'ACTIVE',
+   128→          diagnosis: 'Type 2 Diabetes Mellitus with Hypertension',
+   129→          items: [
+   130→            { medicineName: 'Metformin', dosage: '500mg', frequency: 'TWICE_DAILY', duration: 'Ongoing', route: 'ORAL', instructions: 'After food', scheduleType: 'SCHEDULE_H', sequence: 1 },
+   131→            { medicineName: 'Atorvastatin', dosage: '10mg', frequency: 'ONCE_DAILY', duration: 'Ongoing', route: 'ORAL', instructions: 'At bedtime', scheduleType: 'SCHEDULE_H', sequence: 2 },
+   132→            { medicineName: 'Amlodipine', dosage: '5mg', frequency: 'ONCE_DAILY', duration: 'Ongoing', route: 'ORAL', instructions: 'After food', scheduleType: 'SCHEDULE_H', sequence: 3 },
+   133→          ],
+   134→        },
+   135→        {
+   136→          prescriptionNo: 'RX-000002',
+   137→          patient: priya,
+   138→          practitioner: drRajesh,
+   139→          modality: 'AYURVEDA',
+   140→          status: 'ACTIVE',
+   141→          diagnosis: 'Generalized Anxiety Disorder (Vata Vikara)',
+   142→          items: [
+   143→            { medicineName: 'Ashwagandha', dosage: '500mg', frequency: 'TWICE_DAILY', duration: '3 months', route: 'ORAL', instructions: 'After food with warm milk', sequence: 1 },
+   144→            { medicineName: 'Triphala', dosage: '1gm', frequency: 'ONCE_DAILY', duration: 'Ongoing', route: 'ORAL', instructions: 'At bedtime with warm water', sequence: 2 },
+   145→          ],
+   146→        },
+   147→        {
+   148→          prescriptionNo: 'RX-000003',
+   149→          patient: anjali,
+   150→          practitioner: drMeera,
+   151→          modality: 'HOMEOPATHY',
+   152→          status: 'ACTIVE',
+   153→          diagnosis: 'Chronic Migraine with Menstrual Trigger',
+   154→          items: [
+   155→            { medicineName: 'Natrum Mur', dosage: '200C', frequency: 'ONCE_DAILY', duration: 'As per response', route: 'ORAL', instructions: 'Empty stomach, 30 min before food', sequence: 1 },
+   156→            { medicineName: 'Pulsatilla', dosage: '30C', frequency: 'ONCE_DAILY', duration: 'As per response', route: 'ORAL', instructions: 'Empty stomach, evening dose', sequence: 2 },
+   157→          ],
+   158→        },
+   159→        {
+   160→          prescriptionNo: 'RX-000004',
+   161→          patient: vikram,
+   162→          practitioner: drArvind,
+   163→          modality: 'ALLOPATHY',
+   164→          status: 'DISPENSED',
+   165→          diagnosis: 'Gastroesophageal Reflux Disease',
+   166→          items: [
+   167→            { medicineName: 'Omeprazole', dosage: '20mg', frequency: 'ONCE_DAILY', duration: '4 weeks', route: 'ORAL', instructions: 'Before breakfast', scheduleType: 'SCHEDULE_H', sequence: 1 },
+   168→            { medicineName: 'Pantoprazole', dosage: '40mg', frequency: 'ONCE_DAILY', duration: '4 weeks', route: 'ORAL', instructions: 'Before breakfast (alternate)', scheduleType: 'SCHEDULE_H', sequence: 2 },
+   169→          ],
+   170→        },
+   171→        {
+   172→          prescriptionNo: 'RX-000005',
+   173→          patient: sunita,
+   174→          practitioner: drRajesh,
+   175→          modality: 'AYURVEDA',
+   176→          status: 'DRAFT',
+   177→          diagnosis: 'Type 2 Diabetes (Prameha)',
+   178→          items: [
+   179→            { medicineName: 'Brahmi', dosage: '500mg', frequency: 'TWICE_DAILY', duration: '2 months', route: 'ORAL', instructions: 'After food', sequence: 1 },
+   180→            { medicineName: 'Guggulu', dosage: '250mg', frequency: 'THRICE_DAILY', duration: '2 months', route: 'ORAL', instructions: 'After food with warm water', sequence: 2 },
+   181→          ],
+   182→        },
+   183→        {
+   184→          prescriptionNo: 'RX-000006',
+   185→          patient: amit,
+   186→          practitioner: drMeera,
+   187→          modality: 'HOMEOPATHY',
+   188→          status: 'EXPIRED',
+   189→          diagnosis: 'Chronic Skin Eruption',
+   190→          validUntil: daysFromNow(-30),
+   191→          items: [
+   192→            { medicineName: 'Arsenicum Alb', dosage: '30C', frequency: 'ONCE_DAILY', duration: '7 days', route: 'ORAL', instructions: 'Empty stomach', sequence: 1 },
+   193→            { medicineName: 'Sulphur', dosage: '200C', frequency: 'AS_NEEDED', duration: 'Single dose weekly', route: 'ORAL', instructions: 'Empty stomach, Sunday morning', sequence: 2 },
+   194→          ],
+   195→        },
+   196→        {
+   197→          prescriptionNo: 'RX-000007',
+   198→          patient: meena,
+   199→          practitioner: drArvind,
+   200→          modality: 'ALLOPATHY',
+   201→          status: 'ACTIVE',
+   202→          diagnosis: 'Post-PCI Dual Antiplatelet Therapy',
+   203→          items: [
+   204→            { medicineName: 'Clopidogrel', dosage: '75mg', frequency: 'ONCE_DAILY', duration: '12 months', route: 'ORAL', instructions: 'After food', scheduleType: 'SCHEDULE_H', sequence: 1 },
+   205→            { medicineName: 'Aspirin', dosage: '75mg', frequency: 'ONCE_DAILY', duration: 'Lifelong', route: 'ORAL', instructions: 'After food', scheduleType: 'OTC', sequence: 2 },
+   206→          ],
+   207→        },
+   208→        {
+   209→          prescriptionNo: 'RX-000008',
+   210→          patient: suresh,
+   211→          practitioner: drRajesh,
+   212→          modality: 'AYURVEDA',
+   213→          status: 'ACTIVE',
+   214→          diagnosis: 'Immunity Deficiency (Ojas Kshaya)',
+   215→          items: [
+   216→            { medicineName: 'Guduchi', dosage: '500mg', frequency: 'TWICE_DAILY', duration: '3 months', route: 'ORAL', instructions: 'After food with warm water', sequence: 1 },
+   217→            { medicineName: 'Amalaki', dosage: '500mg', frequency: 'TWICE_DAILY', duration: '3 months', route: 'ORAL', instructions: 'After food', sequence: 2 },
+   218→          ],
+   219→        },
+   220→      ]
+   221→
+   222→      for (const def of prescriptionDefs) {
+   223→        if (!def.patient) continue
+   224→        const exists = await db.prescription.findUnique({ where: { prescriptionNo: def.prescriptionNo } })
+   225→        if (!exists) {
+   226→          await db.prescription.create({
+   227→            data: {
+   228→              patientId: def.patient.id,
+   229→              practitionerId: def.practitioner?.id,
+   230→              prescriptionNo: def.prescriptionNo,
+   231→              modality: def.modality,
+   232→              status: def.status,
+   233→              diagnosis: def.diagnosis,
+   234→              validFrom: new Date(),
+   235→              validUntil: def.validUntil || daysFromNow(90),
+   236→              isCdScoCompliant: def.modality === 'ALLOPATHY',
+   237→              items: {
+   238→                create: def.items.map(item => ({
+   239→                  medicineName: item.medicineName,
+   240→                  dosage: item.dosage,
+   241→                  frequency: item.frequency,
+   242→                  duration: item.duration,
+   243→                  route: item.route,
+   244→                  instructions: item.instructions,
+   245→                  scheduleType: (item as any).scheduleType,
+   246→                  sequence: item.sequence,
+   247→                })),
+   248→              },
+   249→            },
+   250→          })
+   251→          addCount('Prescriptions', 1)
+   252→        }
+   253→      }
+   254→      log('Prescriptions', `Created ${SUMMARY['Prescriptions'] || 0} new prescriptions`)
+   255→    } else {
+   256→      log('Prescriptions', `Skipped — ${existingPrescriptions} already exist`)
+   257→    }
+   258→  } catch (e: any) {
+   259→    log('Prescriptions', `Error: ${e.message}`)
+   260→  }
+   261→
+   262→  // ════════════════════════════════════════════
+   263→  // 3. LAB ORDERS
+   264→  // ════════════════════════════════════════════
+   265→  try {
+   266→    const existingLabOrders = await db.labOrder.count()
+   267→    if (existingLabOrders < 6) {
+   268→      const labOrderDefs = [
+   269→        {
+   270→          orderNumber: 'LBO-000001', patient: rahul, practitioner: drArvind,
+   271→          status: 'COMPLETED', priority: 'URGENT',
+   272→          tests: [
+   273→            { testName: 'Complete Blood Count', testCode: '58410-2', category: 'HEMATOLOGY', status: 'COMPLETED', resultValue: '13.2', resultUnit: 'g/dL', referenceRange: '12.0-16.0', isAbnormal: false, remarks: 'Within normal limits', completedAt: daysFromNow(-2) },
+   274→            { testName: 'HbA1c', testCode: '4548-4', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '8.2', resultUnit: '%', referenceRange: '<6.5', isAbnormal: true, remarks: 'Poor glycemic control', completedAt: daysFromNow(-2) },
+   275→            { testName: 'Lipid Profile - Total Cholesterol', testCode: '2093-3', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '248', resultUnit: 'mg/dL', referenceRange: '<200', isAbnormal: true, remarks: 'Hyperlipidemia', completedAt: daysFromNow(-2) },
+   276→            { testName: 'Lipid Profile - LDL', testCode: '13457-7', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '168', resultUnit: 'mg/dL', referenceRange: '<100', isAbnormal: true, remarks: 'Elevated LDL', completedAt: daysFromNow(-2) },
+   277→            { testName: 'Lipid Profile - HDL', testCode: '14646-3', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '38', resultUnit: 'mg/dL', referenceRange: '>40', isAbnormal: true, remarks: 'Low HDL', completedAt: daysFromNow(-2) },
+   278→          ],
+   279→        },
+   280→        {
+   281→          orderNumber: 'LBO-000002', patient: priya, practitioner: drSunitaSharma,
+   282→          status: 'COMPLETED', priority: 'ROUTINE',
+   283→          tests: [
+   284→            { testName: 'TSH', testCode: '3016-3', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '2.4', resultUnit: 'mIU/L', referenceRange: '0.4-4.0', isAbnormal: false, completedAt: daysFromNow(-5) },
+   285→            { testName: 'T4 Free', testCode: '3024-0', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '1.2', resultUnit: 'ng/dL', referenceRange: '0.8-1.8', isAbnormal: false, completedAt: daysFromNow(-5) },
+   286→            { testName: 'SGOT/AST', testCode: 'AST', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '22', resultUnit: 'U/L', referenceRange: '10-40', isAbnormal: false, completedAt: daysFromNow(-5) },
+   287→            { testName: 'SGPT/ALT', testCode: 'ALT', category: 'BIOCHEMISTRY', status: 'COMPLETED', resultValue: '28', resultUnit: 'U/L', referenceRange: '7-56', isAbnormal: false, completedAt: daysFromNow(-5) },
+   288→          ],
+   289→        },
+   290→        {
+   291→          orderNumber: 'LBO-000003', patient: vikram, practitioner: drVikramSingh,
+   292→          status: 'PROCESSING', priority: 'ROUTINE',
+   293→          sampleCollectedAt: daysFromNow(-1),
+   294→          tests: [
+   295→            { testName: 'Complete Blood Count', testCode: '58410-2', category: 'HEMATOLOGY', status: 'PROCESSING' },
+   296→            { testName: 'KFT - Creatinine', testCode: '2160-0', category: 'BIOCHEMISTRY', status: 'PROCESSING' },
+   297→            { testName: 'KFT - BUN', testCode: '3094-0', category: 'BIOCHEMISTRY', status: 'ORDERED' },
+   298→            { testName: 'CRP Quantitative', testCode: '1988-5', category: 'BIOCHEMISTRY', status: 'ORDERED' },
+   299→          ],
+   300→        },
+   301→        {
+   302→          orderNumber: 'LBO-000004', patient: anjali, practitioner: drMeera,
+   303→          status: 'ORDERED', priority: 'ROUTINE',
+   304→          tests: [
+   305→            { testName: 'Urinalysis - Routine', testCode: '24356-8', category: 'PATHOLOGY', status: 'ORDERED' },
+   306→            { testName: 'Random Blood Glucose', testCode: '2345-7', category: 'BIOCHEMISTRY', status: 'ORDERED' },
+   307→          ],
+   308→        },
+   309→        {
+   310→          orderNumber: 'LBO-000005', patient: sunita, practitioner: drRajesh,
+   311→          status: 'SAMPLE_COLLECTED', priority: 'ROUTINE',
+   312→          sampleCollectedAt: daysFromNow(0),
+   313→          tests: [
+   314→            { testName: 'Lipid Profile', testCode: 'LP', category: 'BIOCHEMISTRY', status: 'ORDERED' },
+   315→            { testName: 'HbA1c', testCode: '4548-4', category: 'BIOCHEMISTRY', status: 'ORDERED' },
+   316→          ],
+   317→        },
+   318→        {
+   319→          orderNumber: 'LBO-000006', patient: amit, practitioner: drSunitaSharma,
+   320→          status: 'COMPLETED', priority: 'ROUTINE',
+   321→          tests: [
+   322→            { testName: 'Complete Blood Count', testCode: '58410-2', category: 'HEMATOLOGY', status: 'COMPLETED', resultValue: '14.1', resultUnit: 'g/dL', referenceRange: '12.0-16.0', isAbnormal: false, completedAt: daysFromNow(-3) },
+   323→            { testName: 'ESR', testCode: '4537-7', category: 'HEMATOLOGY', status: 'COMPLETED', resultValue: '48', resultUnit: 'mm/hr', referenceRange: '0-20', isAbnormal: true, remarks: 'Elevated ESR — possible inflammatory process', completedAt: daysFromNow(-3) },
+   324→          ],
+   325→        },
+   326→      ]
+   327→
+   328→      for (const def of labOrderDefs) {
+   329→        if (!def.patient) continue
+   330→        const exists = await db.labOrder.findUnique({ where: { orderNumber: def.orderNumber } })
+   331→        if (!exists) {
+   332→          await db.labOrder.create({
+   333→            data: {
+   334→              patientId: def.patient.id,
+   335→              practitionerId: def.practitioner?.id,
+   336→              orderNumber: def.orderNumber,
+   337→              status: def.status,
+   338→              priority: def.priority,
+   339→              sampleCollectedAt: (def as any).sampleCollectedAt,
+   340→              completedAt: def.status === 'COMPLETED' ? daysFromNow(-1) : undefined,
+   341→              tests: {
+   342→                create: def.tests.map(t => ({
+   343→                  testName: t.testName,
+   344→                  testCode: t.testCode,
+   345→                  category: t.category,
+   346→                  status: t.status,
+   347→                  resultValue: t.resultValue,
+   348→                  resultUnit: t.resultUnit,
+   349→                  referenceRange: t.referenceRange,
+   350→                  isAbnormal: t.isAbnormal || false,
+   351→                  remarks: t.remarks,
+   352→                  completedAt: t.completedAt,
+   353→                })),
+   354→              },
+   355→            },
+   356→          })
+   357→          addCount('LabOrders', 1)
+   358→        }
+   359→      }
+   360→      log('LabOrders', `Created ${SUMMARY['LabOrders'] || 0} new lab orders`)
+   361→    } else {
+   362→      log('LabOrders', `Skipped — ${existingLabOrders} already exist`)
+   363→    }
+   364→  } catch (e: any) {
+   365→    log('LabOrders', `Error: ${e.message}`)
+   366→  }
+   367→
+   368→  // ════════════════════════════════════════════
+   369→  // 4. APPOINTMENTS
+   370→  // ════════════════════════════════════════════
+   371→  try {
+   372→    const existingAppointments = await db.appointment.count()
+   373→    if (existingAppointments < 10) {
+   374→      const appointmentDefs = [
+   375→        { appointmentNo: 'APT-000001', patient: rahul, practitioner: drArvind, type: 'CONSULTATION', modality: 'ALLOPATHY', status: 'COMPLETED', scheduledAt: daysFromNow(-3), duration: 30, reason: 'Hypertension follow-up' },
+   376→        { appointmentNo: 'APT-000002', patient: priya, practitioner: drRajesh, type: 'FOLLOW_UP', modality: 'AYURVEDA', status: 'CONFIRMED', scheduledAt: daysFromNow(1), duration: 20, reason: 'Anxiety management review' },
+   377→        { appointmentNo: 'APT-000003', patient: anjali, practitioner: drMeera, type: 'CONSULTATION', modality: 'HOMEOPATHY', status: 'SCHEDULED', scheduledAt: daysFromNow(3), duration: 45, reason: 'Migraine assessment' },
+   378→        { appointmentNo: 'APT-000004', patient: vikram, practitioner: drVikramSingh, type: 'FOLLOW_UP', modality: 'ALLOPATHY', status: 'SCHEDULED', scheduledAt: daysFromNow(5), duration: 15, reason: 'Post-surgical knee review' },
+   379→        { appointmentNo: 'APT-000005', patient: sunita, practitioner: drArvind, type: 'CONSULTATION', modality: 'ALLOPATHY', status: 'CONFIRMED', scheduledAt: daysFromNow(2), duration: 30, reason: 'Diabetes control review' },
+   380→        { appointmentNo: 'APT-000006', patient: amit, practitioner: drRajesh, type: 'TELEMEDICINE', modality: 'AYURVEDA', status: 'SCHEDULED', scheduledAt: daysFromNow(4), duration: 20, reason: 'Chronic pain tele-consult' },
+   381→        { appointmentNo: 'APT-000007', patient: meena, practitioner: drArvind, type: 'CONSULTATION', modality: 'ALLOPATHY', status: 'CANCELLED', scheduledAt: daysFromNow(6), duration: 30, reason: 'Post-PCI follow-up', cancelledReason: 'Patient travelling' },
+   382→        { appointmentNo: 'APT-000008', patient: suresh, practitioner: drRajesh, type: 'FOLLOW_UP', modality: 'AYURVEDA', status: 'SCHEDULED', scheduledAt: daysFromNow(7), duration: 20, reason: 'Immunity booster follow-up' },
+   383→        { appointmentNo: 'APT-000009', patient: rahul, practitioner: drPriyaNair, type: 'CONSULTATION', modality: 'ALLOPATHY', status: 'SCHEDULED', scheduledAt: daysFromNow(10), duration: 60, reason: 'Comprehensive cardiac evaluation', isUrgent: true },
+   384→        { appointmentNo: 'APT-000010', patient: priya, practitioner: drSunitaSharma, type: 'TELEMEDICINE', modality: 'ALLOPATHY', status: 'SCHEDULED', scheduledAt: daysFromNow(14), duration: 15, reason: 'Tele-consult for medication refill' },
+   385→      ]
+   386→
+   387→      for (const def of appointmentDefs) {
+   388→        if (!def.patient) continue
+   389→        const exists = await db.appointment.findUnique({ where: { appointmentNo: def.appointmentNo } })
+   390→        if (!exists) {
+   391→          await db.appointment.create({
+   392→            data: {
+   393→              patientId: def.patient.id,
+   394→              practitionerId: def.practitioner?.id,
+   395→              appointmentNo: def.appointmentNo,
+   396→              type: def.type,
+   397→              modality: def.modality,
+   398→              status: def.status,
+   399→              scheduledAt: def.scheduledAt,
+   400→              duration: def.duration,
+   401→              reason: def.reason,
+   402→              isUrgent: (def as any).isUrgent || false,
+   403→              cancelledReason: (def as any).cancelledReason,
+   404→            },
+   405→          })
+   406→          addCount('Appointments', 1)
+   407→        }
+   408→      }
+   409→      log('Appointments', `Created ${SUMMARY['Appointments'] || 0} new appointments`)
+   410→    } else {
+   411→      log('Appointments', `Skipped — ${existingAppointments} already exist`)
+   412→    }
+   413→  } catch (e: any) {
+   414→    log('Appointments', `Error: ${e.message}`)
+   415→  }
+   416→
+   417→  // ════════════════════════════════════════════
+   418→  // 5. CLINICAL NOTES
+   419→  // ════════════════════════════════════════════
+   420→  try {
+   421→    const existingNotes = await db.clinicalNote.count()
+   422→    if (existingNotes < 6) {
+   423→      const noteDefs = [
+   424→        {
+   425→          patient: rahul, practitioner: drArvind, noteType: 'SOAP', modality: 'ALLOPATHY',
+   426→          subjective: 'Patient reports occasional headache and dizziness for past 2 weeks. Compliance with medications improved. No chest pain or palpitations.',
+   427→          objective: 'BP 148/92 mmHg. Pulse 78/min regular. No peripheral edema. Heart sounds S1S2 normal. Fundoscopy: AV nicking present.',
+   428→          assessment: 'Essential hypertension — suboptimal control. Need to uptitrate Amlodipine to 10mg. HbA1c 8.2% indicates poor diabetic control.',
+   429→          plan: '1. Amlodipine 5mg → 10mg OD. 2. Add Telmisartan 40mg OD. 3. Repeat BP in 2 weeks. 4. Diabetic diet counseling. 5. Follow-up in 14 days.',
+   430→        },
+   431→        {
+   432→          patient: priya, practitioner: drRajesh, noteType: 'SOAP', modality: 'AYURVEDA',
+   433→          subjective: 'Patient reports persistent anxiety, restlessness, and disturbed sleep. Worsening before menses. Appetite reduced.',
+   434→          objective: 'Vata-pitta prakriti. Pulse: vata-predominant, 88/min. Tongue: slightly coated. No tremors. Weight stable at 58kg.',
+   435→          assessment: 'Vata-vikara with pitta-anubandha — Chittodvega (anxiety disorder). Nidana: stress, irregular diet, delayed sleep. Samprapti: vata vitiates manovaha srotas.',
+   436→          plan: '1. Ashwagandha 500mg BD after food. 2. Brahmi Ghrita 10ml HS. 3. Shirodhara weekly x 6 sessions. 4. Dashamoolarishta 15ml BD. 5. Lifestyle: regular dinacharya, abhyanga with Brahmi oil. 6. Review in 3 weeks.',
+   437→        },
+   438→        {
+   439→          patient: anjali, practitioner: drMeera, noteType: 'SOAP', modality: 'HOMEOPATHY',
+   440→          subjective: 'Recurring left-sided migraine since 5 years. Throbbing pain with nausea and photophobia. Worsens pre-menstrually. Triggers: bright light, missed meals. Awakens from sleep.',
+   441→          objective: 'No neurological deficits on exam. BP 118/76. Mild cervical muscle tension. TMJ tenderness left side.',
+   442→          assessment: 'Chronic migraine with menstrual trigger — Natrum Mur constitution. Sycotic miasm. Suppressed grief history.',
+   443→          plan: '1. Natrum Mur 200C — morning dose, empty stomach. 2. Pulsatilla 30C — evening during menses. 3. Iris Versicolor 30C as intercurrent if needed. 4. Avoid coffee, strong smells. 5. Maintain headache diary. 6. Follow-up in 4 weeks.',
+   444→        },
+   445→        {
+   446→          patient: vikram, practitioner: drVikramSingh, noteType: 'PROGRESS', modality: 'ALLOPATHY',
+   447→          subjective: 'Post-operative day 5 following right total knee replacement. Pain well-controlled. Physiotherapy progressing. Able to bear partial weight.',
+   448→          objective: 'Wound: clean, dry, no erythema. ROM: 10°-85° flexion. Quad strength: 3+/5. No DVT signs. Crutches — partial weight-bearing.',
+   449→          assessment: 'Post-op day 5 — satisfactory progress. No complications. Continue rehabilitation.',
+   450→          plan: '1. Continue physiotherapy daily. 2. Tab. Tramadol 50mg BD PRN for pain. 3. Suture removal on day 12. 4. Follow-up at 2 weeks. 5. Target ROM 0°-110° by 6 weeks.',
+   451→        },
+   452→        {
+   453→          patient: sunita, practitioner: drArvind, noteType: 'SOAP', modality: 'ALLOPATHY',
+   454→          subjective: 'Known T2DM x 8 years. Reports increased thirst and polyuria. Fasting sugars 180-220 mg/dL at home. Occasional hypoglycemia with current regimen.',
+   455→          objective: 'BMI 29.4. BP 132/84. Fasting glucose 196 mg/dL. No diabetic complications on fundoscopy. Feet: intact sensation, no ulcers.',
+   456→          assessment: 'Type 2 Diabetes — uncontrolled on current regimen. Needs treatment intensification. Evaluate for insulin initiation.',
+   457→          plan: '1. Metformin 1gm BD. 2. Add Sitagliptin 100mg OD. 3. If not controlled in 4 weeks — consider basal insulin. 4. HbA1c, KFT, urine albumin in 4 weeks. 5. Diet: 1500 kcal, low GI. 6. Diabetic education revisit.',
+   458→        },
+   459→        {
+   460→          patient: amit, practitioner: drRajesh, noteType: 'SOAP', modality: 'AYURVEDA',
+   461→          subjective: 'Chronic lower back pain x 3 years. Stiffness in morning, improves with movement. Pain radiates to left leg occasionally. Vata-aggravating lifestyle (excessive travel, cold exposure).',
+   462→          objective: 'SLR test positive left side at 60°. L4-L5 tenderness. Vata-predominant prakriti. Pulse: vata, 72/min. X-ray: mild disc degeneration L4-L5.',
+   463→          assessment: 'Katishoola (low back pain) — Vata vyadhi with Kapha-kshata (disc degeneration). Avarana by kapha. Gridhrasi (sciatica) component.',
+   464→          plan: '1. Guggulu 250mg TDS after food. 2. Rasnaerandadi Kashaya 15ml BD. 3. Kati Basti daily x 7 days, then weekly. 4. Basti (Matra) with Sahacharadi Taila. 5. Avoid cold, heavy lifting. 6. Gentle yoga — Pawanmuktasana series. 7. Review in 3 weeks.',
+   465→        },
+   466→      ]
+   467→
+   468→      for (const def of noteDefs) {
+   469→        if (!def.patient) continue
+   470→        // Use a unique combination to avoid duplicates
+   471→        const existing = await db.clinicalNote.findFirst({
+   472→          where: {
+   473→            patientId: def.patient.id,
+   474→            noteType: def.noteType,
+   475→            modality: def.modality,
+   476→          },
+   477→        })
+   478→        if (!existing) {
+   479→          await db.clinicalNote.create({
+   480→            data: {
+   481→              patientId: def.patient.id,
+   482→              practitionerId: def.practitioner?.id,
+   483→              noteType: def.noteType,
+   484→              modality: def.modality,
+   485→              subjective: def.subjective,
+   486→              objective: def.objective,
+   487→              assessment: def.assessment,
+   488→              plan: def.plan,
+   489→            },
+   490→          })
+   491→          addCount('ClinicalNotes', 1)
+   492→        }
+   493→      }
+   494→      log('ClinicalNotes', `Created ${SUMMARY['ClinicalNotes'] || 0} new clinical notes`)
+   495→    } else {
+   496→      log('ClinicalNotes', `Skipped — ${existingNotes} already exist`)
+   497→    }
+   498→  } catch (e: any) {
+   499→    log('ClinicalNotes', `Error: ${e.message}`)
+   500→  }
+   501→
+   502→  // ════════════════════════════════════════════
+   503→  // 6. INSURANCE POLICIES + CLAIMS
+   504→  // ════════════════════════════════════════════
+   505→  try {
+   506→    const existingPolicies = await db.insurancePolicy.count()
+   507→    if (existingPolicies < 4) {
+   508→      const policyDefs = [
+   509→        { patient: rahul, providerName: 'Star Health', policyNumber: 'SH-2024-78432', planType: 'INDIVIDUAL', coverageType: 'CASHLESS', isAyushmanBharat: false, maxCoverage: 500000, coPayPercentage: 10 },
+   510→        { patient: priya, providerName: 'ICICI Lombard', policyNumber: 'IL-2024-11290', groupNumber: 'GRP-FAMILY-003', planType: 'FAMILY', coverageType: 'REIMBURSEMENT', isAyushmanBharat: false, maxCoverage: 800000, coPayPercentage: 20 },
+   511→        { patient: vikram, providerName: 'HDFC ERGO', policyNumber: 'HE-PMJAY-2024-001', planType: 'INDIVIDUAL', coverageType: 'CASHLESS', isAyushmanBharat: true, maxCoverage: 500000, coPayPercentage: 0 },
+   512→        { patient: sunita, providerName: 'New India Assurance', policyNumber: 'NIA-2024-67521', groupNumber: 'GRP-CORP-012', planType: 'GROUP', coverageType: 'CASHLESS', isAyushmanBharat: false, maxCoverage: 300000, coPayPercentage: 15 },
+   513→      ]
+   514→
+   515→      const createdPolicies: { id: string; patientId: string; patient: typeof rahul }[] = []
+   516→
+   517→      for (const def of policyDefs) {
+   518→        if (!def.patient) continue
+   519→        const exists = await db.insurancePolicy.findFirst({ where: { policyNumber: def.policyNumber } })
+   520→        if (!exists) {
+   521→          const policy = await db.insurancePolicy.create({
+   522→            data: {
+   523→              patientId: def.patient.id,
+   524→              providerName: def.providerName,
+   525→              policyNumber: def.policyNumber,
+   526→              groupNumber: def.groupNumber,
+   527→              planType: def.planType,
+   528→              coverageType: def.coverageType,
+   529→              isAyushmanBharat: def.isAyushmanBharat,
+   530→              maxCoverage: def.maxCoverage,
+   531→              coPayPercentage: def.coPayPercentage,
+   532→              validFrom: daysFromNow(-180),
+   533→              validUntil: daysFromNow(185),
+   534→              isActive: true,
+   535→            },
+   536→          })
+   537→          createdPolicies.push({ id: policy.id, patientId: def.patient.id, patient: def.patient })
+   538→          addCount('InsurancePolicies', 1)
+   539→        }
+   540→      }
+   541→      log('InsurancePolicies', `Created ${SUMMARY['InsurancePolicies'] || 0} new policies`)
+   542→
+   543→      // Claims
+   544→      const existingClaims = await db.insuranceClaim.count()
+   545→      if (existingClaims < 3 && createdPolicies.length >= 3) {
+   546→        const claimDefs = [
+   547→          { claimNumber: 'CLM-000001', policyIdx: 0, patientId: rahul?.id, claimType: 'CASHLESS', status: 'APPROVED', amountClaimed: 45000, amountApproved: 40500, amountSettled: 40500, settledAt: daysFromNow(-5) },
+   548→          { claimNumber: 'CLM-000002', policyIdx: 1, patientId: priya?.id, claimType: 'REIMBURSEMENT', status: 'UNDER_REVIEW', amountClaimed: 12000, processedAt: daysFromNow(-2) },
+   549→          { claimNumber: 'CLM-000003', policyIdx: 2, patientId: vikram?.id, claimType: 'CASHLESS', status: 'REJECTED', amountClaimed: 85000, denialReason: 'Pre-existing condition not covered in waiting period' },
+   550→        ]
+   551→
+   552→        for (const def of claimDefs) {
+   553→          if (!def.patientId) continue
+   554→          const exists = await db.insuranceClaim.findUnique({ where: { claimNumber: def.claimNumber } })
+   555→          if (!exists) {
+   556→            await db.insuranceClaim.create({
+   557→              data: {
+   558→                policyId: createdPolicies[def.policyIdx]?.id || createdPolicies[0]?.id,
+   559→                patientId: def.patientId,
+   560→                claimNumber: def.claimNumber,
+   561→                claimType: def.claimType,
+   562→                status: def.status,
+   563→                amountClaimed: def.amountClaimed,
+   564→                amountApproved: (def as any).amountApproved,
+   565→                amountSettled: (def as any).amountSettled,
+   566→                denialReason: (def as any).denialReason,
+   567→                submittedAt: daysFromNow(-7),
+   568→                processedAt: (def as any).processedAt,
+   569→                settledAt: (def as any).settledAt,
+   570→              },
+   571→            })
+   572→            addCount('InsuranceClaims', 1)
+   573→          }
+   574→        }
+   575→        log('InsuranceClaims', `Created ${SUMMARY['InsuranceClaims'] || 0} new claims`)
+   576→      } else {
+   577→        log('InsuranceClaims', `Skipped — ${existingClaims} already exist or no policies`)
+   578→      }
+   579→    } else {
+   580→      log('InsurancePolicies', `Skipped — ${existingPolicies} already exist`)
+   581→    }
+   582→  } catch (e: any) {
+   583→    log('InsuranceClaims', `Error: ${e.message}`)
+   584→  }
+   585→
+   586→  // ════════════════════════════════════════════
+   587→  // 7. BILLING RECORDS
+   588→  // ════════════════════════════════════════════
+   589→  try {
+   590→    const existingBilling = await db.billingRecord.count()
+   591→    if (existingBilling < 5) {
+   592→      const billingDefs = [
+   593→        { invoiceNumber: 'INV-000001', patient: rahul, modality: 'ALLOPATHY', status: 'PAID', consultationFee: 800, medicineCharges: 650, labCharges: 1200, totalAmount: 2650, discount: 0, tax: 146, netAmount: 2796, paidAmount: 2796, paymentMethod: 'UPI', paymentRef: 'UPI-RAZOR-88421', paidAt: daysFromNow(-2), dueDate: daysFromNow(15) },
+   594→        { invoiceNumber: 'INV-000002', patient: priya, modality: 'AYURVEDA', status: 'PENDING', consultationFee: 600, medicineCharges: 450, totalAmount: 1050, discount: 50, tax: 55, netAmount: 1055, paidAmount: 0, dueDate: daysFromNow(15) },
+   595→        { invoiceNumber: 'INV-000003', patient: vikram, modality: 'ALLOPATHY', status: 'PAID', consultationFee: 1500, medicineCharges: 3200, labCharges: 2800, procedureCharges: 150000, totalAmount: 157500, discount: 10000, tax: 8163, netAmount: 155663, paidAmount: 155663, paymentMethod: 'INSURANCE', paidAt: daysFromNow(-5), dueDate: daysFromNow(0) },
+   596→        { invoiceNumber: 'INV-000004', patient: sunita, modality: 'ALLOPATHY', status: 'OVERDUE', consultationFee: 700, labCharges: 900, totalAmount: 1600, tax: 88, netAmount: 1688, paidAmount: 0, dueDate: daysFromNow(-7) },
+   597→        { invoiceNumber: 'INV-000005', patient: anjali, modality: 'HOMEOPATHY', status: 'PAID', consultationFee: 500, medicineCharges: 300, totalAmount: 800, tax: 44, netAmount: 844, paidAmount: 844, paymentMethod: 'CASH', paidAt: daysFromNow(-1), dueDate: daysFromNow(15) },
+   598→      ]
+   599→
+   600→      for (const def of billingDefs) {
+   601→        if (!def.patient) continue
+   602→        const exists = await db.billingRecord.findUnique({ where: { invoiceNumber: def.invoiceNumber } })
+   603→        if (!exists) {
+   604→          await db.billingRecord.create({
+   605→            data: {
+   606→              patientId: def.patient.id,
+   607→              invoiceNumber: def.invoiceNumber,
+   608→              modality: def.modality,
+   609→              status: def.status,
+   610→              consultationFee: def.consultationFee,
+   611→              medicineCharges: def.medicineCharges || 0,
+   612→              labCharges: def.labCharges || 0,
+   613→              procedureCharges: def.procedureCharges || 0,
+   614→              otherCharges: 0,
+   615→              totalAmount: def.totalAmount,
+   616→              discount: def.discount || 0,
+   617→              tax: def.tax || 0,
+   618→              netAmount: def.netAmount,
+   619→              paidAmount: def.paidAmount,
+   620→              paymentMethod: def.paymentMethod,
+   621→              paymentRef: (def as any).paymentRef,
+   622→              dueDate: def.dueDate,
+   623→              paidAt: (def as any).paidAt,
+   624→            },
+   625→          })
+   626→          addCount('BillingRecords', 1)
+   627→        }
+   628→      }
+   629→      log('BillingRecords', `Created ${SUMMARY['BillingRecords'] || 0} new billing records`)
+   630→    } else {
+   631→      log('BillingRecords', `Skipped — ${existingBilling} already exist`)
+   632→    }
+   633→  } catch (e: any) {
+   634→    log('BillingRecords', `Error: ${e.message}`)
+   635→  }
+   636→
+   637→  // ════════════════════════════════════════════
+   638→  // 8. DISCHARGE SUMMARIES
+   639→  // ════════════════════════════════════════════
+   640→  try {
+   641→    const existingDischarge = await db.dischargeSummary.count()
+   642→    if (existingDischarge < 2) {
+   643→      const dischargeDefs = [
+   644→        {
+   645→          patient: rahul, practitioner: drArvind, summaryNumber: 'DS-000001', modality: 'ALLOPATHY',
+   646→          admissionDate: daysFromNow(-5), dischargeDate: daysFromNow(-1),
+   647→          admittingDiagnosis: 'NSTEMI (Non-ST Elevation Myocardial Infarction)',
+   648→          dischargeDiagnosis: 'NSTEMI — Post PCI to LAD. Hypertension. Type 2 Diabetes Mellitus.',
+   649→          chiefComplaints: JSON.stringify(['Chest pain for 2 hours', 'Sweating', 'Breathlessness']),
+   650→          investigations: JSON.stringify(['Troponin I: 2.8 ng/mL (↑)', 'ECG: ST depression V3-V6', 'Echo: EF 45%, RWMA in LAD territory', 'Coronary Angiography: 90% proximal LAD']),
+   651→          treatmentGiven: 'Antiplatelet loading (Aspirin 325mg + Clopidogrel 600mg). PCI with DES to proximal LAD. Heparin infusion 24h. Statins, ACE inhibitors, beta-blockers initiated.',
+   652→          conditionAtDischarge: 'STABLE',
+   653→          medicationsOnDischarge: JSON.stringify(['Aspirin 75mg OD', 'Clopidogrel 75mg OD', 'Atorvastatin 80mg HS', 'Metoprolol 25mg BD', 'Ramipril 2.5mg OD', 'Metformin 500mg BD']),
+   654→          followUpInstructions: 'Cardiology follow-up in 7 days. Cardiac rehab enrollment. Dual antiplatelet therapy for 12 months. Repeat lipid profile in 6 weeks.',
+   655→          dietAdvice: 'Low salt, low fat, diabetic diet. Avoid fried foods. Plenty of fruits and vegetables.',
+   656→          restrictions: 'No heavy lifting >5kg for 4 weeks. No driving for 1 week. Gradual increase in activity.',
+   657→        },
+   658→        {
+   659→          patient: vikram, practitioner: drVikramSingh, summaryNumber: 'DS-000002', modality: 'ALLOPATHY',
+   660→          admissionDate: daysFromNow(-7), dischargeDate: daysFromNow(-2),
+   661→          admittingDiagnosis: 'Osteoarthritis Right Knee — Total Knee Replacement',
+   662→          dischargeDiagnosis: 'Post-operative Right Total Knee Replacement. Osteoarthritis knee grade IV.',
+   663→          chiefComplaints: JSON.stringify(['Right knee pain 5 years', 'Difficulty walking', 'Night pain']),
+   664→          investigations: JSON.stringify(['X-ray: Grade IV OA changes right knee', 'Pre-op: Hb 13.2, Cr 0.9, ECG normal', 'Post-op X-ray: TKR well-placed']),
+   665→          treatmentGiven: 'Right total knee replacement under spinal anesthesia. Cemented cruciate-retaining prosthesis. Post-op: IV antibiotics 48h, analgesics, DVT prophylaxis. Physiotherapy from day 1.',
+   666→          conditionAtDischarge: 'IMPROVED',
+   667→          medicationsOnDischarge: JSON.stringify(['Tramadol 50mg BD PRN', 'Paracetamol 650mg TDS', 'Rivaroxaban 10mg OD x 14 days', 'Calcium + Vitamin D supplementation']),
+   668→          followUpInstructions: 'Suture removal day 12. Orthopedic follow-up at 2 weeks. Continue physiotherapy. Target flexion 110° by 6 weeks.',
+   669→          dietAdvice: 'High protein diet for wound healing. Calcium-rich foods. Adequate hydration.',
+   670→          restrictions: 'Partial weight-bearing with walker x 4 weeks. No squatting/cross-legged sitting for 6 weeks. Avoid falls.',
+   671→        },
+   672→      ]
+   673→
+   674→      for (const def of dischargeDefs) {
+   675→        if (!def.patient) continue
+   676→        const exists = await db.dischargeSummary.findUnique({ where: { summaryNumber: def.summaryNumber } })
+   677→        if (!exists) {
+   678→          await db.dischargeSummary.create({
+   679→            data: {
+   680→              patientId: def.patient.id,
+   681→              practitionerId: def.practitioner?.id,
+   682→              summaryNumber: def.summaryNumber,
+   683→              modality: def.modality,
+   684→              admissionDate: def.admissionDate,
+   685→              dischargeDate: def.dischargeDate,
+   686→              admittingDiagnosis: def.admittingDiagnosis,
+   687→              dischargeDiagnosis: def.dischargeDiagnosis,
+   688→              chiefComplaints: def.chiefComplaints,
+   689→              investigations: def.investigations,
+   690→              treatmentGiven: def.treatmentGiven,
+   691→              conditionAtDischarge: def.conditionAtDischarge,
+   692→              medicationsOnDischarge: def.medicationsOnDischarge,
+   693→              followUpInstructions: def.followUpInstructions,
+   694→              dietAdvice: def.dietAdvice,
+   695→              restrictions: def.restrictions,
+   696→            },
+   697→          })
+   698→          addCount('DischargeSummaries', 1)
+   699→        }
+   700→      }
+   701→      log('DischargeSummaries', `Created ${SUMMARY['DischargeSummaries'] || 0} new discharge summaries`)
+   702→    } else {
+   703→      log('DischargeSummaries', `Skipped — ${existingDischarge} already exist`)
+   704→    }
+   705→  } catch (e: any) {
+   706→    log('DischargeSummaries', `Error: ${e.message}`)
+   707→  }
+   708→
+   709→  // ════════════════════════════════════════════
+   710→  // 9. REFERRALS
+   711→  // ════════════════════════════════════════════
+   712→  try {
+   713→    const existingReferrals = await db.referral.count()
+   714→    if (existingReferrals < 3) {
+   715→      const referralDefs = [
+   716→        {
+   717→          patient: rahul, fromPractitioner: drArvind, toPractitioner: drRajesh,
+   718→          referralNumber: 'REF-000001', modality: 'ALLOPATHY', targetModality: 'AYURVEDA',
+   719→          reason: 'Cardiac rehabilitation — Ayurvedic supportive care for post-PCI recovery. Patient interested in integrative approach for lifestyle modification.',
+   720→          clinicalSummary: 'Post NSTEMI, PCI to LAD on dual antiplatelet therapy. EF 45%. Hypertension and T2DM comorbid. Needs cardiac rehab and stress management.',
+   721→          urgency: 'ROUTINE', status: 'PENDING', referredSpeciality: 'Kayachikitsa',
+   722→        },
+   723→        {
+   724→          patient: priya, fromPractitioner: drSunitaSharma, toPractitioner: drMeera,
+   725→          referralNumber: 'REF-000002', modality: 'ALLOPATHY', targetModality: 'HOMEOPATHY',
+   726→          reason: 'Chronic migraine — patient not responding adequately to conventional prophylaxis. Homeopathic consultation for constitutional treatment.',
+   727→          clinicalSummary: 'Chronic migraine x 5 years. Failed Topiramate and Propranolol prophylaxis. Currently on Rizatriptan PRN. 8-10 attacks/month. Menstrual trigger.',
+   728→          urgency: 'ROUTINE', status: 'ACCEPTED', referredSpeciality: 'Classical Homeopathy',
+   729→          respondedAt: daysFromNow(-1),
+   730→        },
+   731→        {
+   732→          patient: sunita, fromPractitioner: drRajesh, toPractitioner: drArvind,
+   733→          referralNumber: 'REF-000003', modality: 'AYURVEDA', targetModality: 'ALLOPATHY',
+   734→          reason: 'Uncontrolled Type 2 Diabetes despite Ayurvedic management. Fasting sugars consistently >180. Needs allopathic treatment intensification and evaluation for insulin therapy.',
+   735→          clinicalSummary: 'T2DM x 8 years. Managed with Ayurvedic formulations (Guggulu, Brahmi) for past 2 years. HbA1c 9.1%. Fasting glucose 196 mg/dL. No diabetic complications yet.',
+   736→          urgency: 'URGENT', status: 'COMPLETED', referredSpeciality: 'Diabetology',
+   737→          respondedAt: daysFromNow(-3), completedAt: daysFromNow(-1),
+   738→        },
+   739→      ]
+   740→
+   741→      for (const def of referralDefs) {
+   742→        if (!def.patient || !def.fromPractitioner) continue
+   743→        const exists = await db.referral.findUnique({ where: { referralNumber: def.referralNumber } })
+   744→        if (!exists) {
+   745→          await db.referral.create({
+   746→            data: {
+   747→              patientId: def.patient.id,
+   748→              fromPractitionerId: def.fromPractitioner.id,
+   749→              toPractitionerId: def.toPractitioner?.id,
+   750→              referralNumber: def.referralNumber,
+   751→              modality: def.modality,
+   752→              targetModality: def.targetModality,
+   753→              reason: def.reason,
+   754→              clinicalSummary: def.clinicalSummary,
+   755→              urgency: def.urgency,
+   756→              status: def.status,
+   757→              referredSpeciality: def.referredSpeciality,
+   758→              respondedAt: (def as any).respondedAt,
+   759→              completedAt: (def as any).completedAt,
+   760→            },
+   761→          })
+   762→          addCount('Referrals', 1)
+   763→        }
+   764→      }
+   765→      log('Referrals', `Created ${SUMMARY['Referrals'] || 0} new referrals`)
+   766→    } else {
+   767→      log('Referrals', `Skipped — ${existingReferrals} already exist`)
+   768→    }
+   769→  } catch (e: any) {
+   770→    log('Referrals', `Error: ${e.message}`)
+   771→  }
+   772→
+   773→  // ════════════════════════════════════════════
+   774→  // 10. NOTIFICATIONS
+   775→  // ════════════════════════════════════════════
+   776→  try {
+   777→    const existingNotifications = await db.appNotification.count()
+   778→    if (existingNotifications < 8) {
+   779→      const notificationDefs = [
+   780→        { type: 'PRESCRIPTION', category: 'INFO', title: 'Prescription Ready', message: 'Your prescription RX-000001 has been generated by Dr. Arvind Kumar. Please visit the pharmacy to collect your medicines.', patient: rahul, isRead: true, readAt: daysFromNow(-1) },
+   781→        { type: 'APPOINTMENT', category: 'WARNING', title: 'Appointment Reminder', message: 'You have an appointment with Dr. Rajesh Patel tomorrow at 10:00 AM. Please arrive 15 minutes early.', patient: priya, isRead: false },
+   782→        { type: 'RECALL', category: 'CRITICAL', title: 'Drug Recall Alert', message: 'Ranitidine (all brands) has been recalled by CDSCO due to NDMA impurity. If you are taking this medication, contact your doctor immediately.', patient: vikram, isRead: false },
+   783→        { type: 'SAFETY', category: 'URGENT', title: 'Drug Interaction Warning', message: 'Potential interaction detected between Warfarin and Aspirin — increased bleeding risk. Your doctor has been notified.', patient: meena, isRead: false },
+   784→        { type: 'LAB_RESULT', category: 'INFO', title: 'Lab Results Available', message: 'Your lab results for LBO-000001 are now available. HbA1c is above the target range. Please schedule a follow-up.', patient: rahul, isRead: true, readAt: daysFromNow(-2) },
+   785→        { type: 'FOLLOW_UP', category: 'INFO', title: 'Follow-up Due', message: 'You are due for a follow-up consultation with Dr. Arvind Kumar. Last visit was 14 days ago.', patient: rahul, isRead: false },
+   786→        { type: 'REFERRAL', category: 'INFO', title: 'Referral Update', message: 'Your referral to Dr. Meera Iyer (Homeopathy) has been accepted. Please call to schedule your appointment.', patient: priya, isRead: true, readAt: daysFromNow(-1) },
+   787→        { type: 'BILLING', category: 'WARNING', title: 'Payment Overdue', message: 'Invoice INV-000004 for ₹1,688 is overdue by 7 days. Please make the payment at the earliest to avoid late fees.', patient: sunita, isRead: false },
+   788→      ]
+   789→
+   790→      for (const def of notificationDefs) {
+   791→        // Use title as unique identifier to avoid duplicates
+   792→        const exists = await db.appNotification.findFirst({ where: { title: def.title } })
+   793→        if (!exists) {
+   794→          await db.appNotification.create({
+   795→            data: {
+   796→              patientId: def.patient?.id,
+   797→              type: def.type,
+   798→              category: def.category,
+   799→              title: def.title,
+   800→              message: def.message,
+   801→              isRead: def.isRead,
+   802→              readAt: (def as any).readAt,
+   803→              channel: 'IN_APP',
+   804→            },
+   805→          })
+   806→          addCount('Notifications', 1)
+   807→        }
+   808→      }
+   809→      log('Notifications', `Created ${SUMMARY['Notifications'] || 0} new notifications`)
+   810→    } else {
+   811→      log('Notifications', `Skipped — ${existingNotifications} already exist`)
+   812→    }
+   813→  } catch (e: any) {
+   814→    log('Notifications', `Error: ${e.message}`)
+   815→  }
+   816→
+   817→  // ════════════════════════════════════════════
+   818→  // 11. DOCUMENT UPLOADS
+   819→  // ════════════════════════════════════════════
+   820→  try {
+   821→    const existingDocs = await db.documentUpload.count()
+   822→    if (existingDocs < 4) {
+   823→      const docDefs = [
+   824→        {
+   825→          patient: rahul, practitioner: drArvind,
+   826→          documentType: 'LAB_REPORT', fileName: 'rahul_lab_report_2024.pdf', fileSize: 245000, mimeType: 'application/pdf',
+   827→          ocrExtracted: 'CBC: Hb 13.2 g/dL, WBC 7200, Platelets 2.4L. HbA1c: 8.2%. Lipid: Total Chol 248, LDL 168, HDL 38, TG 210.',
+   828→          ocrConfidence: 0.92, isVerified: true, verifiedBy: drArvind?.id, verifiedAt: daysFromNow(-1),
+   829→        },
+   830→        {
+   831→          patient: priya, practitioner: drRajesh,
+   832→          documentType: 'PRESCRIPTION', fileName: 'priya_ayurveda_rx.jpg', fileSize: 89000, mimeType: 'image/jpeg',
+   833→          ocrExtracted: 'Ashwagandha 500mg BD. Triphala 1gm HS. Dr. Rajesh Patel, BAMS.',
+   834→          ocrConfidence: 0.78, isVerified: false,
+   835→        },
+   836→        {
+   837→          patient: anjali,
+   838→          documentType: 'ID_PROOF', fileName: 'anjali_aadhaar.pdf', fileSize: 520000, mimeType: 'application/pdf',
+   839→          ocrExtracted: 'Aadhaar Number: XXXX-XXXX-4321. Name: Anjali Joshi. DOB: 15/06/1990.',
+   840→          ocrConfidence: 0.95, isVerified: true, verifiedBy: 'SYSTEM', verifiedAt: daysFromNow(-10),
+   841→        },
+   842→        {
+   843→          patient: vikram,
+   844→          documentType: 'INSURANCE_CARD', fileName: 'vikram_pmjay_card.jpg', fileSize: 156000, mimeType: 'image/jpeg',
+   845→          ocrExtracted: 'PM-JAY Card. Name: Vikram Singh. ID: HE-PMJAY-2024-001. Hospital: Empanelled.',
+   846→          ocrConfidence: 0.88, isVerified: false,
+   847→        },
+   848→      ]
+   849→
+   850→      for (const def of docDefs) {
+   851→        if (!def.patient) continue
+   852→        const exists = await db.documentUpload.findFirst({ where: { fileName: def.fileName } })
+   853→        if (!exists) {
+   854→          await db.documentUpload.create({
+   855→            data: {
+   856→              patientId: def.patient.id,
+   857→              practitionerId: def.practitioner?.id,
+   858→              documentType: def.documentType,
+   859→              fileName: def.fileName,
+   860→              fileSize: def.fileSize,
+   861→              mimeType: def.mimeType,
+   862→              ocrExtracted: def.ocrExtracted,
+   863→              ocrConfidence: def.ocrConfidence,
+   864→              isVerified: def.isVerified,
+   865→              verifiedBy: (def as any).verifiedBy,
+   866→              verifiedAt: (def as any).verifiedAt,
+   867→            },
+   868→          })
+   869→          addCount('DocumentUploads', 1)
+   870→        }
+   871→      }
+   872→      log('DocumentUploads', `Created ${SUMMARY['DocumentUploads'] || 0} new document uploads`)
+   873→    } else {
+   874→      log('DocumentUploads', `Skipped — ${existingDocs} already exist`)
+   875→    }
+   876→  } catch (e: any) {
+   877→    log('DocumentUploads', `Error: ${e.message}`)
+   878→  }
+   879→
+   880→  // ════════════════════════════════════════════
+   881→  // 12. TELEMEDICINE SESSIONS
+   882→  // ════════════════════════════════════════════
+   883→  try {
+   884→    const existingTele = await db.telemedicineSession.count()
+   885→    if (existingTele < 3) {
+   886→      const teleDefs = [
+   887→        {
+   888→          patient: amit, practitioner: drRajesh,
+   889→          modality: 'AYURVEDA', status: 'COMPLETED', platform: 'BUILT_IN',
+   890→          duration: 1200, notes: 'Discussed chronic pain management. Adjusted Guggulu dosage. Recommended Kati Basti sessions.',
+   891→          rating: 4, feedback: 'Good consultation, clear advice on Ayurvedic treatment approach.',
+   892→          startedAt: daysFromNow(-2), endedAt: daysFromNow(-2),
+   893→        },
+   894→        {
+   895→          patient: priya, practitioner: drSunitaSharma,
+   896→          modality: 'ALLOPATHY', status: 'IN_PROGRESS', platform: 'BUILT_IN',
+   897→          notes: 'Tele-consultation for medication refill in progress.',
+   898→          startedAt: new Date(),
+   899→        },
+   900→        {
+   901→          patient: rahul, practitioner: drArvind,
+   902→          modality: 'ALLOPATHY', status: 'SCHEDULED', platform: 'BUILT_IN',
+   903→          notes: 'Scheduled tele-consultation for post-discharge cardiac follow-up.',
+   904→        },
+   905→      ]
+   906→
+   907→      for (const def of teleDefs) {
+   908→        if (!def.patient) continue
+   909→        // Use patient + status + modality combination for idempotency
+   910→        const exists = await db.telemedicineSession.findFirst({
+   911→          where: {
+   912→            patientId: def.patient.id,
+   913→            status: def.status,
+   914→            modality: def.modality,
+   915→          },
+   916→        })
+   917→        if (!exists) {
+   918→          await db.telemedicineSession.create({
+   919→            data: {
+   920→              patientId: def.patient.id,
+   921→              practitionerId: def.practitioner?.id,
+   922→              modality: def.modality,
+   923→              status: def.status,
+   924→              platform: def.platform,
+   925→              duration: (def as any).duration,
+   926→              notes: def.notes,
+   927→              rating: (def as any).rating,
+   928→              feedback: (def as any).feedback,
+   929→              startedAt: (def as any).startedAt,
+   930→              endedAt: (def as any).endedAt,
+   931→            },
+   932→          })
+   933→          addCount('TelemedicineSessions', 1)
+   934→        }
+   935→      }
+   936→      log('TelemedicineSessions', `Created ${SUMMARY['TelemedicineSessions'] || 0} new sessions`)
+   937→    } else {
+   938→      log('TelemedicineSessions', `Skipped — ${existingTele} already exist`)
+   939→    }
+   940→  } catch (e: any) {
+   941→    log('TelemedicineSessions', `Error: ${e.message}`)
+   942→  }
+   943→
+   944→  // ════════════════════════════════════════════
+   945→  // 13. CDS ALERTS
+   946→  // ════════════════════════════════════════════
+   947→  try {
+   948→    const existingCDS = await db.cDSAlert.count()
+   949→    if (existingCDS < 5) {
+   950→      const cdsDefs = [
+   951→        {
+   952→          patient: meena, practitioner: drArvind,
+   953→          alertType: 'DRUG_INTERACTION', severity: 'CRITICAL',
+   954→          title: 'Major Drug Interaction: Warfarin + Aspirin',
+   955→          description: 'Concurrent use of Warfarin and Aspirin significantly increases bleeding risk. INR monitoring is essential. Consider PPI gastroprotection if combination is necessary.',
+   956→          evidence: 'BMJ 2023; FDA Black Box Warning',
+   957→          suggestedAction: 'Review necessity of combination. If required, reduce Aspirin to 75mg and monitor INR weekly. Consider PPI gastroprotection.',
+   958→          isOverrideable: true,
+   959→        },
+   960→        {
+   961→          patient: rahul, practitioner: drArvind,
+   962→          alertType: 'ALLERGY', severity: 'CRITICAL',
+   963→          title: 'Allergy Alert: Penicillin → Amoxicillin',
+   964→          description: 'Patient has documented Penicillin allergy. Amoxicillin is a penicillin-class antibiotic and is CONTRAINDICATED.',
+   965→          evidence: 'Patient allergy record; NICE Clinical Guideline CG183',
+   966→          suggestedAction: 'Select alternative antibiotic: Azithromycin or Doxycycline. Do NOT prescribe any penicillin-class drug.',
+   967→          isOverrideable: false,
+   968→        },
+   969→        {
+   970→          patient: rahul, practitioner: drArvind,
+   971→          alertType: 'DOSAGE', severity: 'WARNING',
+   972→          title: 'Dosage Warning: Metformin Renal Adjustment',
+   973→          description: 'Patient creatinine clearance estimated at 35 mL/min. Current Metformin 1000mg/day exceeds renal-adjusted limit of 850mg/day per NICE guidelines.',
+   974→          evidence: 'NICE NG28; FDA Metformin labeling update 2016',
+   975→          suggestedAction: 'Reduce Metformin to 500mg BD (1000mg/day). Monitor renal function every 3 months. Consider DPP-4 inhibitor add-on.',
+   976→          isOverrideable: true,
+   977→        },
+   978→        {
+   979→          alertType: 'RECALL', severity: 'WARNING',
+   980→          title: 'CDSCO Drug Recall: Ranitidine',
+   981→          description: 'CDSCO has ordered recall of all Ranitidine products due to NDMA (N-Nitrosodimethylamine) impurity above acceptable limits. NDMA is a probable human carcinogen.',
+   982→          evidence: 'CDSCO Notice DC/BR/2024/012; FDA Drug Safety Communication',
+   983→          suggestedAction: 'Discontinue Ranitidine immediately. Substitute with Famotidine 20mg BD or Omeprazole 20mg OD. Counsel patient on the recall.',
+   984→          isOverrideable: false,
+   985→        },
+   986→        {
+   987→          patient: sunita, practitioner: drArvind,
+   988→          alertType: 'GUIDELINE', severity: 'INFO',
+   989→          title: 'Guideline Reminder: HbA1c Monitoring',
+   990→          description: 'Patient has uncontrolled T2DM (last HbA1c >9%). Per ADA 2024 guidelines, HbA1c should be monitored every 3 months until at target (<7%), then every 6 months.',
+   991→          evidence: 'ADA Standards of Medical Care in Diabetes 2024; RSSDI Clinical Practice Recommendations',
+   992→          suggestedAction: 'Order HbA1c if not done in past 3 months. Consider treatment intensification. Schedule diabetic education session.',
+   993→          isOverrideable: true,
+   994→        },
+   995→      ]
+   996→
+   997→      for (const def of cdsDefs) {
+   998→        // Use title for idempotency
+   999→        const exists = await db.cDSAlert.findFirst({ where: { title: def.title } })
+  1000→        if (!exists) {
+  1001→          await db.cDSAlert.create({
+  1002→            data: {
+  1003→              patientId: def.patient?.id,
+  1004→              practitionerId: def.practitioner?.id,
+  1005→              alertType: def.alertType,
+  1006→              severity: def.severity,
+  1007→              title: def.title,
+  1008→              description: def.description,
+  1009→              evidence: def.evidence,
+  1010→              suggestedAction: def.suggestedAction,
+  1011→              isOverrideable: def.isOverrideable,
+  1012→            },
+  1013→          })
+  1014→          addCount('CDSAlerts', 1)
+  1015→        }
+  1016→      }
+  1017→      log('CDSAlerts', `Created ${SUMMARY['CDSAlerts'] || 0} new CDS alerts`)
+  1018→    } else {
+  1019→      log('CDSAlerts', `Skipped — ${existingCDS} already exist`)
+  1020→    }
+  1021→  } catch (e: any) {
+  1022→    log('CDSAlerts', `Error: ${e.message}`)
+  1023→  }
+  1024→
+  1025→  // ════════════════════════════════════════════
+  1026→  // 14. FOLLOW-UP REMINDERS
+  1027→  // ════════════════════════════════════════════
+  1028→  try {
+  1029→    const existingReminders = await db.followUpReminder.count()
+  1030→    if (existingReminders < 6) {
+  1031→      const reminderDefs = [
+  1032→        { patient: rahul, practitioner: drArvind, type: 'FOLLOW_UP', title: 'Cardiology Follow-up', description: 'Post-NSTEMI follow-up. Review medications, check BP, repeat ECG.', scheduledAt: daysFromNow(5), isCompleted: false, channel: 'IN_APP', recurrence: 'ONCE' },
+  1033→        { patient: rahul, practitioner: drArvind, type: 'MEDICATION_REMINDER', title: 'Metformin Dosage Reminder', description: 'Take Metformin 500mg after breakfast and dinner. Do not skip doses.', scheduledAt: daysFromNow(0), isCompleted: false, channel: 'SMS', recurrence: 'DAILY' },
+  1034→        { patient: priya, practitioner: drRajesh, type: 'LAB_REMINDER', title: 'Thyroid Function Test Due', description: 'Annual thyroid panel recheck. Last done 11 months ago.', scheduledAt: daysFromNow(14), isCompleted: false, channel: 'IN_APP', recurrence: 'ONCE' },
+  1035→        { patient: anjali, type: 'VACCINATION_DUE', title: 'HPV Vaccination Due', description: 'HPV vaccine dose 2 of 3 is due. Schedule appointment for administration.', scheduledAt: daysFromNow(-3), isCompleted: false, channel: 'SMS', recurrence: 'ONCE' },
+  1036→        { patient: sunita, practitioner: drArvind, type: 'CHECKUP', title: 'Annual Diabetic Checkup', description: 'Comprehensive annual checkup: HbA1c, KFT, fundoscopy, foot examination, urine albumin.', scheduledAt: daysFromNow(21), isCompleted: false, channel: 'IN_APP', recurrence: 'YEARLY' },
+  1037→        { patient: amit, practitioner: drRajesh, type: 'FOLLOW_UP', title: 'Pain Management Review', description: 'Review Ayurvedic treatment efficacy for chronic back pain. Assess need for Kati Basti sessions.', scheduledAt: daysFromNow(-2), isCompleted: true, completedAt: daysFromNow(-2), channel: 'IN_APP', recurrence: 'ONCE' },
+  1038→      ]
+  1039→
+  1040→      for (const def of reminderDefs) {
+  1041→        if (!def.patient) continue
+  1042→        // Use patient + title for idempotency
+  1043→        const exists = await db.followUpReminder.findFirst({
+  1044→          where: {
+  1045→            patientId: def.patient.id,
+  1046→            title: def.title,
+  1047→          },
+  1048→        })
+  1049→        if (!exists) {
+  1050→          await db.followUpReminder.create({
+  1051→            data: {
+  1052→              patientId: def.patient.id,
+  1053→              practitionerId: def.practitioner?.id,
+  1054→              type: def.type,
+  1055→              title: def.title,
+  1056→              description: def.description,
+  1057→              scheduledAt: def.scheduledAt,
+  1058→              isCompleted: def.isCompleted,
+  1059→              completedAt: (def as any).completedAt,
+  1060→              channel: def.channel,
+  1061→              recurrence: def.recurrence,
+  1062→            },
+  1063→          })
+  1064→          addCount('FollowUpReminders', 1)
+  1065→        }
+  1066→      }
+  1067→      log('FollowUpReminders', `Created ${SUMMARY['FollowUpReminders'] || 0} new reminders`)
+  1068→    } else {
+  1069→      log('FollowUpReminders', `Skipped — ${existingReminders} already exist`)
+  1070→    }
+  1071→  } catch (e: any) {
+  1072→    log('FollowUpReminders', `Error: ${e.message}`)
+  1073→  }
+  1074→
+  1075→  // ════════════════════════════════════════════
+  1076→  // 15. PATIENT TIMELINE EVENTS (Rahul Kumar)
+  1077→  // ════════════════════════════════════════════
+  1078→  try {
+  1079→    const existingTimeline = await db.patientTimelineEvent.count()
+  1080→    if (existingTimeline < 12 && rahul) {
+  1081→      const timelineDefs = [
+  1082→        { eventType: 'ADMISSION', eventDate: daysFromNow(-5), title: 'Hospital Admission', description: 'Admitted to Cardiology ICU via Emergency with chest pain. Diagnosis: NSTEMI.', modality: 'ALLOPATHY', isSignificant: true },
+  1083→        { eventType: 'LAB_RESULT', eventDate: daysFromNow(-4), title: 'Troponin Result', description: 'Troponin I: 2.8 ng/mL (elevated). Confirms NSTEMI diagnosis.', modality: 'ALLOPATHY', data: JSON.stringify({ testName: 'Troponin I', resultValue: '2.8 ng/mL', isAbnormal: true }), isSignificant: true },
+  1084→        { eventType: 'PRESCRIPTION', eventDate: daysFromNow(-4), title: 'Antiplatelet Loading', description: 'Aspirin 325mg + Clopidogrel 600mg loading dose administered.', modality: 'ALLOPATHY', data: JSON.stringify({ prescriptionNo: 'STAT-LOAD' }), isSignificant: true },
+  1085→        { eventType: 'NOTE', eventDate: daysFromNow(-3), title: 'Cardiology Consultation Note', description: 'PCI planned for LAD lesion. EF 45%. Discussed risks and consent obtained.', modality: 'ALLOPATHY', isSignificant: false },
+  1086→        { eventType: 'PRESCRIPTION', eventDate: daysFromNow(-1), title: 'Discharge Medications', description: 'Discharged on Aspirin 75mg, Clopidogrel 75mg, Atorvastatin 80mg, Metoprolol 25mg BD, Ramipril 2.5mg, Metformin 500mg BD.', modality: 'ALLOPATHY', data: JSON.stringify({ prescriptionNo: 'RX-000001' }), isSignificant: true },
+  1087→        { eventType: 'DISCHARGE', eventDate: daysFromNow(-1), title: 'Hospital Discharge', description: 'Discharged in STABLE condition. Post PCI to LAD. Discharge summary DS-000001 generated.', modality: 'ALLOPATHY', isSignificant: true },
+  1088→        { eventType: 'FOLLOW_UP', eventDate: daysFromNow(5), title: 'Cardiology Follow-up Scheduled', description: 'Follow-up appointment with Dr. Arvind Kumar in 7 days. Cardiac rehab enrollment pending.', modality: 'ALLOPATHY', isSignificant: false },
+  1089→        { eventType: 'VACCINATION', eventDate: daysFromNow(-30), title: 'Influenza Vaccination', description: 'Influenza vaccine (Fluarix Tetra) administered. Batch: FLU-2024-0892.', modality: 'ALLOPATHY', data: JSON.stringify({ vaccineName: 'Influenza', batchNumber: 'FLU-2024-0892' }), isSignificant: false },
+  1090→        { eventType: 'REFERRAL', eventDate: daysFromNow(-1), title: 'Cross-Modality Referral', description: 'Referred to Dr. Rajesh Patel (Ayurveda) for cardiac rehabilitation and lifestyle modification support.', modality: 'ALLOPATHY', data: JSON.stringify({ referralNumber: 'REF-000001', targetModality: 'AYURVEDA' }), isSignificant: true },
+  1091→        { eventType: 'LAB_RESULT', eventDate: daysFromNow(-2), title: 'HbA1c Result', description: 'HbA1c 8.2% — above target of <7%. Poor glycemic control. Diabetic management needs intensification.', modality: 'ALLOPATHY', data: JSON.stringify({ testName: 'HbA1c', resultValue: '8.2%', isAbnormal: true }), isSignificant: true },
+  1092→        { eventType: 'NOTE', eventDate: daysFromNow(-2), title: 'SOAP Note: Hypertension Follow-up', description: 'BP 148/92 — suboptimal. Amlodipine uptitrated to 10mg. Telmisartan added.', modality: 'ALLOPATHY', isSignificant: false },
+  1093→        { eventType: 'FOLLOW_UP', eventDate: daysFromNow(-60), title: 'Previous Outpatient Visit', description: 'Routine follow-up. BP controlled on Amlodipine 5mg. Diabetes stable on Metformin 500mg BD.', modality: 'ALLOPATHY', isSignificant: false },
+  1094→      ]
+  1095→
+  1096→      for (const def of timelineDefs) {
+  1097→        // Use patient + title + eventType for idempotency
+  1098→        const exists = await db.patientTimelineEvent.findFirst({
+  1099→          where: {
+  1100→            patientId: rahul.id,
+  1101→            title: def.title,
+  1102→            eventType: def.eventType,
+  1103→          },
+  1104→        })
+  1105→        if (!exists) {
+  1106→          await db.patientTimelineEvent.create({
+  1107→            data: {
+  1108→              patientId: rahul.id,
+  1109→              eventType: def.eventType,
+  1110→              eventDate: def.eventDate,
+  1111→              title: def.title,
+  1112→              description: def.description,
+  1113→              modality: def.modality,
+  1114→              data: def.data,
+  1115→              isSignificant: def.isSignificant,
+  1116→            },
+  1117→          })
+  1118→          addCount('TimelineEvents', 1)
+  1119→        }
+  1120→      }
+  1121→      log('TimelineEvents', `Created ${SUMMARY['TimelineEvents'] || 0} new timeline events`)
+  1122→    } else {
+  1123→      log('TimelineEvents', `Skipped — ${existingTimeline} already exist or no Rahul patient`)
+  1124→    }
+  1125→  } catch (e: any) {
+  1126→    log('TimelineEvents', `Error: ${e.message}`)
+  1127→  }
+  1128→
+  1129→  // ── FINAL SUMMARY ──
+  1130→  const totalCreated = Object.values(SUMMARY).reduce((sum, n) => sum + n, 0)
+  1131→  log('DONE', `Total new records created: ${totalCreated}`)
+  1132→
+  1133→  return {
+  1134→    success: true,
+  1135→    totalCreated,
+  1136→    breakdown: SUMMARY,
+  1137→    logs: LOGS,
+  1138→  }
+  1139→}
+  1140→
+  1141→// ============================================================
+  1142→// GET /api/seed-v2
+  1143→// ============================================================
+  1144→export async function GET() {
+  1145→  try {
+  1146→    const result = await seedAll()
+  1147→    return NextResponse.json(result)
+  1148→  } catch (error: any) {
+  1149→    console.error('SEED-V2 FATAL:', error)
+  1150→    return NextResponse.json(
+  1151→      { success: false, error: error.message },
+  1152→      { status: 500 }
+  1153→    )
+  1154→  }
+  1155→}
+  1156→
+  1157→// ============================================================
+  1158→// POST /api/seed-v2
+  1159→// ============================================================
+  1160→export async function POST() {
+  1161→  try {
+  1162→    const result = await seedAll()
+  1163→    return NextResponse.json(result)
+  1164→  } catch (error: any) {
+  1165→    console.error('SEED-V2 FATAL:', error)
+  1166→    return NextResponse.json(
+  1167→      { success: false, error: error.message },
+  1168→      { status: 500 }
+  1169→    )
+  1170→  }
+  1171→}
+  1172→

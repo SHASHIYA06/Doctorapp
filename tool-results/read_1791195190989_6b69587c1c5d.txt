@@ -1,0 +1,1092 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Calendar, Clock, Users, CheckCircle2, XCircle, AlertTriangle, Video,
+     7→  Plus, ChevronLeft, ChevronRight, Search, Filter, Send, Stethoscope,
+     8→  Bell, Eye, Play, X
+     9→} from 'lucide-react'
+    10→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    11→import { Button } from '@/components/ui/button'
+    12→import { Input } from '@/components/ui/input'
+    13→import { Label } from '@/components/ui/label'
+    14→import { Badge } from '@/components/ui/badge'
+    15→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    16→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    17→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    18→import { Textarea } from '@/components/ui/textarea'
+    19→import { Skeleton } from '@/components/ui/skeleton'
+    20→import { ScrollArea } from '@/components/ui/scroll-area'
+    21→import { Separator } from '@/components/ui/separator'
+    22→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    23→import { useAppStore, type Modality } from '@/lib/store'
+    24→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    25→import { toast } from '@/hooks/use-toast'
+    26→
+    27→// ── Types ────────────────────────────────────────────────────────────────
+    28→
+    29→type AppointmentType = 'CONSULTATION' | 'FOLLOW_UP' | 'TELEMEDICINE' | 'PROCEDURE' | 'CHECKUP'
+    30→type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW'
+    31→type ViewMode = 'day' | 'week'
+    32→type TimeSlot = 15 | 30 | 45 | 60
+    33→type ListFilter = 'today' | 'week' | 'all'
+    34→
+    35→interface Patient {
+    36→  id: string
+    37→  firstName: string
+    38→  lastName: string
+    39→}
+    40→
+    41→interface Practitioner {
+    42→  id: string
+    43→  name: string
+    44→  specialty: string
+    45→}
+    46→
+    47→interface Appointment {
+    48→  id: string
+    49→  patientId: string
+    50→  patientName: string
+    51→  practitionerId: string
+    52→  practitionerName: string
+    53→  type: AppointmentType
+    54→  modality: Modality
+    55→  status: AppointmentStatus
+    56→  date: string
+    57→  startTime: string
+    58→  endTime: string
+    59→  duration: TimeSlot
+    60→  urgent: boolean
+    61→  notes: string | null
+    62→  cancelReason: string | null
+    63→  createdAt: string
+    64→  updatedAt: string
+    65→}
+    66→
+    67→// ── Config ───────────────────────────────────────────────────────────────
+    68→
+    69→const STATUS_COLORS: Record<AppointmentStatus, string> = {
+    70→  SCHEDULED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    71→  CONFIRMED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    72→  IN_PROGRESS: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+    73→  COMPLETED: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+    74→  CANCELLED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    75→  NO_SHOW: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    76→}
+    77→
+    78→const TYPE_LABELS: Record<AppointmentType, string> = {
+    79→  CONSULTATION: 'Consultation',
+    80→  FOLLOW_UP: 'Follow-up',
+    81→  TELEMEDICINE: 'Telemedicine',
+    82→  PROCEDURE: 'Procedure',
+    83→  CHECKUP: 'Checkup',
+    84→}
+    85→
+    86→const TIME_SLOTS: TimeSlot[] = [15, 30, 45, 60]
+    87→
+    88→const APPOINTMENT_TYPES: AppointmentType[] = ['CONSULTATION', 'FOLLOW_UP', 'TELEMEDICINE', 'PROCEDURE', 'CHECKUP']
+    89→
+    90→const SLOT_TIMES = [
+    91→  '08:00', '08:15', '08:30', '08:45',
+    92→  '09:00', '09:15', '09:30', '09:45',
+    93→  '10:00', '10:15', '10:30', '10:45',
+    94→  '11:00', '11:15', '11:30', '11:45',
+    95→  '12:00', '12:15', '12:30', '12:45',
+    96→  '13:00', '13:15', '13:30', '13:45',
+    97→  '14:00', '14:15', '14:30', '14:45',
+    98→  '15:00', '15:15', '15:30', '15:45',
+    99→  '16:00', '16:15', '16:30', '16:45',
+   100→  '17:00', '17:15', '17:30', '17:45',
+   101→]
+   102→
+   103→const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+   104→
+   105→// ── Helpers ──────────────────────────────────────────────────────────────
+   106→
+   107→function formatDate(d: Date): string {
+   108→  return d.toISOString().slice(0, 10)
+   109→}
+   110→
+   111→function getMonthDays(year: number, month: number) {
+   112→  const firstDay = new Date(year, month, 1).getDay()
+   113→  const daysInMonth = new Date(year, month + 1, 0).getDate()
+   114→  const daysInPrevMonth = new Date(year, month, 0).getDate()
+   115→  const cells: { date: Date; isCurrentMonth: boolean }[] = []
+   116→
+   117→  for (let i = firstDay - 1; i >= 0; i--) {
+   118→    cells.push({
+   119→      date: new Date(year, month - 1, daysInPrevMonth - i),
+   120→      isCurrentMonth: false,
+   121→    })
+   122→  }
+   123→  for (let d = 1; d <= daysInMonth; d++) {
+   124→    cells.push({ date: new Date(year, month, d), isCurrentMonth: true })
+   125→  }
+   126→  const remaining = 42 - cells.length
+   127→  for (let d = 1; d <= remaining; d++) {
+   128→    cells.push({ date: new Date(year, month + 1, d), isCurrentMonth: false })
+   129→  }
+   130→  return cells
+   131→}
+   132→
+   133→function getWeekDays(baseDate: Date): Date[] {
+   134→  const day = baseDate.getDay()
+   135→  const start = new Date(baseDate)
+   136→  start.setDate(start.getDate() - day)
+   137→  return Array.from({ length: 7 }, (_, i) => {
+   138→    const d = new Date(start)
+   139→    d.setDate(start.getDate() + i)
+   140→    return d
+   141→  })
+   142→}
+   143→
+   144→function addMinutes(time: string, mins: number): string {
+   145→  const [h, m] = time.split(':').map(Number)
+   146→  const total = h * 60 + m + mins
+   147→  const nh = Math.floor(total / 60)
+   148→  const nm = total % 60
+   149→  return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
+   150→}
+   151→
+   152→function isToday(dateStr: string): boolean {
+   153→  return dateStr === formatDate(new Date())
+   154→}
+   155→
+   156→function isThisWeek(dateStr: string): boolean {
+   157→  const d = new Date(dateStr)
+   158→  const now = new Date()
+   159→  const startOfWeek = new Date(now)
+   160→  startOfWeek.setDate(now.getDate() - now.getDay())
+   161→  startOfWeek.setHours(0, 0, 0, 0)
+   162→  const endOfWeek = new Date(startOfWeek)
+   163→  endOfWeek.setDate(startOfWeek.getDate() + 7)
+   164→  return d >= startOfWeek && d < endOfWeek
+   165→}
+   166→
+   167→const fadeSlide = {
+   168→  initial: { opacity: 0, y: 12 },
+   169→  animate: { opacity: 1, y: 0 },
+   170→  transition: { duration: 0.3 },
+   171→}
+   172→
+   173→// ── Component ────────────────────────────────────────────────────────────
+   174→
+   175→export function AppointmentsSection() {
+   176→  const { activeModality, setActiveSection, setSelectedPatientId, selectedAppointmentId, setSelectedAppointmentId } = useAppStore()
+   177→
+   178→  // Data
+   179→  const [appointments, setAppointments] = useState<Appointment[]>([])
+   180→  const [patients, setPatients] = useState<Patient[]>([])
+   181→  const [practitioners, setPractitioners] = useState<Practitioner[]>([])
+   182→  const [loading, setLoading] = useState(true)
+   183→
+   184→  // Calendar navigation
+   185→  const [currentDate, setCurrentDate] = useState(new Date())
+   186→  const [selectedDate, setSelectedDate] = useState(formatDate(new Date()))
+   187→  const [viewMode, setViewMode] = useState<ViewMode>('day')
+   188→
+   189→  // Modality filter
+   190→  const [modalityFilter, setModalityFilter] = useState<Modality>(activeModality)
+   191→
+   192→  // List filter
+   193→  const [listFilter, setListFilter] = useState<ListFilter>('today')
+   194→
+   195→  // New appointment dialog
+   196→  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+   197→  const [formPatientId, setFormPatientId] = useState('')
+   198→  const [formPractitionerId, setFormPractitionerId] = useState('')
+   199→  const [formType, setFormType] = useState<AppointmentType>('CONSULTATION')
+   200→  const [formModality, setFormModality] = useState<Modality>(activeModality)
+   201→  const [formDate, setFormDate] = useState(formatDate(new Date()))
+   202→  const [formStartTime, setFormStartTime] = useState('09:00')
+   203→  const [formDuration, setFormDuration] = useState<TimeSlot>(30)
+   204→  const [formUrgent, setFormUrgent] = useState(false)
+   205→  const [formNotes, setFormNotes] = useState('')
+   206→  const [formSubmitting, setFormSubmitting] = useState(false)
+   207→
+   208→  // Detail dialog
+   209→  const [detailAppt, setDetailAppt] = useState<Appointment | null>(null)
+   210→
+   211→  // Cancel dialog
+   212→  const [cancelAppt, setCancelAppt] = useState<Appointment | null>(null)
+   213→  const [cancelReason, setCancelReason] = useState('')
+   214→  const [cancelSubmitting, setCancelSubmitting] = useState(false)
+   215→
+   216→  // Search
+   217→  const [searchQuery, setSearchQuery] = useState('')
+   218→
+   219→  // ── Load Data ──────────────────────────────────────────────────────────
+   220→
+   221→  const loadData = useCallback(async () => {
+   222→    try {
+   223→      const [apptRes, patRes] = await Promise.all([
+   224→        fetch('/api/appointments').then((r) => r.json()),
+   225→        fetch('/api/patients').then((r) => r.json()),
+   226→      ])
+   227→      const rawAppts = apptRes.data ?? apptRes.appointments ?? []
+   228→      const apptList = rawAppts.map((a: Record<string, unknown>) => {
+   229→        const patient = a.patient as Record<string, string> | undefined
+   230→        const practitioner = a.practitioner as Record<string, string> | undefined
+   231→        const scheduledAt = a.scheduledAt ? new Date(a.scheduledAt as string) : new Date()
+   232→        const dateStr = formatDate(scheduledAt)
+   233→        const hours = scheduledAt.getHours()
+   234→        const mins = scheduledAt.getMinutes()
+   235→        const startStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+   236→        const duration = (a.duration ?? 30) as number
+   237→        const endMinutes = hours * 60 + mins + duration
+   238→        const endH = Math.floor(endMinutes / 60)
+   239→        const endM = endMinutes % 60
+   240→        const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+   241→
+   242→        return {
+   243→          id: a.id as string,
+   244→          patientId: (a.patientId ?? '') as string,
+   245→          patientName: (patient ? `${patient.firstName} ${patient.lastName}` : (a.patientName ?? 'Unknown')) as string,
+   246→          practitionerId: (a.practitionerId ?? '') as string,
+   247→          practitionerName: (practitioner ? practitioner.name : (a.practitionerName ?? 'Dr. Unknown')) as string,
+   248→          type: (a.type ?? 'CONSULTATION') as AppointmentType,
+   249→          modality: (a.modality ?? 'ALLOPATHY') as Modality,
+   250→          status: (a.status ?? 'SCHEDULED') as AppointmentStatus,
+   251→          date: dateStr,
+   252→          startTime: startStr,
+   253→          endTime: endStr,
+   254→          duration: duration as TimeSlot,
+   255→          urgent: (a.isUrgent ?? a.urgent ?? false) as boolean,
+   256→          notes: (a.notes ?? null) as string | null,
+   257→          cancelReason: (a.cancelledReason ?? a.cancelReason ?? null) as string | null,
+   258→          createdAt: (a.createdAt ?? new Date().toISOString()) as string,
+   259→          updatedAt: (a.updatedAt ?? new Date().toISOString()) as string,
+   260→        }
+   261→      })
+   262→      setAppointments(apptList)
+   263→      setPatients(patRes.data ?? patRes.patients ?? [])
+   264→
+   265→      // Mock practitioners if none in data
+   266→      setPractitioners([
+   267→        { id: 'prac-1', name: 'Dr. Sharma', specialty: 'General Medicine' },
+   268→        { id: 'prac-2', name: 'Dr. Patel', specialty: 'Cardiology' },
+   269→        { id: 'prac-3', name: 'Dr. Gupta', specialty: 'Ayurveda' },
+   270→        { id: 'prac-4', name: 'Dr. Singh', specialty: 'Homeopathy' },
+   271→        { id: 'prac-5', name: 'Dr. Kumar', specialty: 'Pediatrics' },
+   272→      ])
+   273→    } catch {
+   274→      toast({ title: 'Error', description: 'Failed to load appointments', variant: 'destructive' })
+   275→    } finally {
+   276→      setLoading(false)
+   277→    }
+   278→  }, [])
+   279→
+   280→  useEffect(() => { loadData() }, [loadData])
+   281→
+   282→  // ── Filtered Appointments ──────────────────────────────────────────────
+   283→
+   284→  const filteredAppointments = useMemo(() => {
+   285→    let list = appointments.filter((a) => a.modality === modalityFilter)
+   286→
+   287→    if (searchQuery.trim()) {
+   288→      const q = searchQuery.toLowerCase()
+   289→      list = list.filter(
+   290→        (a) =>
+   291→          a.patientName.toLowerCase().includes(q) ||
+   292→          a.practitionerName.toLowerCase().includes(q) ||
+   293→          TYPE_LABELS[a.type].toLowerCase().includes(q)
+   294→      )
+   295→    }
+   296→
+   297→    if (listFilter === 'today') {
+   298→      list = list.filter((a) => isToday(a.date))
+   299→    } else if (listFilter === 'week') {
+   300→      list = list.filter((a) => isThisWeek(a.date))
+   301→    }
+   302→
+   303→    return list.sort((a, b) => {
+   304→      const dateCmp = a.date.localeCompare(b.date)
+   305→      if (dateCmp !== 0) return dateCmp
+   306→      return a.startTime.localeCompare(b.startTime)
+   307→    })
+   308→  }, [appointments, modalityFilter, searchQuery, listFilter])
+   309→
+   310→  // ── Stats ──────────────────────────────────────────────────────────────
+   311→
+   312→  const stats = useMemo(() => {
+   313→    const todayAppts = appointments.filter((a) => isToday(a.date) && a.modality === modalityFilter)
+   314→    return {
+   315→      today: todayAppts.length,
+   316→      upcoming: todayAppts.filter((a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED').length,
+   317→      completed: todayAppts.filter((a) => a.status === 'COMPLETED').length,
+   318→      cancelled: todayAppts.filter((a) => a.status === 'CANCELLED').length,
+   319→    }
+   320→  }, [appointments, modalityFilter])
+   321→
+   322→  // ── Calendar Data ──────────────────────────────────────────────────────
+   323→
+   324→  const calendarDays = useMemo(
+   325→    () => getMonthDays(currentDate.getFullYear(), currentDate.getMonth()),
+   326→    [currentDate]
+   327→  )
+   328→
+   329→  const weekDays = useMemo(() => getWeekDays(currentDate), [currentDate])
+   330→
+   331→  const appointmentsForDate = (dateStr: string) =>
+   332→    appointments.filter((a) => a.date === dateStr && a.modality === modalityFilter)
+   333→
+   334→  // ── Create Appointment ─────────────────────────────────────────────────
+   335→
+   336→  const handleCreate = async () => {
+   337→    if (!formPatientId || !formPractitionerId) {
+   338→      toast({ title: 'Validation', description: 'Patient and practitioner are required', variant: 'destructive' })
+   339→      return
+   340→    }
+   341→    setFormSubmitting(true)
+   342→    try {
+   343→      const endTime = addMinutes(formStartTime, formDuration)
+   344→      const patient = patients.find((p) => p.id === formPatientId)
+   345→      const practitioner = practitioners.find((p) => p.id === formPractitionerId)
+   346→      const res = await fetch('/api/appointments', {
+   347→        method: 'POST',
+   348→        headers: { 'Content-Type': 'application/json' },
+   349→        body: JSON.stringify({
+   350→          patientId: formPatientId,
+   351→          patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown',
+   352→          practitionerId: formPractitionerId,
+   353→          practitionerName: practitioner?.name ?? 'Unknown',
+   354→          type: formType,
+   355→          modality: formModality,
+   356→          date: formDate,
+   357→          startTime: formStartTime,
+   358→          endTime,
+   359→          duration: formDuration,
+   360→          urgent: formUrgent,
+   361→          notes: formNotes || null,
+   362→        }),
+   363→      })
+   364→      if (res.ok) {
+   365→        toast({ title: 'Appointment Created', description: `${TYPE_LABELS[formType]} scheduled` })
+   366→        setCreateDialogOpen(false)
+   367→        resetForm()
+   368→        loadData()
+   369→      } else {
+   370→        const err = await res.json()
+   371→        toast({ title: 'Error', description: err.error ?? 'Failed to create appointment', variant: 'destructive' })
+   372→      }
+   373→    } catch {
+   374→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   375→    } finally {
+   376→      setFormSubmitting(false)
+   377→    }
+   378→  }
+   379→
+   380→  const resetForm = () => {
+   381→    setFormPatientId('')
+   382→    setFormPractitionerId('')
+   383→    setFormType('CONSULTATION')
+   384→    setFormModality(activeModality)
+   385→    setFormDate(selectedDate)
+   386→    setFormStartTime('09:00')
+   387→    setFormDuration(30)
+   388→    setFormUrgent(false)
+   389→    setFormNotes('')
+   390→  }
+   391→
+   392→  // ── Cancel Appointment ─────────────────────────────────────────────────
+   393→
+   394→  const handleCancel = async () => {
+   395→    if (!cancelAppt) return
+   396→    if (!cancelReason.trim()) {
+   397→      toast({ title: 'Validation', description: 'Cancel reason is required', variant: 'destructive' })
+   398→      return
+   399→    }
+   400→    setCancelSubmitting(true)
+   401→    try {
+   402→      const res = await fetch(`/api/appointments/${cancelAppt.id}`, {
+   403→        method: 'PATCH',
+   404→        headers: { 'Content-Type': 'application/json' },
+   405→        body: JSON.stringify({ status: 'CANCELLED', cancelReason }),
+   406→      })
+   407→      if (res.ok) {
+   408→        toast({ title: 'Appointment Cancelled' })
+   409→        setCancelAppt(null)
+   410→        setCancelReason('')
+   411→        setDetailAppt(null)
+   412→        loadData()
+   413→      } else {
+   414→        toast({ title: 'Error', description: 'Failed to cancel', variant: 'destructive' })
+   415→      }
+   416→    } catch {
+   417→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   418→    } finally {
+   419→      setCancelSubmitting(false)
+   420→    }
+   421→  }
+   422→
+   423→  // ── Status Change ──────────────────────────────────────────────────────
+   424→
+   425→  const handleStatusChange = async (id: string, status: AppointmentStatus) => {
+   426→    try {
+   427→      const res = await fetch(`/api/appointments/${id}`, {
+   428→        method: 'PATCH',
+   429→        headers: { 'Content-Type': 'application/json' },
+   430→        body: JSON.stringify({ status }),
+   431→      })
+   432→      if (res.ok) {
+   433→        toast({ title: 'Status Updated', description: `Appointment ${status.toLowerCase()}` })
+   434→        loadData()
+   435→      }
+   436→    } catch {
+   437→      toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' })
+   438→    }
+   439→  }
+   440→
+   441→  // ── Quick Actions ──────────────────────────────────────────────────────
+   442→
+   443→  const handleStartConsultation = (appt: Appointment) => {
+   444→    setSelectedPatientId(appt.patientId)
+   445→    setActiveSection('clinical-notes')
+   446→  }
+   447→
+   448→  const handleSendReminder = (appt: Appointment) => {
+   449→    toast({ title: 'Reminder Sent', description: `Reminder sent to ${appt.patientName}` })
+   450→  }
+   451→
+   452→  // ── Loading ────────────────────────────────────────────────────────────
+   453→
+   454→  if (loading) {
+   455→    return (
+   456→      <div className="space-y-4">
+   457→        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   458→          {[1, 2, 3, 4].map((i) => (
+   459→            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+   460→          ))}
+   461→        </div>
+   462→        <Skeleton className="h-10 w-full max-w-sm" />
+   463→        <Skeleton className="h-64 w-full rounded-lg" />
+   464→      </div>
+   465→    )
+   466→  }
+   467→
+   468→  // ── Render ─────────────────────────────────────────────────────────────
+   469→
+   470→  const monthLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })
+   471→
+   472→  return (
+   473→    <motion.div {...fadeSlide} className="space-y-4">
+   474→      {/* Stats Cards */}
+   475→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   476→        {[
+   477→          { label: "Today's Appointments", value: stats.today, icon: Calendar, color: 'text-blue-600 dark:text-blue-400' },
+   478→          { label: 'Upcoming', value: stats.upcoming, icon: Clock, color: 'text-green-600 dark:text-green-400' },
+   479→          { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-gray-600 dark:text-gray-400' },
+   480→          { label: 'Cancelled', value: stats.cancelled, icon: XCircle, color: 'text-red-600 dark:text-red-400' },
+   481→        ].map(({ label, value, icon: Icon, color }) => (
+   482→          <Card key={label}>
+   483→            <CardContent className="p-4 flex items-center gap-3">
+   484→              <div className={`rounded-lg p-2 bg-muted ${color}`}>
+   485→                <Icon className="h-5 w-5" />
+   486→              </div>
+   487→              <div>
+   488→                <p className="text-2xl font-bold">{value}</p>
+   489→                <p className="text-xs text-muted-foreground">{label}</p>
+   490→              </div>
+   491→            </CardContent>
+   492→          </Card>
+   493→        ))}
+   494→      </div>
+   495→
+   496→      {/* Header Row */}
+   497→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   498→        <div className="flex items-center gap-2">
+   499→          <Calendar className="h-5 w-5" />
+   500→          <h2 className="text-lg font-semibold">Appointments</h2>
+   501→        </div>
+   502→        <div className="flex items-center gap-2 flex-wrap">
+   503→          <div className="relative">
+   504→            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+   505→            <Input
+   506→              placeholder="Search..."
+   507→              value={searchQuery}
+   508→              onChange={(e) => setSearchQuery(e.target.value)}
+   509→              className="pl-8 h-8 w-40"
+   510→            />
+   511→          </div>
+   512→          <Dialog open={createDialogOpen} onOpenChange={(open) => { setCreateDialogOpen(open); if (open) resetForm() }}>
+   513→            <DialogTrigger asChild>
+   514→              <Button size="sm" className="gap-1.5">
+   515→                <Plus className="h-4 w-4" />
+   516→                New Appointment
+   517→              </Button>
+   518→            </DialogTrigger>
+   519→            <DialogContent className="sm:max-w-lg">
+   520→              <DialogHeader>
+   521→                <DialogTitle>Schedule Appointment</DialogTitle>
+   522→                <DialogDescription>Fill in appointment details</DialogDescription>
+   523→              </DialogHeader>
+   524→              <div className="grid gap-4 py-4">
+   525→                {/* Modality Tabs (NEVER merge) */}
+   526→                <div className="space-y-2">
+   527→                  <Label>Care Modality</Label>
+   528→                  <div className="flex gap-2">
+   529→                    {(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as Modality[]).map((m) => (
+   530→                      <Button
+   531→                        key={m}
+   532→                        type="button"
+   533→                        variant={formModality === m ? 'default' : 'outline'}
+   534→                        size="sm"
+   535→                        onClick={() => setFormModality(m)}
+   536→                      >
+   537→                        <ModalityBadge modality={m} className="border-0 p-0" />
+   538→                      </Button>
+   539→                    ))}
+   540→                  </div>
+   541→                </div>
+   542→
+   543→                <div className="grid grid-cols-2 gap-4">
+   544→                  <div className="space-y-2">
+   545→                    <Label>Patient *</Label>
+   546→                    <Select value={formPatientId} onValueChange={setFormPatientId}>
+   547→                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+   548→                      <SelectContent>
+   549→                        {patients.map((p) => (
+   550→                          <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
+   551→                        ))}
+   552→                      </SelectContent>
+   553→                    </Select>
+   554→                  </div>
+   555→                  <div className="space-y-2">
+   556→                    <Label>Practitioner *</Label>
+   557→                    <Select value={formPractitionerId} onValueChange={setFormPractitionerId}>
+   558→                      <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+   559→                      <SelectContent>
+   560→                        {practitioners.map((p) => (
+   561→                          <SelectItem key={p.id} value={p.id}>{p.name} ({p.specialty})</SelectItem>
+   562→                        ))}
+   563→                      </SelectContent>
+   564→                    </Select>
+   565→                  </div>
+   566→                </div>
+   567→
+   568→                <div className="grid grid-cols-2 gap-4">
+   569→                  <div className="space-y-2">
+   570→                    <Label>Type</Label>
+   571→                    <Select value={formType} onValueChange={(v) => setFormType(v as AppointmentType)}>
+   572→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   573→                      <SelectContent>
+   574→                        {APPOINTMENT_TYPES.map((t) => (
+   575→                          <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>
+   576→                        ))}
+   577→                      </SelectContent>
+   578→                    </Select>
+   579→                  </div>
+   580→                  <div className="space-y-2">
+   581→                    <Label>Date</Label>
+   582→                    <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
+   583→                  </div>
+   584→                </div>
+   585→
+   586→                <div className="grid grid-cols-3 gap-4">
+   587→                  <div className="space-y-2">
+   588→                    <Label>Start Time</Label>
+   589→                    <Select value={formStartTime} onValueChange={setFormStartTime}>
+   590→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   591→                      <SelectContent>
+   592→                        {SLOT_TIMES.map((t) => (
+   593→                          <SelectItem key={t} value={t}>{t}</SelectItem>
+   594→                        ))}
+   595→                      </SelectContent>
+   596→                    </Select>
+   597→                  </div>
+   598→                  <div className="space-y-2">
+   599→                    <Label>Duration (min)</Label>
+   600→                    <Select value={String(formDuration)} onValueChange={(v) => setFormDuration(Number(v) as TimeSlot)}>
+   601→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   602→                      <SelectContent>
+   603→                        {TIME_SLOTS.map((s) => (
+   604→                          <SelectItem key={s} value={String(s)}>{s} min</SelectItem>
+   605→                        ))}
+   606→                      </SelectContent>
+   607→                    </Select>
+   608→                  </div>
+   609→                  <div className="space-y-2">
+   610→                    <Label>Urgent</Label>
+   611→                    <div className="flex items-center h-9">
+   612→                      <Button
+   613→                        type="button"
+   614→                        variant={formUrgent ? 'destructive' : 'outline'}
+   615→                        size="sm"
+   616→                        onClick={() => setFormUrgent(!formUrgent)}
+   617→                        className="gap-1.5"
+   618→                      >
+   619→                        <AlertTriangle className="h-3.5 w-3.5" />
+   620→                        {formUrgent ? 'Urgent' : 'Normal'}
+   621→                      </Button>
+   622→                    </div>
+   623→                  </div>
+   624→                </div>
+   625→
+   626→                <div className="space-y-2">
+   627→                  <Label>Notes</Label>
+   628→                  <Textarea
+   629→                    placeholder="Optional notes..."
+   630→                    value={formNotes}
+   631→                    onChange={(e) => setFormNotes(e.target.value)}
+   632→                    rows={2}
+   633→                  />
+   634→                </div>
+   635→              </div>
+   636→              <DialogFooter>
+   637→                <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+   638→                <Button onClick={handleCreate} disabled={formSubmitting}>
+   639→                  {formSubmitting ? 'Scheduling...' : 'Schedule'}
+   640→                </Button>
+   641→              </DialogFooter>
+   642→            </DialogContent>
+   643→          </Dialog>
+   644→        </div>
+   645→      </div>
+   646→
+   647→      {/* Modality Tabs (NEVER merge) */}
+   648→      <div className="flex gap-2">
+   649→        {(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY'] as Modality[]).map((m) => (
+   650→          <Button
+   651→            key={m}
+   652→            variant={modalityFilter === m ? 'default' : 'outline'}
+   653→            size="sm"
+   654→            onClick={() => setModalityFilter(m)}
+   655→            className="gap-1.5"
+   656→          >
+   657→            <ModalityBadge modality={m} className="border-0 p-0" />
+   658→          </Button>
+   659→        ))}
+   660→      </div>
+   661→
+   662→      {/* Main Content Tabs */}
+   663→      <Tabs defaultValue="calendar">
+   664→        <TabsList>
+   665→          <TabsTrigger value="calendar" className="gap-1.5">
+   666→            <Calendar className="h-3.5 w-3.5" /> Calendar
+   667→          </TabsTrigger>
+   668→          <TabsTrigger value="list" className="gap-1.5">
+   669→            <Filter className="h-3.5 w-3.5" /> List View
+   670→          </TabsTrigger>
+   671→        </TabsList>
+   672→
+   673→        {/* ── Calendar Tab ──────────────────────────────────────────────── */}
+   674→        <TabsContent value="calendar" className="mt-4 space-y-4">
+   675→          <div className="grid gap-4 lg:grid-cols-3">
+   676→            {/* Calendar Grid */}
+   677→            <div className="lg:col-span-2">
+   678→              <Card>
+   679→                <CardHeader className="pb-2">
+   680→                  <div className="flex items-center justify-between">
+   681→                    <CardTitle className="text-base">{monthLabel}</CardTitle>
+   682→                    <div className="flex items-center gap-2">
+   683→                      <Button
+   684→                        variant="outline"
+   685→                        size="icon"
+   686→                        className="h-7 w-7"
+   687→                        onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
+   688→                      >
+   689→                        <ChevronLeft className="h-4 w-4" />
+   690→                      </Button>
+   691→                      <Button
+   692→                        variant="outline"
+   693→                        size="sm"
+   694→                        className="h-7 text-xs"
+   695→                        onClick={() => { setCurrentDate(new Date()); setSelectedDate(formatDate(new Date())) }}
+   696→                      >
+   697→                        Today
+   698→                      </Button>
+   699→                      <Button
+   700→                        variant="outline"
+   701→                        size="icon"
+   702→                        className="h-7 w-7"
+   703→                        onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
+   704→                      >
+   705→                        <ChevronRight className="h-4 w-4" />
+   706→                      </Button>
+   707→                      <Separator orientation="vertical" className="h-5" />
+   708→                      <Button
+   709→                        variant={viewMode === 'day' ? 'default' : 'outline'}
+   710→                        size="sm"
+   711→                        className="h-7 text-xs"
+   712→                        onClick={() => setViewMode('day')}
+   713→                      >
+   714→                        Day
+   715→                      </Button>
+   716→                      <Button
+   717→                        variant={viewMode === 'week' ? 'default' : 'outline'}
+   718→                        size="sm"
+   719→                        className="h-7 text-xs"
+   720→                        onClick={() => setViewMode('week')}
+   721→                      >
+   722→                        Week
+   723→                      </Button>
+   724→                    </div>
+   725→                  </div>
+   726→                </CardHeader>
+   727→                <CardContent>
+   728→                  {viewMode === 'day' ? (
+   729→                    <>
+   730→                      {/* Month Grid */}
+   731→                      <div className="grid grid-cols-7 gap-px">
+   732→                        {DAYS_OF_WEEK.map((d) => (
+   733→                          <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1.5">
+   734→                            {d}
+   735→                          </div>
+   736→                        ))}
+   737→                        {calendarDays.map((cell, i) => {
+   738→                          const ds = formatDate(cell.date)
+   739→                          const dayAppts = appointmentsForDate(ds)
+   740→                          const isSelected = ds === selectedDate
+   741→                          const isT = isToday(ds)
+   742→                          return (
+   743→                            <button
+   744→                              key={i}
+   745→                              onClick={() => setSelectedDate(ds)}
+   746→                              className={`relative min-h-[3.5rem] p-1 text-left text-sm rounded-md transition-colors
+   747→                                ${cell.isCurrentMonth ? '' : 'text-muted-foreground/40'}
+   748→                                ${isSelected ? 'bg-primary/10 ring-1 ring-primary' : isT ? 'bg-muted' : 'hover:bg-muted/50'}
+   749→                              `}
+   750→                            >
+   751→                              <span className={`text-xs ${isT ? 'font-bold text-primary' : ''}`}>
+   752→                                {cell.date.getDate()}
+   753→                              </span>
+   754→                              {dayAppts.length > 0 && (
+   755→                                <div className="mt-0.5 flex flex-wrap gap-0.5">
+   756→                                  {dayAppts.slice(0, 3).map((a) => (
+   757→                                    <span
+   758→                                      key={a.id}
+   759→                                      className={`h-1.5 w-1.5 rounded-full ${STATUS_COLORS[a.status].split(' ')[0]}`}
+   760→                                    />
+   761→                                  ))}
+   762→                                  {dayAppts.length > 3 && (
+   763→                                    <span className="text-[9px] text-muted-foreground">+{dayAppts.length - 3}</span>
+   764→                                  )}
+   765→                                </div>
+   766→                              )}
+   767→                            </button>
+   768→                          )
+   769→                        })}
+   770→                      </div>
+   771→
+   772→                      {/* Day Detail */}
+   773→                      <Separator className="my-3" />
+   774→                      <div>
+   775→                        <p className="text-sm font-semibold mb-2">
+   776→                          {new Date(selectedDate + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+   777→                        </p>
+   778→                        <ScrollArea className="max-h-64">
+   779→                          {appointmentsForDate(selectedDate).length === 0 ? (
+   780→                            <p className="text-sm text-muted-foreground py-4 text-center">No appointments</p>
+   781→                          ) : (
+   782→                            <div className="space-y-2">
+   783→                              {appointmentsForDate(selectedDate).map((appt) => (
+   784→                                <div
+   785→                                  key={appt.id}
+   786→                                  className={`flex items-center gap-3 p-2 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors
+   787→                                    ${appt.urgent ? 'border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/30' : ''}
+   788→                                  `}
+   789→                                  onClick={() => setDetailAppt(appt)}
+   790→                                >
+   791→                                  <div className="text-xs text-muted-foreground w-12 shrink-0">
+   792→                                    {appt.startTime}
+   793→                                  </div>
+   794→                                  <div className="min-w-0 flex-1">
+   795→                                    <div className="flex items-center gap-1.5">
+   796→                                      <span className="text-sm font-medium truncate">{appt.patientName}</span>
+   797→                                      {appt.urgent && <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />}
+   798→                                      {appt.type === 'TELEMEDICINE' && <Video className="h-3 w-3 text-blue-500 shrink-0" />}
+   799→                                    </div>
+   800→                                    <p className="text-xs text-muted-foreground truncate">
+   801→                                      {appt.practitionerName} · {TYPE_LABELS[appt.type]}
+   802→                                    </p>
+   803→                                  </div>
+   804→                                  <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[appt.status]}`}>
+   805→                                    {appt.status.replace('_', ' ')}
+   806→                                  </Badge>
+   807→                                </div>
+   808→                              ))}
+   809→                            </div>
+   810→                          )}
+   811→                        </ScrollArea>
+   812→                      </div>
+   813→                    </>
+   814→                  ) : (
+   815→                    /* Week View */
+   816→                    <div className="grid grid-cols-7 gap-px overflow-x-auto">
+   817→                      {weekDays.map((day) => {
+   818→                        const ds = formatDate(day)
+   819→                        const dayAppts = appointmentsForDate(ds)
+   820→                        const isT = isToday(ds)
+   821→                        return (
+   822→                          <div key={ds} className="min-w-[5.5rem]">
+   823→                            <div className={`text-center text-xs font-medium py-1.5 rounded-t-md ${isT ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+   824→                              {DAYS_OF_WEEK[day.getDay()]} {day.getDate()}
+   825→                            </div>
+   826→                            <div className="border-x border-b rounded-b-md p-1 space-y-1 min-h-[6rem]">
+   827→                              {dayAppts.slice(0, 4).map((a) => (
+   828→                                <button
+   829→                                  key={a.id}
+   830→                                  onClick={() => setDetailAppt(a)}
+   831→                                  className={`w-full text-left text-[10px] p-1 rounded ${STATUS_COLORS[a.status].split(' ')[0]} truncate block`}
+   832→                                >
+   833→                                  {a.startTime} {a.patientName}
+   834→                                </button>
+   835→                              ))}
+   836→                              {dayAppts.length > 4 && (
+   837→                                <p className="text-[9px] text-muted-foreground text-center">+{dayAppts.length - 4} more</p>
+   838→                              )}
+   839→                            </div>
+   840→                          </div>
+   841→                        )
+   842→                      })}
+   843→                    </div>
+   844→                  )}
+   845→                </CardContent>
+   846→              </Card>
+   847→            </div>
+   848→
+   849→            {/* Upcoming Sidebar */}
+   850→            <div>
+   851→              <Card>
+   852→                <CardHeader className="pb-2">
+   853→                  <CardTitle className="text-sm">Upcoming</CardTitle>
+   854→                </CardHeader>
+   855→                <CardContent>
+   856→                  <ScrollArea className="max-h-80">
+   857→                    {appointments
+   858→                      .filter((a) => a.modality === modalityFilter && a.date >= formatDate(new Date()) && a.status !== 'CANCELLED' && a.status !== 'COMPLETED')
+   859→                      .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+   860→                      .slice(0, 10)
+   861→                      .map((appt) => (
+   862→                        <button
+   863→                          key={appt.id}
+   864→                          onClick={() => setDetailAppt(appt)}
+   865→                          className="w-full text-left p-2 rounded-md hover:bg-muted/50 transition-colors mb-1 border"
+   866→                        >
+   867→                          <div className="flex items-center gap-1.5">
+   868→                            <span className="text-sm font-medium truncate">{appt.patientName}</span>
+   869→                            {appt.urgent && <AlertTriangle className="h-3 w-3 text-red-500 shrink-0" />}
+   870→                          </div>
+   871→                          <p className="text-xs text-muted-foreground">
+   872→                            {appt.date} · {appt.startTime} · {TYPE_LABELS[appt.type]}
+   873→                          </p>
+   874→                          <Badge className={`text-[9px] px-1 py-0 mt-1 ${STATUS_COLORS[appt.status]}`}>
+   875→                            {appt.status.replace('_', ' ')}
+   876→                          </Badge>
+   877→                        </button>
+   878→                      ))}
+   879→                  </ScrollArea>
+   880→                </CardContent>
+   881→              </Card>
+   882→            </div>
+   883→          </div>
+   884→        </TabsContent>
+   885→
+   886→        {/* ── List Tab ─────────────────────────────────────────────────── */}
+   887→        <TabsContent value="list" className="mt-4 space-y-3">
+   888→          {/* List Filters */}
+   889→          <div className="flex gap-2 flex-wrap">
+   890→            {(['today', 'week', 'all'] as ListFilter[]).map((f) => (
+   891→              <Button
+   892→                key={f}
+   893→                variant={listFilter === f ? 'default' : 'outline'}
+   894→                size="sm"
+   895→                onClick={() => setListFilter(f)}
+   896→              >
+   897→                {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'All'}
+   898→              </Button>
+   899→            ))}
+   900→          </div>
+   901→
+   902→          <Card>
+   903→            <CardContent className="p-0">
+   904→              <Table>
+   905→                <TableHeader>
+   906→                  <TableRow>
+   907→                    <TableHead>Patient</TableHead>
+   908→                    <TableHead className="hidden sm:table-cell">Practitioner</TableHead>
+   909→                    <TableHead className="hidden md:table-cell">Type</TableHead>
+   910→                    <TableHead>Date</TableHead>
+   911→                    <TableHead className="hidden sm:table-cell">Time</TableHead>
+   912→                    <TableHead>Status</TableHead>
+   913→                    <TableHead className="w-10" />
+   914→                  </TableRow>
+   915→                </TableHeader>
+   916→                <TableBody>
+   917→                  {filteredAppointments.map((appt) => (
+   918→                    <TableRow
+   919→                      key={appt.id}
+   920→                      className={`cursor-pointer hover:bg-muted/50 ${appt.urgent ? 'bg-red-50/50 dark:bg-red-950/20' : ''}`}
+   921→                      onClick={() => setDetailAppt(appt)}
+   922→                    >
+   923→                      <TableCell>
+   924→                        <div className="flex items-center gap-1.5">
+   925→                          <span className="font-medium text-sm">{appt.patientName}</span>
+   926→                          {appt.urgent && <AlertTriangle className="h-3 w-3 text-red-500" />}
+   927→                          {appt.type === 'TELEMEDICINE' && <Video className="h-3 w-3 text-blue-500" />}
+   928→                        </div>
+   929→                      </TableCell>
+   930→                      <TableCell className="hidden sm:table-cell text-sm">{appt.practitionerName}</TableCell>
+   931→                      <TableCell className="hidden md:table-cell">
+   932→                        <Badge variant="outline" className="text-xs">{TYPE_LABELS[appt.type]}</Badge>
+   933→                      </TableCell>
+   934→                      <TableCell className="text-sm">{appt.date}</TableCell>
+   935→                      <TableCell className="hidden sm:table-cell text-sm">{appt.startTime}–{appt.endTime}</TableCell>
+   936→                      <TableCell>
+   937→                        <Badge className={`text-[10px] px-1.5 py-0 ${STATUS_COLORS[appt.status]}`}>
+   938→                          {appt.status.replace('_', ' ')}
+   939→                        </Badge>
+   940→                      </TableCell>
+   941→                      <TableCell>
+   942→                        <Eye className="h-4 w-4 text-muted-foreground" />
+   943→                      </TableCell>
+   944→                    </TableRow>
+   945→                  ))}
+   946→                  {filteredAppointments.length === 0 && (
+   947→                    <TableRow>
+   948→                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+   949→                        No appointments found
+   950→                      </TableCell>
+   951→                    </TableRow>
+   952→                  )}
+   953→                </TableBody>
+   954→              </Table>
+   955→            </CardContent>
+   956→          </Card>
+   957→        </TabsContent>
+   958→      </Tabs>
+   959→
+   960→      {/* ── Detail Dialog ───────────────────────────────────────────────── */}
+   961→      <Dialog open={!!detailAppt} onOpenChange={(open) => { if (!open) setDetailAppt(null) }}>
+   962→        <DialogContent className="sm:max-w-md">
+   963→          {detailAppt && (
+   964→            <>
+   965→              <DialogHeader>
+   966→                <DialogTitle className="flex items-center gap-2">
+   967→                  {detailAppt.patientName}
+   968→                  {detailAppt.urgent && <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 gap-1"><AlertTriangle className="h-3 w-3" />Urgent</Badge>}
+   969→                </DialogTitle>
+   970→                <DialogDescription>
+   971→                  {TYPE_LABELS[detailAppt.type]} · {detailAppt.date} · {detailAppt.startTime}–{detailAppt.endTime}
+   972→                </DialogDescription>
+   973→              </DialogHeader>
+   974→              <div className="space-y-4 py-2">
+   975→                <div className="grid grid-cols-2 gap-3 text-sm">
+   976→                  <div>
+   977→                    <p className="text-muted-foreground text-xs">Practitioner</p>
+   978→                    <p className="font-medium">{detailAppt.practitionerName}</p>
+   979→                  </div>
+   980→                  <div>
+   981→                    <p className="text-muted-foreground text-xs">Duration</p>
+   982→                    <p className="font-medium">{detailAppt.duration} min</p>
+   983→                  </div>
+   984→                  <div>
+   985→                    <p className="text-muted-foreground text-xs">Modality</p>
+   986→                    <ModalityBadge modality={detailAppt.modality} />
+   987→                  </div>
+   988→                  <div>
+   989→                    <p className="text-muted-foreground text-xs">Status</p>
+   990→                    <Badge className={`text-xs ${STATUS_COLORS[detailAppt.status]}`}>
+   991→                      {detailAppt.status.replace('_', ' ')}
+   992→                    </Badge>
+   993→                  </div>
+   994→                </div>
+   995→                {detailAppt.notes && (
+   996→                  <>
+   997→                    <Separator />
+   998→                    <div>
+   999→                      <p className="text-xs text-muted-foreground mb-1">Notes</p>
+  1000→                      <p className="text-sm">{detailAppt.notes}</p>
+  1001→                    </div>
+  1002→                  </>
+  1003→                )}
+  1004→                {detailAppt.cancelReason && (
+  1005→                  <>
+  1006→                    <Separator />
+  1007→                    <div>
+  1008→                      <p className="text-xs text-muted-foreground mb-1">Cancel Reason</p>
+  1009→                      <p className="text-sm text-red-600 dark:text-red-400">{detailAppt.cancelReason}</p>
+  1010→                    </div>
+  1011→                  </>
+  1012→                )}
+  1013→                <Separator />
+  1014→                {/* Status Actions */}
+  1015→                <div className="space-y-2">
+  1016→                  <p className="text-xs font-medium text-muted-foreground">Actions</p>
+  1017→                  <div className="flex flex-wrap gap-2">
+  1018→                    {detailAppt.status === 'SCHEDULED' && (
+  1019→                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { handleStatusChange(detailAppt.id, 'CONFIRMED'); setDetailAppt(null) }}>
+  1020→                        <CheckCircle2 className="h-3.5 w-3.5" /> Confirm
+  1021→                      </Button>
+  1022→                    )}
+  1023→                    {(detailAppt.status === 'SCHEDULED' || detailAppt.status === 'CONFIRMED') && (
+  1024→                      <>
+  1025→                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { handleStatusChange(detailAppt.id, 'IN_PROGRESS'); setDetailAppt(null) }}>
+  1026→                          <Play className="h-3.5 w-3.5" /> Start
+  1027→                        </Button>
+  1028→                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setCancelAppt(detailAppt); setDetailAppt(null) }}>
+  1029→                          <XCircle className="h-3.5 w-3.5" /> Cancel
+  1030→                        </Button>
+  1031→                      </>
+  1032→                    )}
+  1033→                    {detailAppt.status === 'IN_PROGRESS' && (
+  1034→                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { handleStatusChange(detailAppt.id, 'COMPLETED'); setDetailAppt(null) }}>
+  1035→                        <CheckCircle2 className="h-3.5 w-3.5" /> Complete
+  1036→                      </Button>
+  1037→                    )}
+  1038→                    {(detailAppt.status === 'SCHEDULED' || detailAppt.status === 'CONFIRMED' || detailAppt.status === 'IN_PROGRESS') && (
+  1039→                      <>
+  1040→                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleStartConsultation(detailAppt)}>
+  1041→                          <Stethoscope className="h-3.5 w-3.5" /> Start Consultation
+  1042→                        </Button>
+  1043→                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleSendReminder(detailAppt)}>
+  1044→                          <Bell className="h-3.5 w-3.5" /> Send Reminder
+  1045→                        </Button>
+  1046→                      </>
+  1047→                    )}
+  1048→                    {detailAppt.status === 'CONFIRMED' && detailAppt.type !== 'TELEMEDICINE' && (
+  1049→                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { handleStatusChange(detailAppt.id, 'NO_SHOW'); setDetailAppt(null) }}>
+  1050→                        <XCircle className="h-3.5 w-3.5" /> No Show
+  1051→                      </Button>
+  1052→                    )}
+  1053→                  </div>
+  1054→                </div>
+  1055→              </div>
+  1056→            </>
+  1057→          )}
+  1058→        </DialogContent>
+  1059→      </Dialog>
+  1060→
+  1061→      {/* ── Cancel Dialog ───────────────────────────────────────────────── */}
+  1062→      <Dialog open={!!cancelAppt} onOpenChange={(open) => { if (!open) { setCancelAppt(null); setCancelReason('') } }}>
+  1063→        <DialogContent className="sm:max-w-sm">
+  1064→          <DialogHeader>
+  1065→            <DialogTitle>Cancel Appointment</DialogTitle>
+  1066→            <DialogDescription>
+  1067→              {cancelAppt ? `${cancelAppt.patientName} — ${TYPE_LABELS[cancelAppt.type]} on ${cancelAppt.date}` : ''}
+  1068→            </DialogDescription>
+  1069→          </DialogHeader>
+  1070→          <div className="py-4 space-y-3">
+  1071→            <div className="space-y-2">
+  1072→              <Label>Reason for cancellation *</Label>
+  1073→              <Textarea
+  1074→                placeholder="Provide reason..."
+  1075→                value={cancelReason}
+  1076→                onChange={(e) => setCancelReason(e.target.value)}
+  1077→                rows={3}
+  1078→              />
+  1079→            </div>
+  1080→          </div>
+  1081→          <DialogFooter>
+  1082→            <Button variant="outline" onClick={() => { setCancelAppt(null); setCancelReason('') }}>Keep</Button>
+  1083→            <Button variant="destructive" onClick={handleCancel} disabled={cancelSubmitting}>
+  1084→              {cancelSubmitting ? 'Cancelling...' : 'Cancel Appointment'}
+  1085→            </Button>
+  1086→          </DialogFooter>
+  1087→        </DialogContent>
+  1088→      </Dialog>
+  1089→    </motion.div>
+  1090→  )
+  1091→}
+  1092→

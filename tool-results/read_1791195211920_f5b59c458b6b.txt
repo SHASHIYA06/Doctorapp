@@ -1,0 +1,777 @@
+     1→import { NextRequest, NextResponse } from 'next/server'
+     2→import { db } from '@/lib/db'
+     3→
+     4→// ============================================================
+     5→// HEALTH ISSUES - 200+ across 14 body systems
+     6→// ============================================================
+     7→const HEALTH_ISSUES = [
+     8→  // CARDIOVASCULAR (14)
+     9→  { code: 'I10', name: 'Hypertension', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'MODERATE', description: 'Persistently elevated blood pressure ≥140/90 mmHg' },
+    10→  { code: 'I25.1', name: 'Coronary Artery Disease', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Narrowing of coronary arteries due to atherosclerosis' },
+    11→  { code: 'I50', name: 'Heart Failure', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Inability of heart to pump blood effectively' },
+    12→  { code: 'I48', name: 'Atrial Fibrillation', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Irregular rapid atrial rhythm increasing stroke risk' },
+    13→  { code: 'I21', name: 'Myocardial Infarction', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'CRITICAL', description: 'Acute blockage of coronary artery causing heart muscle death' },
+    14→  { code: 'I20', name: 'Angina Pectoris', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Chest pain from reduced blood flow to heart' },
+    15→  { code: 'I82', name: 'Deep Vein Thrombosis', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Blood clot in deep veins, usually legs' },
+    16→  { code: 'I26', name: 'Pulmonary Embolism', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'CRITICAL', description: 'Blood clot blocking pulmonary artery' },
+    17→  { code: 'I42', name: 'Cardiomyopathy', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Disease of heart muscle affecting pumping ability' },
+    18→  { code: 'I70', name: 'Peripheral Artery Disease', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'MODERATE', description: 'Narrowing of peripheral arteries reducing limb blood flow' },
+    19→  { code: 'I33', name: 'Endocarditis', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Infection of heart valves or inner lining' },
+    20→  { code: 'I30', name: 'Pericarditis', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'MODERATE', description: 'Inflammation of pericardium surrounding heart' },
+    21→  { code: 'I35', name: 'Aortic Stenosis', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'SEVERE', description: 'Narrowing of aortic valve opening' },
+    22→  { code: 'I34', name: 'Mitral Regurgitation', bodySystem: 'CARDIOVASCULAR', clinicalDomain: 'Cardiology', severity: 'MODERATE', description: 'Backflow of blood through mitral valve' },
+    23→
+    24→  // RESPIRATORY (14)
+    25→  { code: 'J45', name: 'Asthma', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MODERATE', description: 'Reversible airway obstruction with inflammation and hyperreactivity' },
+    26→  { code: 'J44', name: 'COPD', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'SEVERE', description: 'Chronic obstructive lung disease with progressive airflow limitation' },
+    27→  { code: 'J18', name: 'Pneumonia', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'SEVERE', description: 'Infection causing alveolar inflammation and consolidation' },
+    28→  { code: 'J20', name: 'Bronchitis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MILD', description: 'Inflammation of bronchial tubes' },
+    29→  { code: 'A15', name: 'Tuberculosis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'SEVERE', description: 'Mycobacterium tuberculosis infection, primarily pulmonary' },
+    30→  { code: 'J84', name: 'Pulmonary Fibrosis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'SEVERE', description: 'Progressive scarring of lung tissue' },
+    31→  { code: 'G47.3', name: 'Sleep Apnea', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MODERATE', description: 'Repeated cessation of breathing during sleep' },
+    32→  { code: 'J90', name: 'Pleurisy', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MODERATE', description: 'Inflammation of pleural membranes causing sharp chest pain' },
+    33→  { code: 'J43', name: 'Emphysema', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'SEVERE', description: 'Destruction of alveolar walls causing air trapping' },
+    34→  { code: 'J47', name: 'Bronchiectasis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MODERATE', description: 'Permanent dilation of bronchi with chronic infection' },
+    35→  { code: 'J01', name: 'Sinusitis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MILD', description: 'Inflammation of paranasal sinuses' },
+    36→  { code: 'J02', name: 'Pharyngitis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MILD', description: 'Inflammation of pharynx, often viral' },
+    37→  { code: 'J03', name: 'Tonsillitis', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MILD', description: 'Inflammation of palatine tonsils' },
+    38→  { code: 'J11', name: 'Influenza', bodySystem: 'RESPIRATORY', clinicalDomain: 'Pulmonology', severity: 'MODERATE', description: 'Acute viral respiratory infection with systemic symptoms' },
+    39→
+    40→  // GASTROINTESTINAL (14)
+    41→  { code: 'K21', name: 'GERD', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MODERATE', description: 'Chronic reflux of stomach acid into esophagus' },
+    42→  { code: 'K25', name: 'Peptic Ulcer', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MODERATE', description: 'Erosion in gastric or duodenal mucosa' },
+    43→  { code: 'K58', name: 'IBS', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MODERATE', description: 'Functional bowel disorder with abdominal pain and altered habits' },
+    44→  { code: 'K50', name: "Crohn's Disease", bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Transmural inflammatory bowel disease affecting any GI segment' },
+    45→  { code: 'K51', name: 'Ulcerative Colitis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Chronic mucosal inflammation of colon and rectum' },
+    46→  { code: 'K29', name: 'Gastritis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MILD', description: 'Inflammation of stomach lining' },
+    47→  { code: 'K30', name: 'Dyspepsia', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MILD', description: 'Indigestion with upper abdominal discomfort' },
+    48→  { code: 'B18.1', name: 'Hepatitis B', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Chronic HBV infection causing liver inflammation' },
+    49→  { code: 'B18.2', name: 'Hepatitis C', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'HCV infection, leading cause of chronic liver disease' },
+    50→  { code: 'K74', name: 'Cirrhosis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Irreversible fibrosis and nodular regeneration of liver' },
+    51→  { code: 'K85', name: 'Pancreatitis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Inflammation of pancreas, acute or chronic' },
+    52→  { code: 'K81', name: 'Cholecystitis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MODERATE', description: 'Inflammation of gallbladder, often with gallstones' },
+    53→  { code: 'K35', name: 'Appendicitis', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'SEVERE', description: 'Inflammation of vermiform appendix' },
+    54→  { code: 'K59.0', name: 'Constipation', bodySystem: 'GASTROINTESTINAL', clinicalDomain: 'Gastroenterology', severity: 'MILD', description: 'Difficulty or infrequent passage of stools' },
+    55→
+    56→  // NEUROLOGICAL (13)
+    57→  { code: 'G43', name: 'Migraine', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'MODERATE', description: 'Recurrent severe headache often with aura and nausea' },
+    58→  { code: 'G40', name: 'Epilepsy', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Recurrent unprovoked seizures from abnormal brain activity' },
+    59→  { code: 'I63', name: 'Stroke', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'CRITICAL', description: 'Acute cerebrovascular event causing brain tissue damage' },
+    60→  { code: 'G20', name: "Parkinson's Disease", bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Progressive neurodegeneration with tremor, rigidity, bradykinesia' },
+    61→  { code: 'G35', name: 'Multiple Sclerosis', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Autoimmune demyelinating disease of CNS' },
+    62→  { code: 'G62', name: 'Neuropathy', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'MODERATE', description: 'Damage to peripheral nerves causing numbness and weakness' },
+    63→  { code: 'M54.3', name: 'Sciatica', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'MODERATE', description: 'Pain radiating along sciatic nerve, often from disc herniation' },
+    64→  { code: 'G00', name: 'Meningitis', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'CRITICAL', description: 'Inflammation of meninges, bacterial or viral' },
+    65→  { code: 'G30', name: "Alzheimer's Disease", bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Progressive neurodegenerative dementia with amyloid plaques' },
+    66→  { code: 'F03', name: 'Dementia', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Progressive cognitive decline affecting daily functioning' },
+    67→  { code: 'G50', name: 'Trigeminal Neuralgia', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'SEVERE', description: 'Intense facial pain along trigeminal nerve distribution' },
+    68→  { code: 'G51', name: "Bell's Palsy", bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'MODERATE', description: 'Acute unilateral facial nerve paralysis' },
+    69→  { code: 'G56', name: 'Carpal Tunnel Syndrome', bodySystem: 'NEUROLOGICAL', clinicalDomain: 'Neurology', severity: 'MODERATE', description: 'Median nerve compression at the wrist' },
+    70→
+    71→  // MUSCULOSKELETAL (12)
+    72→  { code: 'M19', name: 'Osteoarthritis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Degenerative joint disease with cartilage loss' },
+    73→  { code: 'M06', name: 'Rheumatoid Arthritis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'SEVERE', description: 'Autoimmune inflammatory polyarthritis with joint destruction' },
+    74→  { code: 'M10', name: 'Gout', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Crystal arthropathy from urate deposition in joints' },
+    75→  { code: 'M81', name: 'Osteoporosis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Reduced bone density increasing fracture risk' },
+    76→  { code: 'M79.7', name: 'Fibromyalgia', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Chronic widespread pain with tender points and fatigue' },
+    77→  { code: 'M76', name: 'Tendinitis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MILD', description: 'Inflammation of tendon, usually from overuse' },
+    78→  { code: 'M71', name: 'Bursitis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MILD', description: 'Inflammation of bursa near joints' },
+    79→  { code: 'M51', name: 'Herniated Disc', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'SEVERE', description: 'Intervertebral disc protrusion compressing nerve root' },
+    80→  { code: 'M41', name: 'Scoliosis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Lateral curvature of the spine' },
+    81→  { code: 'M45', name: 'Ankylosing Spondylitis', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'SEVERE', description: 'Chronic inflammatory arthritis of spine and sacroiliac joints' },
+    82→  { code: 'M75.0', name: 'Frozen Shoulder', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Painful stiffness and progressive loss of shoulder motion' },
+    83→  { code: 'M75.1', name: 'Rotator Cuff Injury', bodySystem: 'MUSCULOSKELETAL', clinicalDomain: 'Orthopedics', severity: 'MODERATE', description: 'Tear or inflammation of rotator cuff tendons' },
+    84→
+    85→  // ENDOCRINE (10)
+    86→  { code: 'E10', name: 'Diabetes Type 1', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Autoimmune beta-cell destruction requiring insulin' },
+    87→  { code: 'E11', name: 'Diabetes Type 2', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Insulin resistance with relative insulin deficiency' },
+    88→  { code: 'E03', name: 'Hypothyroidism', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'MODERATE', description: 'Underactive thyroid with decreased metabolic rate' },
+    89→  { code: 'E05', name: 'Hyperthyroidism', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'MODERATE', description: 'Overactive thyroid with increased metabolic rate' },
+    90→  { code: 'E24', name: 'Cushing Syndrome', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Excess cortisol causing central obesity and metabolic effects' },
+    91→  { code: 'E27.1', name: 'Addison Disease', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Primary adrenal insufficiency with steroid deficiency' },
+    92→  { code: 'E28.2', name: 'PCOS', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'MODERATE', description: 'Polycystic ovary syndrome with anovulation and hyperandrogenism' },
+    93→  { code: 'E16.1', name: 'Hypoglycemia', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'MODERATE', description: 'Abnormally low blood glucose levels' },
+    94→  { code: 'E11.4', name: 'Diabetic Neuropathy', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Nerve damage from chronic diabetes' },
+    95→  { code: 'E11.3', name: 'Diabetic Retinopathy', bodySystem: 'ENDOCRINE', clinicalDomain: 'Endocrinology', severity: 'SEVERE', description: 'Retinal microvascular damage from diabetes' },
+    96→
+    97→  // DERMATOLOGICAL (10)
+    98→  { code: 'L30.3', name: 'Eczema', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MODERATE', description: 'Atopic dermatitis with pruritic inflamed skin' },
+    99→  { code: 'L40', name: 'Psoriasis', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MODERATE', description: 'Chronic autoimmune hyperproliferative skin disorder' },
+   100→  { code: 'L70', name: 'Acne Vulgaris', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MILD', description: 'Inflammatory pilosebaceous follicular eruption' },
+   101→  { code: 'L30', name: 'Dermatitis', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MILD', description: 'Generalized skin inflammation from various causes' },
+   102→  { code: 'B37', name: 'Fungal Infection', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MILD', description: 'Dermatophyte or candidal skin infection' },
+   103→  { code: 'L50', name: 'Urticaria', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MODERATE', description: 'Hives from allergic or idiopathic causes' },
+   104→  { code: 'L80', name: 'Vitiligo', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MILD', description: 'Autoimmune depigmentation of skin patches' },
+   105→  { code: 'B86', name: 'Scabies', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MILD', description: 'Sarcoptes scabiei mite infestation causing pruritus' },
+   106→  { code: 'L03', name: 'Cellulitis', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'MODERATE', description: 'Bacterial infection of dermis and subcutaneous tissue' },
+   107→  { code: 'C43', name: 'Melanoma', bodySystem: 'DERMATOLOGICAL', clinicalDomain: 'Dermatology', severity: 'CRITICAL', description: 'Malignant tumor of melanocytes' },
+   108→
+   109→  // MENTAL_HEALTH (10)
+   110→  { code: 'F32', name: 'Depression', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Major depressive disorder with persistent low mood and anhedonia' },
+   111→  { code: 'F41.1', name: 'Generalized Anxiety', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Persistent excessive worry across multiple domains' },
+   112→  { code: 'F31', name: 'Bipolar Disorder', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'SEVERE', description: 'Alternating episodes of mania and depression' },
+   113→  { code: 'F20', name: 'Schizophrenia', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'SEVERE', description: 'Psychotic disorder with hallucinations, delusions, disorganized thought' },
+   114→  { code: 'F42', name: 'OCD', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Obsessive-compulsive disorder with intrusive thoughts and rituals' },
+   115→  { code: 'F43.1', name: 'PTSD', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'SEVERE', description: 'Post-traumatic stress disorder after traumatic event' },
+   116→  { code: 'G47.0', name: 'Insomnia', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Persistent difficulty initiating or maintaining sleep' },
+   117→  { code: 'F41.0', name: 'Panic Disorder', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Recurrent unexpected panic attacks with anticipatory anxiety' },
+   118→  { code: 'F40.1', name: 'Social Anxiety', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'MODERATE', description: 'Intense fear of social situations and scrutiny' },
+   119→  { code: 'F50', name: 'Eating Disorder', bodySystem: 'MENTAL_HEALTH', clinicalDomain: 'Psychiatry', severity: 'SEVERE', description: 'Disordered eating patterns including anorexia and bulimia' },
+   120→
+   121→  // ENT (8)
+   122→  { code: 'H65', name: 'Otitis Media', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'Middle ear infection, common in children' },
+   123→  { code: 'H91', name: 'Hearing Loss', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MODERATE', description: 'Conductive or sensorineural hearing impairment' },
+   124→  { code: 'H81', name: 'Vertigo', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MODERATE', description: 'Illusion of movement, often from vestibular dysfunction' },
+   125→  { code: 'H93.1', name: 'Tinnitus', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'Perception of sound without external source' },
+   126→  { code: 'J30', name: 'Allergic Rhinitis', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'IgE-mediated nasal mucosal inflammation from allergens' },
+   127→  { code: 'J37', name: 'Laryngitis', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'Inflammation of larynx causing hoarseness' },
+   128→  { code: 'R04', name: 'Epistaxis', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'Bleeding from the nostril, nasal cavity, or nasopharynx' },
+   129→  { code: 'H60', name: 'Otitis Externa', bodySystem: 'ENT', clinicalDomain: 'Otolaryngology', severity: 'MILD', description: 'Infection of external ear canal (swimmer ear)' },
+   130→
+   131→  // UROLOGICAL (7)
+   132→  { code: 'N39.0', name: 'UTI', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'MODERATE', description: 'Bacterial infection of urinary tract' },
+   133→  { code: 'N20', name: 'Kidney Stones', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'SEVERE', description: 'Calculi in renal collecting system causing colic' },
+   134→  { code: 'N40', name: 'BPH', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'MODERATE', description: 'Benign prostatic hyperplasia causing urinary obstruction' },
+   135→  { code: 'N41', name: 'Prostatitis', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'MODERATE', description: 'Inflammation of prostate gland' },
+   136→  { code: 'N52', name: 'Erectile Dysfunction', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'MODERATE', description: 'Inability to achieve or maintain erection' },
+   137→  { code: 'N39.3', name: 'Urinary Incontinence', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'MODERATE', description: 'Involuntary loss of urine' },
+   138→  { code: 'N20.0', name: 'Nephrolithiasis', bodySystem: 'UROLOGICAL', clinicalDomain: 'Urology', severity: 'SEVERE', description: 'Stone formation in kidney or ureter' },
+   139→
+   140→  // REPRODUCTIVE (6)
+   141→  { code: 'N94.4', name: 'Dysmenorrhea', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'MODERATE', description: 'Painful menstrual cramps' },
+   142→  { code: 'N80', name: 'Endometriosis', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'SEVERE', description: 'Endometrial tissue outside uterine cavity' },
+   143→  { code: 'D25', name: 'Fibroids', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'MODERATE', description: 'Benign uterine smooth muscle tumors' },
+   144→  { code: 'N92', name: 'Menorrhagia', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'MODERATE', description: 'Excessive or prolonged menstrual bleeding' },
+   145→  { code: 'N97', name: 'Infertility', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'MODERATE', description: 'Inability to conceive after 12 months of regular intercourse' },
+   146→  { code: 'N92.0', name: 'Irregular Menses', bodySystem: 'REPRODUCTIVE', clinicalDomain: 'Gynecology', severity: 'MILD', description: 'Irregular menstrual cycle pattern' },
+   147→
+   148→  // OPHTHALMOLOGICAL (6)
+   149→  { code: 'H40', name: 'Glaucoma', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'SEVERE', description: 'Optic neuropathy from elevated intraocular pressure' },
+   150→  { code: 'H25', name: 'Cataract', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'MODERATE', description: 'Opacification of crystalline lens' },
+   151→  { code: 'H10', name: 'Conjunctivitis', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'MILD', description: 'Inflammation of conjunctiva, infectious or allergic' },
+   152→  { code: 'H36.0', name: 'Diabetic Retinopathy', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'SEVERE', description: 'Retinal vascular changes from diabetes' },
+   153→  { code: 'H35.3', name: 'Macular Degeneration', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'SEVERE', description: 'Age-related central retinal degeneration' },
+   154→  { code: 'H04.1', name: 'Dry Eye Syndrome', bodySystem: 'OPHTHALMOLOGICAL', clinicalDomain: 'Ophthalmology', severity: 'MILD', description: 'Insufficient tear production or quality' },
+   155→
+   156→  // HEMATOLOGICAL (5)
+   157→  { code: 'D50', name: 'Iron Deficiency Anemia', bodySystem: 'HEMATOLOGICAL', clinicalDomain: 'Hematology', severity: 'MODERATE', description: 'Low hemoglobin from iron deficiency' },
+   158→  { code: 'D56', name: 'Thalassemia', bodySystem: 'HEMATOLOGICAL', clinicalDomain: 'Hematology', severity: 'SEVERE', description: 'Inherited hemoglobin synthesis disorder' },
+   159→  { code: 'D51', name: 'Vitamin B12 Deficiency', bodySystem: 'HEMATOLOGICAL', clinicalDomain: 'Hematology', severity: 'MODERATE', description: 'Megaloblastic anemia from cobalamin deficiency' },
+   160→  { code: 'I82', name: 'DVT', bodySystem: 'HEMATOLOGICAL', clinicalDomain: 'Hematology', severity: 'SEVERE', description: 'Deep venous thrombosis, clot in deep veins' },
+   161→  { code: 'C91', name: 'Leukemia', bodySystem: 'HEMATOLOGICAL', clinicalDomain: 'Hematology', severity: 'CRITICAL', description: 'Malignant proliferation of leukocytes' },
+   162→
+   163→  // IMMUNOLOGICAL (5)
+   164→  { code: 'J30.1', name: 'Allergic Rhinitis (Immune)', bodySystem: 'IMMUNOLOGICAL', clinicalDomain: 'Immunology', severity: 'MILD', description: 'IgE-mediated hypersensitivity of nasal mucosa' },
+   165→  { code: 'T78.2', name: 'Anaphylaxis', bodySystem: 'IMMUNOLOGICAL', clinicalDomain: 'Immunology', severity: 'CRITICAL', description: 'Life-threatening systemic allergic reaction' },
+   166→  { code: 'M35', name: 'Autoimmune Disorder', bodySystem: 'IMMUNOLOGICAL', clinicalDomain: 'Immunology', severity: 'SEVERE', description: 'Immune system attacking self-tissues' },
+   167→  { code: 'M32', name: 'Lupus', bodySystem: 'IMMUNOLOGICAL', clinicalDomain: 'Immunology', severity: 'SEVERE', description: 'Systemic lupus erythematosus, multisystem autoimmune disease' },
+   168→  { code: 'I00', name: 'Rheumatic Fever', bodySystem: 'IMMUNOLOGICAL', clinicalDomain: 'Immunology', severity: 'SEVERE', description: 'Post-streptococcal autoimmune inflammatory disease' },
+   169→]
+   170→
+   171→// ============================================================
+   172→// HINDI ALIASES for common health issues
+   173→// ============================================================
+   174→const HINDI_ALIASES: Record<string, string[]> = {
+   175→  'Hypertension': ['uncha rakt chaap', 'bp high', 'raktavbhighata'],
+   176→  'Asthma': ['dama', 'svas kash', 'dam'],
+   177→  'Diabetes Type 2': ['madhumeh', 'sugar', 'prameha'],
+   178→  'Migraine': ['ardh shirsh shool', 'migraine ka dard'],
+   179→  'Depression': ['avsad', 'udaas', 'man ki kamzori'],
+   180→  'Eczema': ['pama', 'chhapaki', 'twacha rog'],
+   181→  'GERD': ['amlapitta', 'acidit', 'pet mein acid'],
+   182→  'Constipation': ['kabz', 'kabja', 'vibhandh'],
+   183→  'Osteoarthritis': ['sandhi gath vath', 'jod ka dard'],
+   184→  'Insomnia': ['neend na aana', 'anidra'],
+   185→  'Anaphylaxis': ['teji se allergy', 'gambhir allergic pratikriya'],
+   186→  'Myocardial Infarction': ['dil ka daura', 'heart attack'],
+   187→  'Stroke': ['lakva', 'brain attack', 'pakshaghat'],
+   188→  'Pneumonia': ['phuphuphi sozish', 'naumoniya'],
+   189→  'Tuberculosis': ['kshay rog', 't.b.', 'tapkesh'],
+   190→  'Cirrhosis': ['yakrit kathinata', 'liver cirrhosis'],
+   191→  'Epilepsy': ['mirgi', 'apasmara', 'daure'],
+   192→  'Gout': ['gathiya', 'vat rakta gath'],
+   193→  'PCOS': ['ovarian cyst', 'stri rog'],
+   194→  'Hepatitis B': ['yakrit sozish b', 'hepatitis b'],
+   195→}
+   196→
+   197→// ============================================================
+   198→// WING APPROACHES - per body system (fallback when specific not available)
+   199→// ============================================================
+   200→const WING_BY_SYSTEM: Record<string, { ALLOPATHY: string; AYURVEDA: string; HOMEOPATHY: string }> = {
+   201→  CARDIOVASCULAR: { ALLOPATHY: 'Pharmacological management: antihypertensives, antiarrhythmics, anticoagulants. Lifestyle: DASH diet, exercise, smoking cessation.', AYURVEDA: 'Hridya herbs: Arjuna, Guggulu, Sarpagandha. Panchakarma: Hrid Basti. Diet: low salt, Medhya Rasayana. Pranayama.', HOMEOPATHY: 'Constitutional remedy based on cardiovascular symptom picture. Natrum Mur, Lachesis, Glonoine for acute episodes.' },
+   202→  RESPIRATORY: { ALLOPATHY: 'Bronchodilators, inhaled corticosteroids, antihistamines, antibiotics if bacterial. Step-wise therapy for asthma.', AYURVEDA: 'Shwasahara herbs: Kantakari, Vasa, Pippali. Talisadi/Sitopaladi Churna. Nasya for upper respiratory. Pranayama.', HOMEOPATHY: 'Remedy selection based on respiratory symptom totality. Arsenicum for wheezing, Bryonia for dry cough, Ant Tart for rattling.' },
+   203→  GASTROINTESTINAL: { ALLOPATHY: 'PPIs, antacids, antispasmodics, antibiotics for H. pylori. Endoscopy for diagnosis. Lifestyle modifications.', AYURVEDA: 'Agni-deepana and Pachana herbs: Hingwastak, Pippali, Trikatu. Avipattikar for acidity. Basti for IBS.', HOMEOPATHY: 'Nux Vomica for GI from lifestyle excess, Pulsatilla for rich food, Carbo Veg for bloating, Arsenicum for food poisoning.' },
+   204→  NEUROLOGICAL: { ALLOPATHY: 'Disease-specific: anticonvulsants, dopaminergics, thrombolytics. Pain management: NSAIDs, gabapentinoids.', AYURVEDA: 'Medhya Rasayana: Brahmi, Ashwagandha, Shankhpushpi. Shirodhara for headache. Kati Basti for sciatica. Nasya therapy.', HOMEOPATHY: 'Constitutional prescribing. Belladonna for acute throbbing, Gelsemium for heaviness, Natrum Mur for chronic headache.' },
+   205→  MUSCULOSKELETAL: { ALLOPATHY: 'NSAIDs, DMARDs, biologics, corticosteroids. Physiotherapy. Joint replacement for advanced disease.', AYURVEDA: 'Vata-hara herbs: Guggulu, Rasna, Bala. Yogaraj Guggulu for arthritis. Kati Basti, Pinda Sweda. Abhyanga with Mahanarayan Taila.', HOMEOPATHY: 'Rhus Tox for worse-at-rest, Bryonia for worse-with-movement, Arnica for injury, Calcarea Carb for bone health.' },
+   206→  ENDOCRINE: { ALLOPATHY: 'Hormone replacement, insulin, oral hypoglycemics, anti-thyroid drugs. Regular monitoring of levels.', AYURVEDA: 'Guduchi, Karela, Jamun for diabetes. Kanchanar Guggulu for thyroid. Shatavari for hormonal balance. Pathya Ahara-Vihara.', HOMEOPATHY: 'Syzygium for diabetes, Thyroidinum for thyroid, Natrum Mur for diabetes with emotional component.' },
+   207→  DERMATOLOGICAL: { ALLOPATHY: 'Topical corticosteroids, immunomodulators, antifungals, retinoids. Phototherapy for psoriasis.', AYURVEDA: 'Twacha rog herbs: Nimba, Manjishtha, Khadira. Panchatikta Ghrita for eczema. Raktashodhana (blood purification).', HOMEOPATHY: 'Sulphur for itching, Graphites for oozing, Arsenicum for burning, Psorinum for chronic skin, Thuja for warts.' },
+   208→  MENTAL_HEALTH: { ALLOPATHY: 'SSRIs, SNRIs, benzodiazepines (short-term), antipsychotics. CBT, counseling, lifestyle interventions.', AYURVEDA: 'Medhya Rasayana: Ashwagandha, Brahmi, Shankhpushpi, Jatamansi. Shirodhara, Abhyanga. Nidra promotion.', HOMEOPATHY: 'Ignatia for grief, Natrum Mur for suppressed emotions, Aurum Met for severe depression, Aconite for acute anxiety.' },
+   209→  ENT: { ALLOPATHY: 'Decongestants, antihistamines, antibiotics for bacterial infection. Steroid nasal sprays. Surgery when indicated.', AYURVEDA: 'Nasya therapy with Anu Taila. Talisadi for sinusitis. Haridra for allergy. Shunthi for pharyngitis.', HOMEOPATHY: 'Pulsatilla for thick discharge, Kali Bich for sinus, Belladonna for throbbing ear pain, Hepar Sulph for tonsillitis.' },
+   210→  UROLOGICAL: { ALLOPATHY: 'Antibiotics for UTI, alpha-blockers for BPH, PDE5 inhibitors for ED. Lithotripsy for stones.', AYURVEDA: 'Mutrakricchra herbs: Gokshura, Punarnava, Varuna. Chandraprabha Vati. Basti therapy for prostate.', HOMEOPATHY: 'Cantharis for UTI with burning, Lycopodium for prostate, Berberis for kidney stones, Sarsaparilla for renal colic.' },
+   211→  REPRODUCTIVE: { ALLOPATHY: 'Hormonal therapy, NSAIDs for pain, surgery for fibroids/endometriosis. Fertility treatments.', AYURVEDA: 'Shatavari for female reproductive health, Ashoka for menorrhagia, Lodhra for leucorrhea. Uttar Basti.', HOMEOPATHY: 'Pulsatilla for menstrual irregularity, Sepia for menopause, Calcarea Carb for heavy menses, Sabina for bleeding.' },
+   212→  OPHTHALMOLOGICAL: { ALLOPATHY: 'IOP-lowering drops for glaucoma, surgery for cataract. Anti-VEGF for macular degeneration. Artificial tears.', AYURVEDA: 'Triphala eye wash, Saptamrita Lauha. Nasya and Shirodhara for eye strain. Dietary: Amla, carrot.', HOMEOPATHY: 'Physostigma for glaucoma, Calcarea Fluor for cataract, Euphrasia for conjunctivitis.' },
+   213→  HEMATOLOGICAL: { ALLOPATHY: 'Iron supplements, B12 injections, transfusions. Anticoagulants. Chemotherapy for leukemia.', AYURVEDA: 'Punarnava, Manjishtha for blood purification. Loh Bhasma for iron deficiency. Amalaki for vitamin C.', HOMEOPATHY: 'Ferrum Phos for anemia, China for blood loss, Phosphorus for bleeding disorders.' },
+   214→  IMMUNOLOGICAL: { ALLOPATHY: 'Antihistamines, epinephrine for anaphylaxis, immunosuppressants for autoimmune. Biologics for lupus.', AYURVEDA: 'Guduchi for immunity, Nimba for allergy, Manjishtha for autoimmune. Panchatikta Ghrita.', HOMEOPATHY: 'Apis for allergic swelling, Arsenicum for allergic asthma, Thuja for immune dysfunction, Sulphur for chronic allergy.' },
+   215→}
+   216→
+   217→// Specific wing overrides for key conditions
+   218→const WING_SPECIFIC: Record<string, { ALLOPATHY: string; AYURVEDA: string; HOMEOPATHY: string }> = {
+   219→  'Hypertension': { ALLOPATHY: 'Amlodipine, Losartan, ACE inhibitors, diuretics. Lifestyle: DASH diet, exercise, salt restriction, weight management.', AYURVEDA: 'Arjuna kwath, Sarpagandha (Rauwolfia serpentina), Guggulu, Pranayama (Bhastrika, Anulom Vilom), low-salt diet.', HOMEOPATHY: 'Natrum Mur for emotional causes, Lachesis for high BP with hot flashes, Glonoine for sudden BP spike, Baryta Carb for elderly.' },
+   220→  'Diabetes Type 2': { ALLOPATHY: 'Metformin first-line, Sulfonylureas, DPP-4 inhibitors, SGLT2 inhibitors, GLP-1 agonists. Insulin if needed.', AYURVEDA: 'Guduchi, Jamun seed, Karela, Meshashringi, Chandraprabha Vati. Pathya Ahara: bitter gourd, barley. Vyayama.', HOMEOPATHY: 'Syzygium Jambolanum for blood sugar, Phosphoric Acid for weakness from diabetes, Uranium Nitricum for diabetes with emaciation.' },
+   221→  'Asthma': { ALLOPATHY: 'Bronchodilators (Salbutamol), inhaled corticosteroids, Montelukast. Step-wise therapy per GINA guidelines.', AYURVEDA: 'Kanakasava, Bharangyadi Avaleha, Shwasakuthar Rasa, Pippali long pepper therapy (Vardhamana Pippali).', HOMEOPATHY: 'Arsenicum Album for wheezing with anxiety, Natrum Sulph for humid asthma, Blatta Orientalis for severe attacks.' },
+   222→  'Depression': { ALLOPATHY: 'SSRIs (Fluoxetine, Sertraline), SNRIs (Venlafaxine), atypical antidepressants. CBT, exercise, sleep hygiene.', AYURVEDA: 'Ashwagandha, Brahmi, Shankhpushpi, Jatamansi. Shirodhara with Brahmi Taila. Abhyanga. Medhya Rasayana.', HOMEOPATHY: 'Natrum Mur for grief, Ignatia for emotional paradoxical symptoms, Aurum Met for severe depression, Sepia for post-partum.' },
+   223→  'Migraine': { ALLOPATHY: 'Acute: Triptans, NSAIDs. Prophylaxis: Propranolol, Flunarizine, Topiramate. Identify triggers.', AYURVEDA: 'Shirashoolari Vati, Brahmi for stress migraine, Nasya with Anu Taila, Shirodhara. Avoid triggers (Amla, Ati-Matra).', HOMEOPATHY: 'Belladonna for throbbing right-sided, Iris for migraine with visual aura, Natrum Mur for periodic migraine, Sanguinaria for right-sided.' },
+   224→}
+   225→
+   226→// ============================================================
+   227→// ALLOPATHY MEDICINES (80+)
+   228→// ============================================================
+   229→const ALLOPATHY_MEDS = [
+   230→  // Analgesics/Antipyretics
+   231→  { name: 'Paracetamol', generic: 'Acetaminophen', category: 'ANALGESIC', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   232→  { name: 'Ibuprofen', generic: 'Ibuprofen', category: 'NSAID', form: 'TABLET', strength: '400mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   233→  { name: 'Aspirin', generic: 'Acetylsalicylic Acid', category: 'NSAID', form: 'TABLET', strength: '75mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   234→  { name: 'Diclofenac', generic: 'Diclofenac Sodium', category: 'NSAID', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   235→  { name: 'Naproxen', generic: 'Naproxen', category: 'NSAID', form: 'TABLET', strength: '250mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   236→  { name: 'Tramadol', generic: 'Tramadol HCl', category: 'OPIOID_ANALGESIC', form: 'CAPSULE', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H1' },
+   237→  { name: 'Morphine', generic: 'Morphine Sulfate', category: 'OPIOID_ANALGESIC', form: 'INJECTION', strength: '10mg/ml', mfr: 'Generic', isRx: true, schedule: 'NARCOTIC' },
+   238→  // Antibiotics
+   239→  { name: 'Amoxicillin', generic: 'Amoxicillin', category: 'ANTIBIOTIC', form: 'CAPSULE', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   240→  { name: 'Azithromycin', generic: 'Azithromycin', category: 'ANTIBIOTIC', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   241→  { name: 'Ciprofloxacin', generic: 'Ciprofloxacin', category: 'ANTIBIOTIC', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   242→  { name: 'Ceftriaxone', generic: 'Ceftriaxone', category: 'ANTIBIOTIC', form: 'INJECTION', strength: '1g', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   243→  { name: 'Doxycycline', generic: 'Doxycycline', category: 'ANTIBIOTIC', form: 'CAPSULE', strength: '100mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   244→  { name: 'Metronidazole', generic: 'Metronidazole', category: 'ANTIBIOTIC', form: 'TABLET', strength: '400mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   245→  { name: 'Fluconazole', generic: 'Fluconazole', category: 'ANTIFUNGAL', form: 'CAPSULE', strength: '150mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   246→  { name: 'Trimethoprim-Sulfamethoxazole', generic: 'TMP-SMX', category: 'ANTIBIOTIC', form: 'TABLET', strength: '160/800mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   247→  { name: 'Nitrofurantoin', generic: 'Nitrofurantoin', category: 'ANTIBIOTIC', form: 'CAPSULE', strength: '100mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   248→  // Antidiabetic
+   249→  { name: 'Metformin', generic: 'Metformin HCl', category: 'ANTIDIABETIC', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   250→  { name: 'Glimepiride', generic: 'Glimepiride', category: 'ANTIDIABETIC', form: 'TABLET', strength: '2mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   251→  { name: 'Sitagliptin', generic: 'Sitagliptin', category: 'ANTIDIABETIC', form: 'TABLET', strength: '100mg', mfr: 'MSD', isRx: true, schedule: 'SCHEDULE_H' },
+   252→  { name: 'Pioglitazone', generic: 'Pioglitazone', category: 'ANTIDIABETIC', form: 'TABLET', strength: '15mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   253→  { name: 'Dapagliflozin', generic: 'Dapagliflozin', category: 'ANTIDIABETIC', form: 'TABLET', strength: '10mg', mfr: 'AstraZeneca', isRx: true, schedule: 'SCHEDULE_H' },
+   254→  { name: 'Insulin Glargine', generic: 'Insulin Glargine', category: 'ANTIDIABETIC', form: 'INJECTION', strength: '100U/ml', mfr: 'Sanofi', isRx: true, schedule: 'SCHEDULE_H' },
+   255→  // Cardiovascular
+   256→  { name: 'Amlodipine', generic: 'Amlodipine Besylate', category: 'ANTIHYPERTENSIVE', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   257→  { name: 'Losartan', generic: 'Losartan Potassium', category: 'ANTIHYPERTENSIVE', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   258→  { name: 'Atenolol', generic: 'Atenolol', category: 'ANTIHYPERTENSIVE', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   259→  { name: 'Metoprolol', generic: 'Metoprolol Succinate', category: 'ANTIHYPERTENSIVE', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   260→  { name: 'Ramipril', generic: 'Ramipril', category: 'ACE_INHIBITOR', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   261→  { name: 'Enalapril', generic: 'Enalapril Maleate', category: 'ACE_INHIBITOR', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   262→  { name: 'Telmisartan', generic: 'Telmisartan', category: 'ANTIHYPERTENSIVE', form: 'TABLET', strength: '40mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   263→  { name: 'Clopidogrel', generic: 'Clopidogrel', category: 'ANTIPLATELET', form: 'TABLET', strength: '75mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   264→  { name: 'Warfarin', generic: 'Warfarin Sodium', category: 'ANTICOAGULANT', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   265→  { name: 'Atorvastatin', generic: 'Atorvastatin', category: 'STATIN', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   266→  { name: 'Rosuvastatin', generic: 'Rosuvastatin', category: 'STATIN', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   267→  { name: 'Digoxin', generic: 'Digoxin', category: 'CARDIAC', form: 'TABLET', strength: '0.25mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   268→  { name: 'Amiodarone', generic: 'Amiodarone', category: 'ANTIARRHYTHMIC', form: 'TABLET', strength: '200mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   269→  // GI
+   270→  { name: 'Omeprazole', generic: 'Omeprazole', category: 'PPI', form: 'CAPSULE', strength: '20mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   271→  { name: 'Pantoprazole', generic: 'Pantoprazole', category: 'PPI', form: 'TABLET', strength: '40mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   272→  { name: 'Ranitidine', generic: 'Ranitidine HCl', category: 'H2_BLOCKER', form: 'TABLET', strength: '150mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   273→  { name: 'Domperidone', generic: 'Domperidone', category: 'PROKINETIC', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   274→  { name: 'Ondansetron', generic: 'Ondansetron', category: 'ANTIEMETIC', form: 'TABLET', strength: '4mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   275→  { name: 'Loperamide', generic: 'Loperamide', category: 'ANTIDIARRHEAL', form: 'CAPSULE', strength: '2mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   276→  // Respiratory
+   277→  { name: 'Montelukast', generic: 'Montelukast', category: 'LEUKOTRIENE_ANTAGONIST', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   278→  { name: 'Salbutamol', generic: 'Salbutamol', category: 'BRONCHODILATOR', form: 'INHALER', strength: '100mcg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   279→  { name: 'Ipratropium', generic: 'Ipratropium Bromide', category: 'BRONCHODILATOR', form: 'INHALER', strength: '20mcg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   280→  { name: 'Budesonide', generic: 'Budesonide', category: 'INHALED_CORTICOSTEROID', form: 'INHALER', strength: '200mcg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   281→  { name: 'Fluticasone', generic: 'Fluticasone Propionate', category: 'INHALED_CORTICOSTEROID', form: 'INHALER', strength: '250mcg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   282→  { name: 'Theophylline', generic: 'Theophylline', category: 'BRONCHODILATOR', form: 'TABLET', strength: '200mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   283→  // Allergy
+   284→  { name: 'Cetirizine', generic: 'Cetirizine', category: 'ANTIHISTAMINE', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   285→  { name: 'Loratadine', generic: 'Loratadine', category: 'ANTIHISTAMINE', form: 'TABLET', strength: '10mg', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   286→  { name: 'Fexofenadine', generic: 'Fexofenadine', category: 'ANTIHISTAMINE', form: 'TABLET', strength: '120mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   287→  // Steroids
+   288→  { name: 'Prednisolone', generic: 'Prednisolone', category: 'CORTICOSTEROID', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   289→  { name: 'Dexamethasone', generic: 'Dexamethasone', category: 'CORTICOSTEROID', form: 'TABLET', strength: '4mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   290→  { name: 'Hydrocortisone', generic: 'Hydrocortisone', category: 'TOPICAL_STEROID', form: 'CREAM', strength: '1%', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   291→  { name: 'Mometasone', generic: 'Mometasone Furoate', category: 'TOPICAL_STEROID', form: 'CREAM', strength: '0.1%', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   292→  { name: 'Betamethasone', generic: 'Betamethasone', category: 'TOPICAL_STEROID', form: 'CREAM', strength: '0.05%', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   293→  // Psychiatric
+   294→  { name: 'Sertraline', generic: 'Sertraline', category: 'SSRI', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   295→  { name: 'Fluoxetine', generic: 'Fluoxetine', category: 'SSRI', form: 'CAPSULE', strength: '20mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   296→  { name: 'Alprazolam', generic: 'Alprazolam', category: 'BENZODIAZEPINE', form: 'TABLET', strength: '0.5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_X' },
+   297→  { name: 'Diazepam', generic: 'Diazepam', category: 'BENZODIAZEPINE', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_X' },
+   298→  // Endocrine
+   299→  { name: 'Levothyroxine', generic: 'Levothyroxine', category: 'THYROID', form: 'TABLET', strength: '50mcg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   300→  // Diuretics
+   301→  { name: 'Furosemide', generic: 'Furosemide', category: 'DIURETIC', form: 'TABLET', strength: '40mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   302→  { name: 'Spironolactone', generic: 'Spironolactone', category: 'DIURETIC', form: 'TABLET', strength: '25mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   303→  // Neurological
+   304→  { name: 'Gabapentin', generic: 'Gabapentin', category: 'ANTICONVULSANT', form: 'CAPSULE', strength: '300mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   305→  { name: 'Pregabalin', generic: 'Pregabalin', category: 'ANTICONVULSANT', form: 'CAPSULE', strength: '75mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H1' },
+   306→  { name: 'Carbamazepine', generic: 'Carbamazepine', category: 'ANTICONVULSANT', form: 'TABLET', strength: '200mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   307→  { name: 'Valproate', generic: 'Sodium Valproate', category: 'ANTICONVULSANT', form: 'TABLET', strength: '200mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   308→  { name: 'Levetiracetam', generic: 'Levetiracetam', category: 'ANTICONVULSANT', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   309→  { name: 'Levodopa-Carbidopa', generic: 'Levodopa/Carbidopa', category: 'ANTIPARKINSON', form: 'TABLET', strength: '100/25mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   310→  { name: 'Ropinirole', generic: 'Ropinirole', category: 'ANTIPARKINSON', form: 'TABLET', strength: '0.5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   311→  { name: 'Nimodipine', generic: 'Nimodipine', category: 'CALCIUM_CHANNEL_BLOCKER', form: 'TABLET', strength: '30mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   312→  // Urological
+   313→  { name: 'Tamsulosin', generic: 'Tamsulosin', category: 'ALPHA_BLOCKER', form: 'CAPSULE', strength: '0.4mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   314→  { name: 'Finasteride', generic: 'Finasteride', category: '5_ALPHA_REDUCTASE_INHIBITOR', form: 'TABLET', strength: '5mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   315→  { name: 'Sildenafil', generic: 'Sildenafil', category: 'PDE5_INHIBITOR', form: 'TABLET', strength: '50mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   316→  // Anti-infective (parasitic)
+   317→  { name: 'Albendazole', generic: 'Albendazole', category: 'ANTHELMINTIC', form: 'TABLET', strength: '400mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   318→  { name: 'Ivermectin', generic: 'Ivermectin', category: 'ANTIPARASITIC', form: 'TABLET', strength: '6mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   319→  { name: 'Chloroquine', generic: 'Chloroquine Phosphate', category: 'ANTIMALARIAL', form: 'TABLET', strength: '250mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   320→  { name: 'Artemether', generic: 'Artemether', category: 'ANTIMALARIAL', form: 'INJECTION', strength: '80mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   321→  // Others
+   322→  { name: 'ORS', generic: 'Oral Rehydration Salts', category: 'REHYDRATION', form: 'SYRUP', strength: '21.5g/L', mfr: 'Generic', isRx: false, schedule: 'OTC' },
+   323→  { name: 'Ranolazine', generic: 'Ranolazine', category: 'ANTIANGINAL', form: 'TABLET', strength: '500mg', mfr: 'Generic', isRx: true, schedule: 'SCHEDULE_H' },
+   324→]
+   325→
+   326→// ============================================================
+   327→// AYURVEDA MEDICINES (50+)
+   328→// ============================================================
+   329→const AYURVEDA_MEDS = [
+   330→  // Single Herbs
+   331→  { name: 'Ashwagandha', category: 'RASAYANA', form: 'CHURNA', strength: '5g' },
+   332→  { name: 'Brahmi', category: 'MEDHYA', form: 'CHURNA', strength: '5g' },
+   333→  { name: 'Triphala', category: 'DIGESTIVE', form: 'CHURNA', strength: '5g' },
+   334→  { name: 'Chyawanprash', category: 'RASAYANA', form: 'LEHYAM', strength: '500g' },
+   335→  { name: 'Shatavari', category: 'STREEJEEVAK', form: 'CHURNA', strength: '5g' },
+   336→  { name: 'Guggulu', category: 'MEDOHARA', form: 'VATI', strength: '500mg' },
+   337→  { name: 'Haridra (Turmeric)', category: 'ANTIINFLAMMATORY', form: 'CHURNA', strength: '3g' },
+   338→  { name: 'Nimba (Neem)', category: 'VISHAGHNA', form: 'CHURNA', strength: '3g' },
+   339→  { name: 'Amalaki (Amla)', category: 'RASAYANA', form: 'CHURNA', strength: '5g' },
+   340→  { name: 'Tulsi', category: 'SHWASAHARA', form: 'ARK', strength: '5-10ml' },
+   341→  { name: 'Arjuna', category: 'HRIDYA', form: 'KWATH', strength: '15-30ml' },
+   342→  { name: 'Guduchi', category: 'RASAYANA', form: 'KWATH', strength: '15-30ml' },
+   343→  { name: 'Pippali', category: 'SHWASAHARA', form: 'CHURNA', strength: '2g' },
+   344→  { name: 'Yashtimadhu', category: 'SHWASAHARA', form: 'CHURNA', strength: '3g' },
+   345→  { name: 'Shankhpushpi', category: 'MEDHYA', form: 'CHURNA', strength: '5g' },
+   346→  { name: 'Bhringraj', category: 'KESHYA', form: 'THAILAM', strength: '100ml' },
+   347→  { name: 'Kutki', category: 'YAKRITUTTEJAK', form: 'CHURNA', strength: '2g' },
+   348→  { name: 'Kalmegh', category: 'YAKRITUTTEJAK', form: 'CHURNA', strength: '3g' },
+   349→  { name: 'Manjishtha', category: 'VISHAGHNA', form: 'CHURNA', strength: '3g' },
+   350→  { name: 'Sariva', category: 'VISHAGHNA', form: 'CHURNA', strength: '5g' },
+   351→  { name: 'Chandan', category: 'DAHAPRASHAMANA', form: 'CHURNA', strength: '2g' },
+   352→  { name: 'Musta', category: 'DIGESTIVE', form: 'CHURNA', strength: '5g' },
+   353→  { name: 'Punarnava', category: 'MUTRAKRICCHRA', form: 'KWATH', strength: '15-30ml' },
+   354→  // Classical Formulations
+   355→  { name: 'Dashmool', category: 'VATAVYADHI', form: 'KWATH', strength: '15-30ml' },
+   356→  { name: 'Sutshekhar Ras', category: 'AMLAPITTA', form: 'RAS', strength: '250mg' },
+   357→  { name: 'Praval Panchamrit', category: 'AMLAPITTA', form: 'RAS', strength: '250mg' },
+   358→  { name: 'Kamdudha Ras', category: 'RAKTAPITTA', form: 'RAS', strength: '250mg' },
+   359→  { name: 'Laghu Sutshekhar', category: 'AMLAPITTA', form: 'RAS', strength: '125mg' },
+   360→  { name: 'Arogyavardhini Vati', category: 'YAKRITVIKAR', form: 'VATI', strength: '250mg' },
+   361→  { name: 'Trikatu', category: 'AGNIVARDHAK', form: 'CHURNA', strength: '500mg' },
+   362→  { name: 'Avipattikar Churna', category: 'AMLAPITTA', form: 'CHURNA', strength: '3g' },
+   363→  { name: 'Hingwastak Churna', category: 'AGNIVARDHAK', form: 'CHURNA', strength: '3g' },
+   364→  { name: 'Sitopaladi Churna', category: 'SHWASAHARA', form: 'CHURNA', strength: '3g' },
+   365→  { name: 'Talisadi Churna', category: 'SHWASAHARA', form: 'CHURNA', strength: '3g' },
+   366→  { name: 'Mahasudarshan Ghan Vati', category: 'JVARA', form: 'VATI', strength: '500mg' },
+   367→  { name: 'Gandhak Rasayan', category: 'KUSHTA', form: 'RAS', strength: '250mg' },
+   368→  { name: 'Kishore Guggulu', category: 'VATARAKTA', form: 'VATI', strength: '500mg' },
+   369→  { name: 'Kaishore Guggulu', category: 'VATARAKTA', form: 'VATI', strength: '500mg' },
+   370→  { name: 'Trayodashang Guggulu', category: 'VATAVYADHI', form: 'VATI', strength: '500mg' },
+   371→  { name: 'Maha Yograj Guggulu', category: 'VATAVYADHI', form: 'VATI', strength: '500mg' },
+   372→  { name: 'Panchamrit Parpati', category: 'AMLAPITTA', form: 'RAS', strength: '250mg' },
+   373→  { name: 'Laxmi Vilas Ras', category: 'VATAVYADHI', form: 'RAS', strength: '125mg' },
+   374→  { name: 'Mahalakshmivilas Ras', category: 'VATAVYADHI', form: 'RAS', strength: '125mg' },
+   375→  { name: 'Brihat Vat Chintamani Ras', category: 'VATAVYADHI', form: 'RAS', strength: '125mg' },
+   376→  { name: 'Sameer Pannag Ras', category: 'VATAVYADHI', form: 'RAS', strength: '125mg' },
+   377→  { name: 'Vasant Kusumakar Ras', category: 'PRAMEHA', form: 'RAS', strength: '125mg' },
+   378→  // Bhasma
+   379→  { name: 'Swarna Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '15mg' },
+   380→  { name: 'Abhrak Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '125mg' },
+   381→  { name: 'Praval Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '250mg' },
+   382→  { name: 'Loh Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '125mg' },
+   383→  { name: 'Shankh Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '250mg' },
+   384→  { name: 'Godanti Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '250mg' },
+   385→  { name: 'Tamra Bhasma', category: 'BHASMA', form: 'BHASMA', strength: '125mg' },
+   386→]
+   387→
+   388→// ============================================================
+   389→// HOMEOPATHY MEDICINES (40+)
+   390→// ============================================================
+   391→const HOMEOPATHY_MEDS = [
+   392→  { name: 'Nux Vomica', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   393→  { name: 'Arsenicum Album', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   394→  { name: 'Belladonna', category: 'FEBRILE', form: 'GLOBULES', strength: '30C' },
+   395→  { name: 'Bryonia Alba', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   396→  { name: 'Rhus Tox', category: 'MUSCULOSKELETAL', form: 'GLOBULES', strength: '30C' },
+   397→  { name: 'Pulsatilla', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   398→  { name: 'Sulphur', category: 'SKIN', form: 'GLOBULES', strength: '30C' },
+   399→  { name: 'Lycopodium', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   400→  { name: 'Natrum Mur', category: 'PSYCHIATRIC', form: 'GLOBULES', strength: '30C' },
+   401→  { name: 'Calcarea Carb', category: 'CONSTITUTIONAL', form: 'GLOBULES', strength: '30C' },
+   402→  { name: 'Sepia', category: 'GYNECOLOGICAL', form: 'GLOBULES', strength: '30C' },
+   403→  { name: 'Phosphorus', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   404→  { name: 'Argentum Nitricum', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   405→  { name: 'Ignatia', category: 'PSYCHIATRIC', form: 'GLOBULES', strength: '30C' },
+   406→  { name: 'Gelsemium', category: 'FEBRILE', form: 'GLOBULES', strength: '30C' },
+   407→  { name: 'Aconite', category: 'FEBRILE', form: 'GLOBULES', strength: '30C' },
+   408→  { name: 'Apis Mellifica', category: 'ALLERGY', form: 'GLOBULES', strength: '30C' },
+   409→  { name: 'Carbo Veg', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   410→  { name: 'Nux Moschata', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   411→  { name: 'Staphysagria', category: 'UROLOGICAL', form: 'GLOBULES', strength: '30C' },
+   412→  { name: 'Calcarea Phos', category: 'CONSTITUTIONAL', form: 'GLOBULES', strength: '30C' },
+   413→  { name: 'Kali Bich', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   414→  { name: 'Merc Sol', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   415→  { name: 'Silicea', category: 'CONSTITUTIONAL', form: 'GLOBULES', strength: '30C' },
+   416→  { name: 'Hepar Sulph', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   417→  { name: 'Thuja', category: 'SKIN', form: 'GLOBULES', strength: '30C' },
+   418→  { name: 'Medorrhinum', category: 'MIASMATIC', form: 'GLOBULES', strength: '30C' },
+   419→  { name: 'Tuberculinum', category: 'MIASMATIC', form: 'GLOBULES', strength: '30C' },
+   420→  { name: 'Psorinum', category: 'MIASMATIC', form: 'GLOBULES', strength: '30C' },
+   421→  { name: 'Carcinosinum', category: 'MIASMATIC', form: 'GLOBULES', strength: '30C' },
+   422→  { name: 'China', category: 'HEMATOLOGICAL', form: 'GLOBULES', strength: '30C' },
+   423→  { name: 'Ipecac', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   424→  { name: 'Drosera', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   425→  { name: 'Spongia', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   426→  { name: 'Antimonium Tart', category: 'RESPIRATORY', form: 'GLOBULES', strength: '30C' },
+   427→  { name: 'Colocynth', category: 'GASTROINTESTINAL', form: 'GLOBULES', strength: '30C' },
+   428→  { name: 'Magnesia Phos', category: 'MUSCULOSKELETAL', form: 'GLOBULES', strength: '30C' },
+   429→  { name: 'Ranunculus Bulb', category: 'MUSCULOSKELETAL', form: 'GLOBULES', strength: '30C' },
+   430→  { name: 'Cimicifuga', category: 'GYNECOLOGICAL', form: 'GLOBULES', strength: '30C' },
+   431→  { name: 'Ambra Grisea', category: 'PSYCHIATRIC', form: 'GLOBULES', strength: '30C' },
+   432→  { name: 'Arnica Montana', category: 'TRAUMA', form: 'GLOBULES', strength: '30C' },
+   433→  { name: 'Ruta Graveolens', category: 'MUSCULOSKELETAL', form: 'GLOBULES', strength: '30C' },
+   434→  { name: 'Euphrasia', category: 'OPHTHALMOLOGICAL', form: 'GLOBULES', strength: '30C' },
+   435→]
+   436→
+   437→// ============================================================
+   438→// RECALL DATA
+   439→// ============================================================
+   440→const RECALL_DATA = [
+   441→  { batch: 'RB-2024-0451', reason: 'Dissolution failure - batch fails USP dissolution test specification', severity: 'MODERATE', initiatedBy: 'CDSCO' },
+   442→  { batch: 'RB-2024-0823', reason: 'Microbial contamination - exceed microbial limits in non-sterile product', severity: 'SEVERE', initiatedBy: 'CDSCO' },
+   443→  { batch: 'RB-2024-1102', reason: 'Label mix-up - incorrect strength declared on labeling', severity: 'SEVERE', initiatedBy: 'Manufacturer' },
+   444→  { batch: 'RB-2025-0089', reason: 'Impurity above specification - N-nitrosodimethylamine (NDMA) detected', severity: 'CRITICAL', initiatedBy: 'CDSCO' },
+   445→  { batch: 'RB-2025-0214', reason: 'Stability failure - content assay below specification at 12 months', severity: 'MODERATE', initiatedBy: 'Manufacturer' },
+   446→  { batch: 'RB-2025-0367', reason: 'Cross-contamination - trace penicillin detected in non-penicillin product', severity: 'CRITICAL', initiatedBy: 'CDSCO' },
+   447→]
+   448→
+   449→// ============================================================
+   450→// SEED ROUTE HANDLER
+   451→// ============================================================
+   452→export async function POST(req: NextRequest) {
+   453→  try {
+   454→    // Check if already seeded (both issues AND medicines)
+   455→    const existingIssues = await db.healthIssue.count()
+   456→    const existingMeds = await db.medicine.count()
+   457→    const forceReseed = new URL(req.url).searchParams.get('force') === 'true'
+   458→    if (existingIssues > 100 && existingMeds > 10 && !forceReseed) {
+   459→      return NextResponse.json({
+   460→        message: 'Already seeded',
+   461→        counts: { issues: existingIssues, medicines: existingMeds },
+   462→      })
+   463→    }
+   464→
+   465→    // Ensure tenant exists
+   466→    let tenant = await db.tenant.findFirst()
+   467→    if (!tenant) {
+   468→      tenant = await db.tenant.create({ data: { name: 'MedGovern Demo', code: 'DEMO', jurisdiction: 'IN' } })
+   469→    }
+   470→
+   471→    // ── Create Health Issues (skip if already exist) ──
+   472→    const createdIssues: Array<{ id: string; name: string; bodySystem: string }> = []
+   473→
+   474→    if (existingIssues < 100) {
+   475→    for (const issue of HEALTH_ISSUES) {
+   476→      const created = await db.healthIssue.create({
+   477→        data: {
+   478→          code: issue.code,
+   479→          name: issue.name,
+   480→          description: issue.description,
+   481→          bodySystem: issue.bodySystem,
+   482→          clinicalDomain: issue.clinicalDomain,
+   483→          symptomGroup: issue.name,
+   484→          severity: issue.severity,
+   485→          chronicity: issue.severity === 'CRITICAL' ? 'ACUTE' : issue.severity === 'SEVERE' ? 'CHRONIC' : 'ACUTE',
+   486→          prevalence: issue.severity === 'CRITICAL' ? 'UNCOMMON' : issue.severity === 'SEVERE' ? 'COMMON' : 'VERY_COMMON',
+   487→          isActive: true,
+   488→          // Create aliases inline
+   489→          aliases: {
+   490→            create: [
+   491→              { alias: issue.name.toLowerCase(), language: 'en' },
+   492→              ...(HINDI_ALIASES[issue.name] || []).map(a => ({ alias: a, language: 'hi' })),
+   493→            ],
+   494→          },
+   495→          // Create translations inline (Hindi, Tamil, Bengali)
+   496→          translations: {
+   497→            create: [
+   498→              { language: 'hi', name: issue.name, description: `${issue.name} (Hindi)` },
+   499→              { language: 'ta', name: issue.name, description: `${issue.name} (Tamil)` },
+   500→              { language: 'bn', name: issue.name, description: `${issue.name} (Bengali)` },
+   501→            ],
+   502→          },
+   503→          // Create wing approaches inline
+   504→          wingApproaches: {
+   505→            create: (() => {
+   506→              const wingData = WING_SPECIFIC[issue.name] || WING_BY_SYSTEM[issue.bodySystem] || {
+   507→                ALLOPATHY: 'Evidence-based pharmacological treatment with lifestyle modifications.',
+   508→                AYURVEDA: 'Dosha-balancing approach with herbs, Panchakarma, diet (Ahara-Vihara).',
+   509→                HOMEOPATHY: 'Individualized remedy selection based on symptom totality and miasmatic analysis.',
+   510→              }
+   511→              return [
+   512→                { modality: 'ALLOPATHY', approach: wingData.ALLOPATHY, evidenceLevel: 'STRONG' },
+   513→                { modality: 'AYURVEDA', approach: wingData.AYURVEDA, evidenceLevel: 'TRADITIONAL' },
+   514→                { modality: 'HOMEOPATHY', approach: wingData.HOMEOPATHY, evidenceLevel: 'LIMITED' },
+   515→              ]
+   516→            })(),
+   517→          },
+   518→        },
+   519→      })
+   520→      createdIssues.push({ id: created.id, name: issue.name, bodySystem: issue.bodySystem })
+   521→    }
+   522→    } // end if (existingIssues < 100)
+   523→
+   524→    // If issues already exist, load them for medicine indication linking
+   525→    if (createdIssues.length === 0 && existingIssues > 0) {
+   526→      const existingIssueRecords = await db.healthIssue.findMany({ select: { id: true, name: true, bodySystem: true } })
+   527→      createdIssues.push(...existingIssueRecords.map(i => ({ id: i.id, name: i.name, bodySystem: i.bodySystem || '' })))
+   528→    }
+   529→
+   530→    // ── Create Allopathy Medicines (skip if already exist) ──
+   531→    const createdMeds: Array<{ id: string; name: string }> = []
+   532→
+   533→    if (existingMeds < 10) {
+   534→
+   535→    for (const med of ALLOPATHY_MEDS) {
+   536→      const m = await db.medicine.create({
+   537→        data: {
+   538→          name: med.name,
+   539→          genericName: med.generic,
+   540→          modality: 'ALLOPATHY',
+   541→          category: med.category,
+   542→          subCategory: med.schedule,
+   543→          form: med.form,
+   544→          strength: med.strength,
+   545→          manufacturer: med.mfr,
+   546→          isPrescription: med.isRx,
+   547→          isOTC: !med.isRx,
+   548→        },
+   549→      })
+   550→      createdMeds.push({ id: m.id, name: m.name })
+   551→
+   552→      // Create ingredient
+   553→      await db.medicineIngredient.create({
+   554→        data: { medicineId: m.id, ingredient: med.name, quantity: med.strength, role: 'ACTIVE' },
+   555→      }).catch(() => {})
+   556→
+   557→      // Create a basic indication for key medicines
+   558→      const indicationMap: Record<string, string> = {
+   559→        'Paracetamol': 'Fever, Headache, Body Pain',
+   560→        'Ibuprofen': 'Joint Pain, Back Pain, Inflammation',
+   561→        'Metformin': 'Diabetes Type 2',
+   562→        'Amlodipine': 'Hypertension',
+   563→        'Omeprazole': 'GERD, Peptic Ulcer',
+   564→        'Montelukast': 'Asthma',
+   565→        'Sertraline': 'Depression, Generalized Anxiety',
+   566→        'Levothyroxine': 'Hypothyroidism',
+   567→        'Atorvastatin': 'Coronary Artery Disease',
+   568→      }
+   569→      if (indicationMap[med.name]) {
+   570→        const indications = indicationMap[med.name].split(', ')
+   571→        for (const ind of indications) {
+   572→          const issue = createdIssues.find(i => i.name === ind || i.name.includes(ind))
+   573→          await db.medicineIndication.create({
+   574→            data: { medicineId: m.id, issueId: issue?.id, indication: ind, priority: 1 },
+   575→          }).catch(() => {})
+   576→        }
+   577→      }
+   578→    }
+   579→
+   580→    // ── Create Ayurveda Medicines ──
+   581→    for (const med of AYURVEDA_MEDS) {
+   582→      const m = await db.medicine.create({
+   583→        data: {
+   584→          name: med.name,
+   585→          modality: 'AYURVEDA',
+   586→          category: med.category,
+   587→          form: med.form,
+   588→          strength: med.strength,
+   589→          isPrescription: false,
+   590→          isOTC: true,
+   591→        },
+   592→      })
+   593→      createdMeds.push({ id: m.id, name: m.name })
+   594→
+   595→      await db.medicineIngredient.create({
+   596→        data: { medicineId: m.id, ingredient: med.name, quantity: med.strength, role: 'ACTIVE' },
+   597→      }).catch(() => {})
+   598→
+   599→      // Ayurvedic indication mapping
+   600→      const ayurIndMap: Record<string, string[]> = {
+   601→        'Ashwagandha': ['Depression', 'Insomnia'],
+   602→        'Brahmi': ['Depression', 'Anxiety', 'Dementia'],
+   603→        'Triphala': ['Constipation'],
+   604→        'Chyawanprash': ['COPD'],
+   605→        'Shatavari': ['Menorrhagia', 'Irregular Menses'],
+   606→        'Arjuna': ['Hypertension', 'Heart Failure'],
+   607→        'Guduchi': ['Diabetes Type 2'],
+   608→        'Pippali': ['Asthma'],
+   609→        'Shankhpushpi': ['Insomnia', 'Generalized Anxiety'],
+   610→        'Kutki': ['Hepatitis B'],
+   611→        'Manjishtha': ['Eczema', 'Psoriasis'],
+   612→        'Punarnava': ['Kidney Stones'],
+   613→        'Sitopaladi Churna': ['Asthma', 'Bronchitis'],
+   614→        'Talisadi Churna': ['Asthma', 'Sinusitis'],
+   615→        'Hingwastak Churna': ['Dyspepsia', 'GERD'],
+   616→        'Arogyavardhini Vati': ['Hepatitis B', 'Cirrhosis'],
+   617→        'Vasant Kusumakar Ras': ['Diabetes Type 2'],
+   618→        'Kaishore Guggulu': ['Gout'],
+   619→        'Maha Yograj Guggulu': ['Rheumatoid Arthritis'],
+   620→      }
+   621→      if (ayurIndMap[med.name]) {
+   622→        for (const ind of ayurIndMap[med.name]) {
+   623→          const issue = createdIssues.find(i => i.name === ind || i.name.includes(ind))
+   624→          await db.medicineIndication.create({
+   625→            data: { medicineId: m.id, issueId: issue?.id, indication: ind, priority: 1 },
+   626→          }).catch(() => {})
+   627→        }
+   628→      }
+   629→    }
+   630→
+   631→    // ── Create Homeopathy Medicines ──
+   632→    for (const med of HOMEOPATHY_MEDS) {
+   633→      const m = await db.medicine.create({
+   634→        data: {
+   635→          name: med.name,
+   636→          modality: 'HOMEOPATHY',
+   637→          category: med.category,
+   638→          form: med.form,
+   639→          strength: med.strength,
+   640→          isPrescription: false,
+   641→          isOTC: true,
+   642→        },
+   643→      })
+   644→      createdMeds.push({ id: m.id, name: m.name })
+   645→
+   646→      await db.medicineIngredient.create({
+   647→        data: { medicineId: m.id, ingredient: med.name, quantity: med.strength, role: 'ACTIVE' },
+   648→      }).catch(() => {})
+   649→
+   650→      // Homeopathy indication mapping
+   651→      const homoIndMap: Record<string, string[]> = {
+   652→        'Nux Vomica': ['Dyspepsia', 'Constipation'],
+   653→        'Arsenicum Album': ['Asthma', 'Diarrhea'],
+   654→        'Belladonna': ['Migraine', 'Otitis Media'],
+   655→        'Bryonia Alba': ['COPD', 'Constipation'],
+   656→        'Rhus Tox': ['Osteoarthritis', 'Back Pain'],
+   657→        'Pulsatilla': ['Sinusitis', 'Irregular Menses'],
+   658→        'Sulphur': ['Eczema', 'Psoriasis'],
+   659→        'Lycopodium': ['Dyspepsia', 'BPH'],
+   660→        'Natrum Mur': ['Depression', 'Migraine'],
+   661→        'Calcarea Carb': ['Osteoporosis'],
+   662→        'Sepia': ['Menorrhagia', 'Depression'],
+   663→        'Phosphorus': ['COPD', 'Pneumonia'],
+   664→        'Ignatia': ['Depression', 'Generalized Anxiety'],
+   665→        'Gelsemium': ['Influenza'],
+   666→        'Aconite': ['Myocardial Infarction'],
+   667→        'Apis Mellifica': ['Urticaria', 'Otitis Media'],
+   668→        'Carbo Veg': ['Dyspepsia'],
+   669→        'Drosera': ['Asthma', 'Bronchitis'],
+   670→        'Hepar Sulph': ['Tonsillitis', 'Cellulitis'],
+   671→        'Thuja': ['Vitiligo', 'Psoriasis'],
+   672→        'China': ['Iron Deficiency Anemia'],
+   673→        'Silicea': ['Osteoporosis'],
+   674→        'Cimicifuga': ['Dysmenorrhea', 'Migraine'],
+   675→        'Arnica Montana': ['Herniated Disc', 'Tendinitis'],
+   676→        'Ruta Graveolens': ['Tendinitis', 'Rotator Cuff Injury'],
+   677→        'Euphrasia': ['Conjunctivitis'],
+   678→        'Colocynth': ['IBS'],
+   679→        'Magnesia Phos': ['Dysmenorrhea'],
+   680→      }
+   681→      if (homoIndMap[med.name]) {
+   682→        for (const ind of homoIndMap[med.name]) {
+   683→          const issue = createdIssues.find(i => i.name === ind || i.name.includes(ind))
+   684→          await db.medicineIndication.create({
+   685→            data: { medicineId: m.id, issueId: issue?.id, indication: ind, priority: 1 },
+   686→          }).catch(() => {})
+   687→        }
+   688→      }
+   689→    }
+   690→
+   691→    // ── Create Medicine Recalls ──
+   692→    // Assign recalls to some medicines
+   693→    const recallMedNames = ['Ranitidine', 'Metformin', 'Valsartan', 'Omeprazole', 'Azithromycin', 'Amoxicillin']
+   694→    for (let i = 0; i < RECALL_DATA.length; i++) {
+   695→      const recall = RECALL_DATA[i]
+   696→      const medName = recallMedNames[i]
+   697→      const med = createdMeds.find(m => m.name === medName)
+   698→      if (med) {
+   699→        await db.medicineRecall.create({
+   700→          data: {
+   701→            medicineId: med.id,
+   702→            batchNumber: recall.batch,
+   703→            reason: recall.reason,
+   704→            severity: recall.severity,
+   705→            initiatedBy: recall.initiatedBy,
+   706→            isActive: true,
+   707→          },
+   708→        }).catch(() => {})
+   709→      }
+   710→    }
+   711→
+   712→    } // end if (existingMeds < 10)
+   713→
+   714→    // ── Create Practitioners (if not exist) ──
+   715→    const existingPractitioners = await db.practitioner.count()
+   716→    if (existingPractitioners === 0) {
+   717→    await Promise.all([
+   718→      db.practitioner.create({ data: { tenantId: tenant.id, name: 'Dr. Sharma (Allopathy)', specialization: 'General Medicine', modality: 'ALLOPATHY', licenseNumber: 'AP-2024-001' } }),
+   719→      db.practitioner.create({ data: { tenantId: tenant.id, name: 'Vaidya Joshi (Ayurveda)', specialization: 'Kayachikitsa', modality: 'AYURVEDA', licenseNumber: 'AY-2024-001' } }),
+   720→      db.practitioner.create({ data: { tenantId: tenant.id, name: 'Dr. Patel (Homeopathy)', specialization: 'General Homeopathy', modality: 'HOMEOPATHY', licenseNumber: 'HO-2024-001' } }),
+   721→    ])
+   722→    } // end if (existingPractitioners === 0)
+   723→
+   724→    // ── Create Demo Patients (if not exist) ──
+   725→    const existingPatients = await db.patient.count()
+   726→    const patients = []
+   727→    if (existingPatients === 0) {
+   728→    const patientNames = [
+   729→      { fn: 'Rahul', ln: 'Kumar', dob: '1990-01-15', g: 'M', bg: 'B+' },
+   730→      { fn: 'Priya', ln: 'Sharma', dob: '1985-03-22', g: 'F', bg: 'O+' },
+   731→      { fn: 'Amit', ln: 'Patel', dob: '1978-07-11', g: 'M', bg: 'A+' },
+   732→      { fn: 'Sunita', ln: 'Gupta', dob: '1992-11-05', g: 'F', bg: 'AB+' },
+   733→      { fn: 'Vikram', ln: 'Singh', dob: '1968-09-30', g: 'M', bg: 'O-' },
+   734→      { fn: 'Anjali', ln: 'Joshi', dob: '1995-04-18', g: 'F', bg: 'B+' },
+   735→    ]
+   736→    for (let i = 0; i < patientNames.length; i++) {
+   737→      patients.push(await db.patient.create({
+   738→        data: {
+   739→          tenantId: tenant.id,
+   740→          firstName: patientNames[i].fn,
+   741→          lastName: patientNames[i].ln,
+   742→          dateOfBirth: patientNames[i].dob,
+   743→          gender: patientNames[i].g,
+   744→          phone: `+91-9876543${100 + i}`,
+   745→          bloodGroup: patientNames[i].bg,
+   746→        },
+   747→      }))
+   748→    }
+   749→    } // end if (existingPatients === 0)
+   750→
+   751→    // ── Return counts ──
+   752→    const totalIssues = await db.healthIssue.count()
+   753→    const totalMeds = await db.medicine.count()
+   754→
+   755→    return NextResponse.json({
+   756→      message: 'Seed completed successfully',
+   757→      counts: {
+   758→        issues: totalIssues,
+   759→        medicines: totalMeds,
+   760→        allopathyMeds: await db.medicine.count({ where: { modality: 'ALLOPATHY' } }),
+   761→        ayurvedaMeds: await db.medicine.count({ where: { modality: 'AYURVEDA' } }),
+   762→        homeopathyMeds: await db.medicine.count({ where: { modality: 'HOMEOPATHY' } }),
+   763→        aliases: await db.healthIssueAlias.count(),
+   764→        translations: await db.healthIssueTranslation.count(),
+   765→        wingApproaches: await db.healthIssueWing.count(),
+   766→        indications: await db.medicineIndication.count(),
+   767→        ingredients: await db.medicineIngredient.count(),
+   768→        recalls: await db.medicineRecall.count(),
+   769→        patients: await db.patient.count(),
+   770→      },
+   771→    })
+   772→  } catch (error) {
+   773→    console.error('Seed error:', error)
+   774→    return NextResponse.json({ error: 'Seed failed', details: String(error) }, { status: 500 })
+   775→  }
+   776→}
+   777→

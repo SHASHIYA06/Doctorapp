@@ -1,0 +1,900 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Pill,
+     7→  Search,
+     8→  Plus,
+     9→  X,
+    10→  AlertTriangle,
+    11→  ShieldCheck,
+    12→  ShieldAlert,
+    13→  ShieldX,
+    14→  Info,
+    15→  Loader2,
+    16→  ChevronRight,
+    17→  Syringe,
+    18→  Baby,
+    19→  Heart,
+    20→  Eye,
+    21→  Activity,
+    22→  CheckCircle2,
+    23→  XCircle,
+    24→  AlertCircle,
+    25→  Stethoscope,
+    26→  FileText,
+    27→  UserRound,
+    28→} from 'lucide-react'
+    29→import {
+    30→  Card,
+    31→  CardContent,
+    32→  CardHeader,
+    33→  CardTitle,
+    34→  CardDescription,
+    35→} from '@/components/ui/card'
+    36→import { Button } from '@/components/ui/button'
+    37→import { Input } from '@/components/ui/input'
+    38→import { Badge } from '@/components/ui/badge'
+    39→import { Label } from '@/components/ui/label'
+    40→import { Progress } from '@/components/ui/progress'
+    41→import { Separator } from '@/components/ui/separator'
+    42→import { Skeleton } from '@/components/ui/skeleton'
+    43→import { ScrollArea } from '@/components/ui/scroll-area'
+    44→import {
+    45→  Table,
+    46→  TableBody,
+    47→  TableCell,
+    48→  TableHead,
+    49→  TableHeader,
+    50→  TableRow,
+    51→} from '@/components/ui/table'
+    52→import {
+    53→  Tooltip,
+    54→  TooltipContent,
+    55→  TooltipProvider,
+    56→  TooltipTrigger,
+    57→} from '@/components/ui/tooltip'
+    58→import { useAppStore } from '@/lib/store'
+    59→import { toast } from '@/hooks/use-toast'
+    60→
+    61→// ──────────────────────────────────────────────
+    62→// Types
+    63→// ──────────────────────────────────────────────
+    64→
+    65→interface MedicineSearchResult {
+    66→  id: string
+    67→  name: string
+    68→  modality: string
+    69→  genericName?: string
+    70→}
+    71→
+    72→interface SelectedMedicine {
+    73→  id: string
+    74→  name: string
+    75→}
+    76→
+    77→interface PairwiseInteraction {
+    78→  medicine1: string
+    79→  medicine2: string
+    80→  interactionType: string
+    81→  severity: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+    82→  effect: string
+    83→  recommendation: string
+    84→}
+    85→
+    86→interface PopulationSafety {
+    87→  pregnancy: { safe: boolean; note: string }
+    88→  lactation: { safe: boolean; note: string }
+    89→  pediatric: { safe: boolean; note: string }
+    90→  geriatric: { safe: boolean; note: string }
+    91→  hepaticImpairment: { safe: boolean; note: string }
+    92→  renalImpairment: { safe: boolean; note: string }
+    93→}
+    94→
+    95→interface DrugInteractionResult {
+    96→  safetyScore: number
+    97→  riskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
+    98→  pairwiseInteractions: PairwiseInteraction[]
+    99→  contraindications: string[]
+   100→  warnings: string[]
+   101→  populationSafety: PopulationSafety
+   102→}
+   103→
+   104→// ──────────────────────────────────────────────
+   105→// Constants
+   106→// ──────────────────────────────────────────────
+   107→
+   108→const RISK_LEVEL_CONFIG: Record<string, {
+   109→  label: string
+   110→  className: string
+   111→  icon: React.ElementType
+   112→  iconColor: string
+   113→}> = {
+   114→  LOW: {
+   115→    label: 'Low Risk',
+   116→    className: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700',
+   117→    icon: ShieldCheck,
+   118→    iconColor: 'text-green-600 dark:text-green-400',
+   119→  },
+   120→  MODERATE: {
+   121→    label: 'Moderate Risk',
+   122→    className: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   123→    icon: AlertCircle,
+   124→    iconColor: 'text-amber-600 dark:text-amber-400',
+   125→  },
+   126→  HIGH: {
+   127→    label: 'High Risk',
+   128→    className: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+   129→    icon: ShieldAlert,
+   130→    iconColor: 'text-orange-600 dark:text-orange-400',
+   131→  },
+   132→  CRITICAL: {
+   133→    label: 'Critical Risk',
+   134→    className: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   135→    icon: ShieldX,
+   136→    iconColor: 'text-red-600 dark:text-red-400',
+   137→  },
+   138→}
+   139→
+   140→const SEVERITY_CELL_CONFIG: Record<string, string> = {
+   141→  LOW: 'text-green-700 dark:text-green-300',
+   142→  MODERATE: 'text-amber-700 dark:text-amber-300',
+   143→  HIGH: 'text-orange-700 dark:text-orange-300',
+   144→  CRITICAL: 'text-red-700 dark:text-red-300',
+   145→}
+   146→
+   147→const SAFETY_SCORE_COLORS: Record<string, { bar: string; text: string; bg: string }> = {
+   148→  green: { bar: 'bg-green-500', text: 'text-green-700 dark:text-green-300', bg: 'bg-green-50 dark:bg-green-950/30' },
+   149→  amber: { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+   150→  orange: { bar: 'bg-orange-500', text: 'text-orange-700 dark:text-orange-300', bg: 'bg-orange-50 dark:bg-orange-950/30' },
+   151→  red: { bar: 'bg-red-500', text: 'text-red-700 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-950/30' },
+   152→  critical: { bar: 'bg-red-700', text: 'text-red-900 dark:text-red-200', bg: 'bg-red-100 dark:bg-red-950/50' },
+   153→}
+   154→
+   155→function getSafetyTier(score: number): keyof typeof SAFETY_SCORE_COLORS {
+   156→  if (score >= 80) return 'green'
+   157→  if (score >= 60) return 'amber'
+   158→  if (score >= 40) return 'orange'
+   159→  if (score >= 20) return 'red'
+   160→  return 'critical'
+   161→}
+   162→
+   163→const POPULATION_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
+   164→  pregnancy: { label: 'Pregnancy', icon: Baby },
+   165→  lactation: { label: 'Lactation', icon: Baby },
+   166→  pediatric: { label: 'Pediatric', icon: Heart },
+   167→  geriatric: { label: 'Geriatric', icon: Heart },
+   168→  hepaticImpairment: { label: 'Hepatic Impairment', icon: Activity },
+   169→  renalImpairment: { label: 'Renal Impairment', icon: Activity },
+   170→}
+   171→
+   172→const fadeSlide = {
+   173→  initial: { opacity: 0, y: 12 },
+   174→  animate: { opacity: 1, y: 0 },
+   175→  transition: { duration: 0.3 },
+   176→}
+   177→
+   178→// ──────────────────────────────────────────────
+   179→// Component
+   180→// ──────────────────────────────────────────────
+   181→
+   182→export function DrugInteractionsSection() {
+   183→  const { selectedPatientId } = useAppStore()
+   184→
+   185→  // Medicine selection state
+   186→  const [searchQuery, setSearchQuery] = useState('')
+   187→  const [searchResults, setSearchResults] = useState<MedicineSearchResult[]>([])
+   188→  const [selectedMedicines, setSelectedMedicines] = useState<SelectedMedicine[]>([])
+   189→  const [searching, setSearching] = useState(false)
+   190→  const [showDropdown, setShowDropdown] = useState(false)
+   191→  const searchInputRef = useRef<HTMLInputElement>(null)
+   192→  const dropdownRef = useRef<HTMLDivElement>(null)
+   193→
+   194→  // Results state
+   195→  const [results, setResults] = useState<DrugInteractionResult | null>(null)
+   196→  const [loading, setLoading] = useState(false)
+   197→  const [showAllInteractions, setShowAllInteractions] = useState(false)
+   198→  const [patientMedsLoading, setPatientMedsLoading] = useState(false)
+   199→
+   200→  // CDSCO Advisory Data (well-known interactions)
+   201→  const CDSCO_ADVISORIES: Record<string, { advisory: string; reference: string }> = {
+   202→    'Warfarin-Aspirin': { advisory: 'CDSCO Advisory: Combined use significantly increases bleeding risk. INR monitoring mandatory. Avoid without specialist supervision.', reference: 'CDSCO/2024/DRG-INT/012' },
+   203→    'Warfarin-Ibuprofen': { advisory: 'CDSCO Advisory: NSAIDs with Warfarin increase GI bleeding risk. Use Paracetamol as alternative analgesic.', reference: 'CDSCO/2024/DRG-INT/015' },
+   204→    'Metformin-Cimetidine': { advisory: 'CDSCO Advisory: Cimetidine reduces Metformin renal clearance. Risk of lactic acidosis. Use alternative H2 blocker.', reference: 'CDSCO/2024/DRG-INT/023' },
+   205→  }
+   206→
+   207→  const getCdScoAdvisory = (med1: string, med2: string): { advisory: string; reference: string } | null => {
+   208→    const key1 = `${med1}-${med2}`
+   209→    const key2 = `${med2}-${med1}`
+   210→    return CDSCO_ADVISORIES[key1] ?? CDSCO_ADVISORIES[key2] ?? null
+   211→  }
+   212→
+   213→  // ── Search medicines ───────────────────────
+   214→
+   215→  const searchMedicines = useCallback(async (query: string) => {
+   216→    if (!query.trim() || query.length < 2) {
+   217→      setSearchResults([])
+   218→      setShowDropdown(false)
+   219→      return
+   220→    }
+   221→
+   222→    setSearching(true)
+   223→    try {
+   224→      const res = await fetch(`/api/medicines?search=${encodeURIComponent(query)}&limit=10`)
+   225→      const data = await res.json()
+   226→      const list: MedicineSearchResult[] = data.data ?? data.medicines ?? []
+   227→      // Filter out already selected
+   228→      const selectedIds = selectedMedicines.map((m) => m.id)
+   229→      const filtered = list.filter((m) => !selectedIds.includes(m.id))
+   230→      setSearchResults(filtered)
+   231→      setShowDropdown(filtered.length > 0)
+   232→    } catch {
+   233→      setSearchResults([])
+   234→    } finally {
+   235→      setSearching(false)
+   236→    }
+   237→  }, [selectedMedicines])
+   238→
+   239→  // Debounced search
+   240→  useEffect(() => {
+   241→    const timer = setTimeout(() => {
+   242→      searchMedicines(searchQuery)
+   243→    }, 300)
+   244→    return () => clearTimeout(timer)
+   245→  }, [searchQuery, searchMedicines])
+   246→
+   247→  // Close dropdown on outside click
+   248→  useEffect(() => {
+   249→    const handler = (e: MouseEvent) => {
+   250→      if (
+   251→        dropdownRef.current &&
+   252→        !dropdownRef.current.contains(e.target as Node) &&
+   253→        searchInputRef.current &&
+   254→        !searchInputRef.current.contains(e.target as Node)
+   255→      ) {
+   256→        setShowDropdown(false)
+   257→      }
+   258→    }
+   259→    document.addEventListener('mousedown', handler)
+   260→    return () => document.removeEventListener('mousedown', handler)
+   261→  }, [])
+   262→
+   263→  // ── Medicine management ────────────────────
+   264→
+   265→  const addMedicine = (medicine: MedicineSearchResult) => {
+   266→    if (!selectedMedicines.find((m) => m.id === medicine.id)) {
+   267→      setSelectedMedicines((prev) => [...prev, { id: medicine.id, name: medicine.name }])
+   268→    }
+   269→    setSearchQuery('')
+   270→    setSearchResults([])
+   271→    setShowDropdown(false)
+   272→    searchInputRef.current?.focus()
+   273→  }
+   274→
+   275→  const removeMedicine = (id: string) => {
+   276→    setSelectedMedicines((prev) => prev.filter((m) => m.id !== id))
+   277→  }
+   278→
+   279→  // ── Check interactions ─────────────────────
+   280→
+   281→  const handleCheckInteractions = async () => {
+   282→    if (selectedMedicines.length < 2) {
+   283→      toast({
+   284→        title: 'Add more medicines',
+   285→        description: 'Please add at least 2 medicines to check interactions',
+   286→        variant: 'destructive',
+   287→      })
+   288→      return
+   289→    }
+   290→
+   291→    setLoading(true)
+   292→    setResults(null)
+   293→    setShowAllInteractions(false)
+   294→
+   295→    try {
+   296→      const res = await fetch('/api/drug-interactions', {
+   297→        method: 'POST',
+   298→        headers: { 'Content-Type': 'application/json' },
+   299→        body: JSON.stringify({
+   300→          medicineIds: selectedMedicines.map((m) => m.id),
+   301→          medicineNames: selectedMedicines.map((m) => m.name),
+   302→        }),
+   303→      })
+   304→      const data = await res.json()
+   305→      const result: DrugInteractionResult = data.data ?? data
+   306→      setResults(result)
+   307→
+   308→      const riskLabel = RISK_LEVEL_CONFIG[result.riskLevel]?.label ?? result.riskLevel
+   309→      toast({
+   310→        title: 'Interaction Check Complete',
+   311→        description: `Safety score: ${result.safetyScore}/100 — ${riskLabel}`,
+   312→      })
+   313→    } catch {
+   314→      toast({ title: 'Error', description: 'Failed to check drug interactions', variant: 'destructive' })
+   315→    } finally {
+   316→      setLoading(false)
+   317→    }
+   318→  }
+   319→
+   320→  // ── Helpers ────────────────────────────────
+   321→
+   322→  const safetyTier = results ? getSafetyTier(results.safetyScore) : null
+   323→  const tierColors = safetyTier ? SAFETY_SCORE_COLORS[safetyTier] : null
+   324→
+   325→  const visibleInteractions = results?.pairwiseInteractions
+   326→    ? showAllInteractions
+   327→      ? results.pairwiseInteractions
+   328→      : results.pairwiseInteractions.slice(0, 5)
+   329→    : []
+   330→
+   331→  // ── Render ─────────────────────────────────
+   332→
+   333→  return (
+   334→    <TooltipProvider>
+   335→      <motion.div {...fadeSlide} className="space-y-6">
+   336→        {/* ── Input Card ─────────────────────── */}
+   337→        <Card>
+   338→          <CardHeader>
+   339→            <CardTitle className="text-lg flex items-center gap-2">
+   340→              <Pill className="h-5 w-5" />
+   341→              Drug Interaction Checker
+   342→            </CardTitle>
+   343→            <CardDescription>
+   344→              Add medicines to check for potential drug-drug interactions and safety concerns
+   345→            </CardDescription>
+   346→          </CardHeader>
+   347→          <CardContent className="space-y-5">
+   348→            {/* Medicine Search Input */}
+   349→            <div className="space-y-2">
+   350→              <Label>Add Medicines</Label>
+   351→              <div className="relative">
+   352→                <div className="relative">
+   353→                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   354→                  <Input
+   355→                    ref={searchInputRef}
+   356→                    type="text"
+   357→                    value={searchQuery}
+   358→                    onChange={(e) => setSearchQuery(e.target.value)}
+   359→                    onFocus={() => {
+   360→                      if (searchResults.length > 0) setShowDropdown(true)
+   361→                    }}
+   362→                    placeholder="Search medicines by name..."
+   363→                    className="pl-9"
+   364→                  />
+   365→                  {searching && (
+   366→                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+   367→                  )}
+   368→                </div>
+   369→
+   370→                {/* Search Dropdown */}
+   371→                <AnimatePresence>
+   372→                  {showDropdown && searchResults.length > 0 && (
+   373→                    <motion.div
+   374→                      ref={dropdownRef}
+   375→                      initial={{ opacity: 0, y: -4 }}
+   376→                      animate={{ opacity: 1, y: 0 }}
+   377→                      exit={{ opacity: 0, y: -4 }}
+   378→                      className="absolute top-full left-0 right-0 mt-1 border rounded-lg bg-popover shadow-lg z-20 overflow-hidden"
+   379→                    >
+   380→                      <ScrollArea className="max-h-56">
+   381→                        {searchResults.map((medicine) => (
+   382→                          <button
+   383→                            key={medicine.id}
+   384→                            type="button"
+   385→                            onClick={() => addMedicine(medicine)}
+   386→                            className="w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors flex items-center gap-3"
+   387→                          >
+   388→                            <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+   389→                            <div className="flex-1 min-w-0">
+   390→                              <span className="font-medium">{medicine.name}</span>
+   391→                              {medicine.genericName && (
+   392→                                <span className="text-muted-foreground ml-1">({medicine.genericName})</span>
+   393→                              )}
+   394→                            </div>
+   395→                            <Badge variant="outline" className="text-xs shrink-0">
+   396→                              {medicine.modality}
+   397→                            </Badge>
+   398→                          </button>
+   399→                        ))}
+   400→                      </ScrollArea>
+   401→                    </motion.div>
+   402→                  )}
+   403→                </AnimatePresence>
+   404→              </div>
+   405→            </div>
+   406→
+   407→            {/* Selected Medicine Tags */}
+   408→            {selectedMedicines.length > 0 && (
+   409→              <div className="space-y-2">
+   410→                <Label className="text-muted-foreground">
+   411→                  Selected Medicines ({selectedMedicines.length})
+   412→                </Label>
+   413→                <div className="flex flex-wrap gap-2">
+   414→                  <AnimatePresence>
+   415→                    {selectedMedicines.map((med) => (
+   416→                      <motion.span
+   417→                        key={med.id}
+   418→                        initial={{ opacity: 0, scale: 0.8 }}
+   419→                        animate={{ opacity: 1, scale: 1 }}
+   420→                        exit={{ opacity: 0, scale: 0.8 }}
+   421→                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20"
+   422→                      >
+   423→                        <Pill className="h-3.5 w-3.5" />
+   424→                        {med.name}
+   425→                        <button
+   426→                          type="button"
+   427→                          onClick={() => removeMedicine(med.id)}
+   428→                          className="ml-0.5 hover:bg-primary/20 rounded-full p-0.5 transition-colors"
+   429→                        >
+   430→                          <X className="h-3 w-3" />
+   431→                        </button>
+   432→                      </motion.span>
+   433→                    ))}
+   434→                  </AnimatePresence>
+   435→                </div>
+   436→              </div>
+   437→            )}
+   438→
+   439→            {/* Action Buttons */}
+   440→            <div className="flex flex-wrap items-center gap-3">
+   441→              <Button
+   442→                onClick={handleCheckInteractions}
+   443→                disabled={selectedMedicines.length < 2 || loading}
+   444→                className="gap-2 min-w-[200px]"
+   445→              >
+   446→                {loading ? (
+   447→                  <>
+   448→                    <Loader2 className="h-4 w-4 animate-spin" />
+   449→                    Checking...
+   450→                  </>
+   451→                ) : (
+   452→                  <>
+   453→                    <ShieldAlert className="h-4 w-4" />
+   454→                    Check Interactions
+   455→                  </>
+   456→                )}
+   457→              </Button>
+   458→              {/* Check with Patient Medications */}
+   459→              <Button
+   460→                variant="outline"
+   461→                className="gap-2"
+   462→                disabled={patientMedsLoading}
+   463→                onClick={async () => {
+   464→                  if (!selectedPatientId) {
+   465→                    toast({ title: 'No Patient Selected', description: 'Select a patient from the Patients section first', variant: 'destructive' })
+   466→                    return
+   467→                  }
+   468→                  setPatientMedsLoading(true)
+   469→                  try {
+   470→                    const res = await fetch(`/api/patients/${selectedPatientId}`)
+   471→                    const data = await res.json()
+   472→                    const patient = data.data ?? data.patient
+   473→                    const activeMeds = patient?.medicationStatements?.filter((m: any) => m.isActive) ?? []
+   474→                    if (activeMeds.length === 0) {
+   475→                      toast({ title: 'No Active Medications', description: 'This patient has no active medications on file' })
+   476→                    } else {
+   477→                      const medNames = activeMeds.map((m: any) => ({ id: m.id, name: m.medication }))
+   478→                      setSelectedMedicines(medNames)
+   479→                      toast({ title: 'Patient Medications Loaded', description: `${medNames.length} active medications added` })
+   480→                    }
+   481→                  } catch {
+   482→                    toast({ title: 'Error', description: 'Failed to load patient medications', variant: 'destructive' })
+   483→                  } finally {
+   484→                    setPatientMedsLoading(false)
+   485→                  }
+   486→                }}
+   487→              >
+   488→                {patientMedsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserRound className="h-4 w-4" />}
+   489→                Check with Patient Meds
+   490→              </Button>
+   491→              {selectedMedicines.length > 0 && (
+   492→                <Button
+   493→                  variant="ghost"
+   494→                  size="sm"
+   495→                  onClick={() => {
+   496→                    setSelectedMedicines([])
+   497→                    setSearchQuery('')
+   498→                    setResults(null)
+   499→                  }}
+   500→                  className="text-muted-foreground"
+   501→                >
+   502→                  Clear all
+   503→                </Button>
+   504→              )}
+   505→            </div>
+   506→
+   507→            {selectedMedicines.length > 0 && selectedMedicines.length < 2 && (
+   508→              <p className="text-xs text-muted-foreground flex items-center gap-1">
+   509→                <Info className="h-3 w-3" />
+   510→                Add at least 2 medicines to check for interactions
+   511→              </p>
+   512→            )}
+   513→          </CardContent>
+   514→        </Card>
+   515→
+   516→        {/* ── Loading Skeleton ────────────────── */}
+   517→        <AnimatePresence>
+   518→          {loading && (
+   519→            <motion.div
+   520→              initial={{ opacity: 0 }}
+   521→              animate={{ opacity: 1 }}
+   522→              exit={{ opacity: 0 }}
+   523→              className="space-y-4"
+   524→            >
+   525→              <Card>
+   526→                <CardContent className="p-6 space-y-4">
+   527→                  <Skeleton className="h-8 w-64" />
+   528→                  <Skeleton className="h-4 w-full" />
+   529→                  <Skeleton className="h-32 w-full" />
+   530→                  <Skeleton className="h-24 w-full" />
+   531→                </CardContent>
+   532→              </Card>
+   533→            </motion.div>
+   534→          )}
+   535→        </AnimatePresence>
+   536→
+   537→        {/* ── Results ─────────────────────────── */}
+   538→        <AnimatePresence>
+   539→          {results && !loading && (
+   540→            <motion.div
+   541→              initial={{ opacity: 0, y: 16 }}
+   542→              animate={{ opacity: 1, y: 0 }}
+   543→              transition={{ duration: 0.4 }}
+   544→              className="space-y-4"
+   545→            >
+   546→              {/* ── Safety Score & Risk Meter ────── */}
+   547→              <Card className={tierColors ? `border-2 ${tierColors.bg}` : ''}>
+   548→                <CardContent className="p-6">
+   549→                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+   550→                    {/* Score Circle */}
+   551→                    <div className="text-center shrink-0">
+   552→                      <div className={`text-5xl font-bold tracking-tight ${tierColors?.text ?? ''}`}>
+   553→                        {results.safetyScore}
+   554→                      </div>
+   555→                      <div className="text-sm text-muted-foreground mt-1">of 100</div>
+   556→                    </div>
+   557→
+   558→                    {/* Risk Meter & Level */}
+   559→                    <div className="flex-1 min-w-0 space-y-3 w-full">
+   560→                      <div className="flex items-center gap-3 flex-wrap">
+   561→                        <span className="text-sm font-semibold">Safety Score</span>
+   562→                        {(() => {
+   563→                          const riskCfg = RISK_LEVEL_CONFIG[results.riskLevel]
+   564→                          const RiskIcon = riskCfg?.icon ?? ShieldCheck
+   565→                          return (
+   566→                            <Badge variant="outline" className={`gap-1.5 ${riskCfg?.className ?? ''}`}>
+   567→                              <RiskIcon className={`h-3.5 w-3.5 ${riskCfg?.iconColor ?? ''}`} />
+   568→                              {riskCfg?.label ?? results.riskLevel}
+   569→                            </Badge>
+   570→                          )
+   571→                        })()}
+   572→                      </div>
+   573→
+   574→                      {/* Visual Risk Meter */}
+   575→                      <div className="relative w-full">
+   576→                        <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
+   577→                          {/* Background gradient segments */}
+   578→                          <div className="flex-1 bg-red-700/30" />
+   579→                          <div className="flex-1 bg-red-500/30" />
+   580→                          <div className="flex-1 bg-orange-500/30" />
+   581→                          <div className="flex-1 bg-amber-500/30" />
+   582→                          <div className="flex-1 bg-green-500/30" />
+   583→                        </div>
+   584→                        {/* Score indicator */}
+   585→                        <div
+   586→                          className="absolute top-0 left-0 h-4 rounded-full transition-all duration-700"
+   587→                          style={{ width: `${results.safetyScore}%` }}
+   588→                        >
+   589→                          <div className={`h-full w-full rounded-full ${tierColors?.bar ?? 'bg-green-500'}`} />
+   590→                        </div>
+   591→                      </div>
+   592→
+   593→                      <div className="flex justify-between text-xs text-muted-foreground">
+   594→                        <span>Critical</span>
+   595→                        <span>High</span>
+   596→                        <span>Moderate</span>
+   597→                        <span>Low</span>
+   598→                        <span>Safe</span>
+   599→                      </div>
+   600→                    </div>
+   601→                  </div>
+   602→                </CardContent>
+   603→              </Card>
+   604→
+   605→              {/* ── CDSCO Advisory Notes ──────── */}
+   606→              {results.pairwiseInteractions && results.pairwiseInteractions.length > 0 && (
+   607→                (() => {
+   608→                  const advisories = results.pairwiseInteractions
+   609→                    .map((int, i) => ({
+   610→                      ...int,
+   611→                      advisory: getCdScoAdvisory(int.medicine1, int.medicine2),
+   612→                      index: i,
+   613→                    }))
+   614→                    .filter((a) => a.advisory !== null)
+   615→                  if (advisories.length === 0) return null
+   616→                  return (
+   617→                    <Card className="border-amber-200 dark:border-amber-800">
+   618→                      <CardHeader className="pb-3">
+   619→                        <CardTitle className="text-base flex items-center gap-2">
+   620→                          <Stethoscope className="h-5 w-5 text-amber-600" />
+   621→                          CDSCO Advisory Notes
+   622→                        </CardTitle>
+   623→                      </CardHeader>
+   624→                      <CardContent className="space-y-3">
+   625→                        {advisories.map((a) => (
+   626→                          <div key={a.index} className="p-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 space-y-1.5">
+   627→                            <div className="flex items-center gap-2">
+   628→                              <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   629→                              <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+   630→                                {a.medicine1} + {a.medicine2}
+   631→                              </span>
+   632→                            </div>
+   633→                            <p className="text-sm text-amber-700 dark:text-amber-300">{a.advisory!.advisory}</p>
+   634→                            <p className="text-xs text-muted-foreground">Ref: {a.advisory!.reference}</p>
+   635→                          </div>
+   636→                        ))}
+   637→                      </CardContent>
+   638→                    </Card>
+   639→                  )
+   640→                })()
+   641→              )}
+   642→
+   643→              {/* ── Clinical Management Recommendations ── */}
+   644→              {results.pairwiseInteractions && results.pairwiseInteractions.some((int) => int.severity === 'HIGH' || int.severity === 'CRITICAL') && (
+   645→                <Card className="border-red-200 dark:border-red-800">
+   646→                  <CardHeader className="pb-3">
+   647→                    <CardTitle className="text-base flex items-center gap-2">
+   648→                      <FileText className="h-5 w-5 text-red-600" />
+   649→                      Clinical Management Recommendations
+   650→                    </CardTitle>
+   651→                  </CardHeader>
+   652→                  <CardContent className="space-y-3">
+   653→                    {results.pairwiseInteractions.filter((int) => int.severity === 'HIGH' || int.severity === 'CRITICAL').map((int, i) => (
+   654→                      <div key={i} className="p-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 space-y-1.5">
+   655→                        <div className="flex items-center gap-2">
+   656→                          <ShieldAlert className="h-4 w-4 text-red-600" />
+   657→                          <span className="text-sm font-semibold text-red-800 dark:text-red-200">
+   658→                            {int.medicine1} + {int.medicine2}
+   659→                          </span>
+   660→                          <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700">
+   661→                            {int.severity}
+   662→                          </Badge>
+   663→                        </div>
+   664→                        <p className="text-sm text-red-700 dark:text-red-300"><span className="font-medium">Effect:</span> {int.effect}</p>
+   665→                        <p className="text-sm text-red-700 dark:text-red-300"><span className="font-medium">Action:</span> {int.recommendation}</p>
+   666→                        <p className="text-xs text-muted-foreground">Monitor patient closely. Consider dose adjustment or alternative therapy. Document in clinical notes.</p>
+   667→                      </div>
+   668→                    ))}
+   669→                  </CardContent>
+   670→                </Card>
+   671→              )}
+   672→
+   673→              {/* ── Pairwise Interactions Table ──── */}
+   674→              {results.pairwiseInteractions && results.pairwiseInteractions.length > 0 && (
+   675→                <Card>
+   676→                  <CardHeader>
+   677→                    <CardTitle className="text-base flex items-center gap-2">
+   678→                      <Activity className="h-5 w-5" />
+   679→                      Pairwise Interactions
+   680→                    </CardTitle>
+   681→                    <CardDescription>
+   682→                      {results.pairwiseInteractions.length} interaction{results.pairwiseInteractions.length !== 1 ? 's' : ''} detected
+   683→                    </CardDescription>
+   684→                  </CardHeader>
+   685→                  <CardContent>
+   686→                    <div className="overflow-x-auto -mx-6 px-6">
+   687→                      <Table>
+   688→                        <TableHeader>
+   689→                          <TableRow>
+   690→                            <TableHead className="min-w-[120px]">Medicine 1</TableHead>
+   691→                            <TableHead className="min-w-[120px]">Medicine 2</TableHead>
+   692→                            <TableHead className="min-w-[100px]">Type</TableHead>
+   693→                            <TableHead className="min-w-[80px]">Severity</TableHead>
+   694→                            <TableHead className="min-w-[160px]">Effect</TableHead>
+   695→                            <TableHead className="min-w-[160px]">Recommendation</TableHead>
+   696→                          </TableRow>
+   697→                        </TableHeader>
+   698→                        <TableBody>
+   699→                          {visibleInteractions.map((interaction, i) => {
+   700→                            const severityCfg = RISK_LEVEL_CONFIG[interaction.severity]
+   701→                            return (
+   702→                              <TableRow key={i}>
+   703→                                <TableCell className="font-medium text-sm">{interaction.medicine1}</TableCell>
+   704→                                <TableCell className="font-medium text-sm">{interaction.medicine2}</TableCell>
+   705→                                <TableCell className="text-sm">{interaction.interactionType}</TableCell>
+   706→                                <TableCell>
+   707→                                  <Badge
+   708→                                    variant="outline"
+   709→                                    className={`text-xs ${severityCfg?.className ?? ''}`}
+   710→                                  >
+   711→                                    {interaction.severity}
+   712→                                  </Badge>
+   713→                                </TableCell>
+   714→                                <TableCell className={`text-sm ${SEVERITY_CELL_CONFIG[interaction.severity] ?? ''}`}>
+   715→                                  {interaction.effect}
+   716→                                </TableCell>
+   717→                                <TableCell className="text-sm text-muted-foreground max-w-[200px]">
+   718→                                  {interaction.recommendation}
+   719→                                </TableCell>
+   720→                              </TableRow>
+   721→                            )
+   722→                          })}
+   723→                        </TableBody>
+   724→                      </Table>
+   725→                    </div>
+   726→
+   727→                    {results.pairwiseInteractions.length > 5 && (
+   728→                      <div className="mt-3 text-center">
+   729→                        <Button
+   730→                          variant="ghost"
+   731→                          size="sm"
+   732→                          onClick={() => setShowAllInteractions(!showAllInteractions)}
+   733→                          className="gap-1 text-muted-foreground"
+   734→                        >
+   735→                          {showAllInteractions ? (
+   736→                            <>Show less</>
+   737→                          ) : (
+   738→                            <>
+   739→                              Show all {results.pairwiseInteractions.length} interactions
+   740→                              <ChevronRight className="h-3.5 w-3.5" />
+   741→                            </>
+   742→                          )}
+   743→                        </Button>
+   744→                      </div>
+   745→                    )}
+   746→                  </CardContent>
+   747→                </Card>
+   748→              )}
+   749→
+   750→              {/* ── Contraindications & Warnings ─── */}
+   751→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   752→                {/* Contraindications */}
+   753→                <Card>
+   754→                  <CardHeader>
+   755→                    <CardTitle className="text-base flex items-center gap-2">
+   756→                      <ShieldX className="h-5 w-5 text-red-500" />
+   757→                      Contraindications
+   758→                    </CardTitle>
+   759→                    <CardDescription>
+   760→                      {results.contraindications?.length ?? 0} contraindication(s) found
+   761→                    </CardDescription>
+   762→                  </CardHeader>
+   763→                  <CardContent>
+   764→                    {results.contraindications && results.contraindications.length > 0 ? (
+   765→                      <ScrollArea className="max-h-64">
+   766→                        <ul className="space-y-2">
+   767→                          {results.contraindications.map((ci, i) => (
+   768→                            <motion.li
+   769→                              key={i}
+   770→                              initial={{ opacity: 0, x: -8 }}
+   771→                              animate={{ opacity: 1, x: 0 }}
+   772→                              transition={{ delay: i * 0.05 }}
+   773→                              className="flex items-start gap-2 text-sm"
+   774→                            >
+   775→                              <XCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+   776→                              <span>{ci}</span>
+   777→                            </motion.li>
+   778→                          ))}
+   779→                        </ul>
+   780→                      </ScrollArea>
+   781→                    ) : (
+   782→                      <div className="text-center py-6 text-muted-foreground">
+   783→                        <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-500" />
+   784→                        <p className="text-sm">No contraindications detected</p>
+   785→                      </div>
+   786→                    )}
+   787→                  </CardContent>
+   788→                </Card>
+   789→
+   790→                {/* Warnings */}
+   791→                <Card>
+   792→                  <CardHeader>
+   793→                    <CardTitle className="text-base flex items-center gap-2">
+   794→                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+   795→                      Warnings
+   796→                    </CardTitle>
+   797→                    <CardDescription>
+   798→                      {results.warnings?.length ?? 0} warning(s) found
+   799→                    </CardDescription>
+   800→                  </CardHeader>
+   801→                  <CardContent>
+   802→                    {results.warnings && results.warnings.length > 0 ? (
+   803→                      <ScrollArea className="max-h-64">
+   804→                        <ul className="space-y-2">
+   805→                          {results.warnings.map((warning, i) => (
+   806→                            <motion.li
+   807→                              key={i}
+   808→                              initial={{ opacity: 0, x: -8 }}
+   809→                              animate={{ opacity: 1, x: 0 }}
+   810→                              transition={{ delay: i * 0.05 }}
+   811→                              className="flex items-start gap-2 text-sm"
+   812→                            >
+   813→                              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+   814→                              <span>{warning}</span>
+   815→                            </motion.li>
+   816→                          ))}
+   817→                        </ul>
+   818→                      </ScrollArea>
+   819→                    ) : (
+   820→                      <div className="text-center py-6 text-muted-foreground">
+   821→                        <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-500" />
+   822→                        <p className="text-sm">No warnings detected</p>
+   823→                      </div>
+   824→                    )}
+   825→                  </CardContent>
+   826→                </Card>
+   827→              </div>
+   828→
+   829→              {/* ── Population Safety ───────────── */}
+   830→              {results.populationSafety && (
+   831→                <Card>
+   832→                  <CardHeader>
+   833→                    <CardTitle className="text-base flex items-center gap-2">
+   834→                      <Heart className="h-5 w-5" />
+   835→                      Population Safety
+   836→                    </CardTitle>
+   837→                    <CardDescription>
+   838→                      Safety considerations for special populations
+   839→                    </CardDescription>
+   840→                  </CardHeader>
+   841→                  <CardContent>
+   842→                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   843→                      {Object.entries(POPULATION_CONFIG).map(([key, cfg]) => {
+   844→                        const safetyInfo = results.populationSafety[key as keyof PopulationSafety]
+   845→                        if (!safetyInfo) return null
+   846→                        const Icon = cfg.icon
+   847→                        return (
+   848→                          <motion.div
+   849→                            key={key}
+   850→                            initial={{ opacity: 0, scale: 0.95 }}
+   851→                            animate={{ opacity: 1, scale: 1 }}
+   852→                            transition={{ duration: 0.2 }}
+   853→                            className={`p-3 rounded-lg border ${
+   854→                              safetyInfo.safe
+   855→                                ? 'bg-green-50/50 border-green-200/50 dark:bg-green-950/20 dark:border-green-800/30'
+   856→                                : 'bg-red-50/50 border-red-200/50 dark:bg-red-950/20 dark:border-red-800/30'
+   857→                            }`}
+   858→                          >
+   859→                            <div className="flex items-center gap-2 mb-1.5">
+   860→                              <Icon className={`h-4 w-4 ${safetyInfo.safe ? 'text-green-600' : 'text-red-600'}`} />
+   861→                              <span className="text-sm font-medium">{cfg.label}</span>
+   862→                              {safetyInfo.safe ? (
+   863→                                <CheckCircle2 className="h-4 w-4 text-green-600 ml-auto" />
+   864→                              ) : (
+   865→                                <XCircle className="h-4 w-4 text-red-600 ml-auto" />
+   866→                              )}
+   867→                            </div>
+   868→                            <p className={`text-xs ${
+   869→                              safetyInfo.safe
+   870→                                ? 'text-green-700 dark:text-green-300'
+   871→                                : 'text-red-700 dark:text-red-300'
+   872→                            }`}>
+   873→                              {safetyInfo.note}
+   874→                            </p>
+   875→                          </motion.div>
+   876→                        )
+   877→                      })}
+   878→                    </div>
+   879→                  </CardContent>
+   880→                </Card>
+   881→              )}
+   882→            </motion.div>
+   883→          )}
+   884→        </AnimatePresence>
+   885→
+   886→        {/* ── Disclaimer ──────────────────────── */}
+   887→        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-muted">
+   888→          <Info className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+   889→          <p className="text-xs text-muted-foreground">
+   890→            <span className="font-semibold">Disclaimer:</span>{' '}
+   891→            This tool checks for known drug interactions. Always consult your pharmacist or doctor
+   892→            before starting, stopping, or combining any medications. Interaction data may not cover
+   893→            all possible combinations or individual patient factors.
+   894→          </p>
+   895→        </div>
+   896→      </motion.div>
+   897→    </TooltipProvider>
+   898→  )
+   899→}
+   900→

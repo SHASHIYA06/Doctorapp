@@ -1,0 +1,662 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  ArrowRightLeft,
+     7→  UserPlus,
+     8→  CheckCircle2,
+     9→  XCircle,
+    10→  AlertTriangle,
+    11→  Clock,
+    12→  Stethoscope,
+    13→  Plus,
+    14→  Filter,
+    15→  Eye,
+    16→} from 'lucide-react'
+    17→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    18→import { Button } from '@/components/ui/button'
+    19→import { Badge } from '@/components/ui/badge'
+    20→import { Input } from '@/components/ui/input'
+    21→import { Label } from '@/components/ui/label'
+    22→import { Textarea } from '@/components/ui/textarea'
+    23→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    24→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    25→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    26→import { Skeleton } from '@/components/ui/skeleton'
+    27→import { Separator } from '@/components/ui/separator'
+    28→import { useAppStore } from '@/lib/store'
+    29→import { ModalityBadge } from '@/components/clinical/modality-badge'
+    30→import { toast } from '@/hooks/use-toast'
+    31→
+    32→// ─── Types ────────────────────────────────────────────────────────────
+    33→
+    34→type ReferralUrgency = 'ROUTINE' | 'URGENT' | 'EMERGENCY'
+    35→type ReferralStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED'
+    36→type Modality = 'ALLOPATHY' | 'AYURVEDA' | 'HOMEOPATHY'
+    37→
+    38→const SPECIALTIES = [
+    39→  'Cardiology', 'Neurology', 'Orthopedics', 'Dermatology', 'Ophthalmology',
+    40→  'ENT', 'Psychiatry', 'Oncology', 'Pulmonology', 'Gastroenterology',
+    41→  'Nephrology', 'Endocrinology', 'Urology', 'General Surgery', 'Pediatrics', 'OB-GYN',
+    42→] as const
+    43→
+    44→interface Practitioner {
+    45→  id: string
+    46→  name: string
+    47→  specialty: string
+    48→  modality: Modality
+    49→}
+    50→
+    51→interface Referral {
+    52→  id: string
+    53→  patientId: string
+    54→  patientName: string
+    55→  fromPractitionerId: string
+    56→  fromPractitionerName: string
+    57→  fromModality: Modality
+    58→  toPractitionerId: string
+    59→  toPractitionerName: string
+    60→  toModality: Modality
+    61→  specialty: string
+    62→  urgency: ReferralUrgency
+    63→  status: ReferralStatus
+    64→  clinicalSummary: string
+    65→  reason: string
+    66→  notes: string
+    67→  createdAt: string
+    68→  updatedAt: string
+    69→}
+    70→
+    71→interface Patient {
+    72→  id: string
+    73→  firstName: string
+    74→  lastName: string
+    75→}
+    76→
+    77→// ─── Style Maps ───────────────────────────────────────────────────────
+    78→
+    79→const urgencyStyles: Record<ReferralUrgency, string> = {
+    80→  ROUTINE: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    81→  URGENT: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    82→  EMERGENCY: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    83→}
+    84→
+    85→const statusStyles: Record<ReferralStatus, string> = {
+    86→  PENDING: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    87→  ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    88→  REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    89→  COMPLETED: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+    90→  CANCELLED: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    91→}
+    92→
+    93→const urgencyIcons: Record<ReferralUrgency, React.ReactNode> = {
+    94→  ROUTINE: <Clock className="h-3 w-3" />,
+    95→  URGENT: <AlertTriangle className="h-3 w-3" />,
+    96→  EMERGENCY: <AlertTriangle className="h-3 w-3" />,
+    97→}
+    98→
+    99→const fadeSlide = {
+   100→  initial: { opacity: 0, y: 12 },
+   101→  animate: { opacity: 1, y: 0 },
+   102→  transition: { duration: 0.3 },
+   103→}
+   104→
+   105→// ─── Component ────────────────────────────────────────────────────────
+   106→
+   107→export function ReferralsSection() {
+   108→  const { activeModality } = useAppStore()
+   109→
+   110→  const [patients, setPatients] = useState<Patient[]>([])
+   111→  const [referrals, setReferrals] = useState<Referral[]>([])
+   112→  const [practitioners, setPractitioners] = useState<Practitioner[]>([])
+   113→  const [loading, setLoading] = useState(true)
+   114→
+   115→  // Filters
+   116→  const [filterStatus, setFilterStatus] = useState<string>('ALL')
+   117→  const [filterUrgency, setFilterUrgency] = useState<string>('ALL')
+   118→  const [filterSpecialty, setFilterSpecialty] = useState<string>('ALL')
+   119→
+   120→  // New referral form
+   121→  const [addOpen, setAddOpen] = useState(false)
+   122→  const [formPatientId, setFormPatientId] = useState('')
+   123→  const [formToPractitionerId, setFormToPractitionerId] = useState('')
+   124→  const [formSpecialty, setFormSpecialty] = useState(SPECIALTIES[0])
+   125→  const [formUrgency, setFormUrgency] = useState<ReferralUrgency>('ROUTINE')
+   126→  const [formToModality, setFormToModality] = useState<Modality>('ALLOPATHY')
+   127→  const [formClinicalSummary, setFormClinicalSummary] = useState('')
+   128→  const [formReason, setFormReason] = useState('')
+   129→  const [formNotes, setFormNotes] = useState('')
+   130→  const [submitting, setSubmitting] = useState(false)
+   131→
+   132→  // Detail dialog
+   133→  const [detailReferral, setDetailReferral] = useState<Referral | null>(null)
+   134→
+   135→  // ─── Data Loading ─────────────────────────────────────────────────
+   136→
+   137→  useEffect(() => {
+   138→    fetch('/api/patients')
+   139→      .then((r) => r.json())
+   140→      .then((d) => {
+   141→        const list = d.data ?? d.patients ?? []
+   142→        setPatients(list)
+   143→        if (list.length > 0) setFormPatientId(list[0].id)
+   144→      })
+   145→      .catch(() => {
+   146→        toast({ title: 'Error', description: 'Failed to load patients', variant: 'destructive' })
+   147→      })
+   148→  }, [])
+   149→
+   150→  useEffect(() => {
+   151→    fetch('/api/referrals?practitioners=true')
+   152→      .then((r) => r.json())
+   153→      .then((d) => {
+   154→        setPractitioners(d.practitioners ?? [])
+   155→      })
+   156→      .catch(() => {
+   157→        toast({ title: 'Error', description: 'Failed to load practitioners', variant: 'destructive' })
+   158→      })
+   159→  }, [])
+   160→
+   161→  const loadReferrals = useCallback(async () => {
+   162→    setLoading(true)
+   163→    try {
+   164→      const params = new URLSearchParams()
+   165→      if (filterStatus !== 'ALL') params.set('status', filterStatus)
+   166→      if (filterUrgency !== 'ALL') params.set('urgency', filterUrgency)
+   167→      if (filterSpecialty !== 'ALL') params.set('specialty', filterSpecialty)
+   168→      const res = await fetch(`/api/referrals?${params.toString()}`)
+   169→      const data = await res.json()
+   170→      setReferrals(data.data ?? data.referrals ?? [])
+   171→    } catch {
+   172→      toast({ title: 'Error', description: 'Failed to load referrals', variant: 'destructive' })
+   173→    } finally {
+   174→      setLoading(false)
+   175→    }
+   176→  }, [filterStatus, filterUrgency, filterSpecialty])
+   177→
+   178→  useEffect(() => { loadReferrals() }, [loadReferrals])
+   179→
+   180→  // ─── Stats ────────────────────────────────────────────────────────
+   181→
+   182→  const stats = {
+   183→    total: referrals.length,
+   184→    pending: referrals.filter((r) => r.status === 'PENDING').length,
+   185→    accepted: referrals.filter((r) => r.status === 'ACCEPTED').length,
+   186→    completed: referrals.filter((r) => r.status === 'COMPLETED').length,
+   187→  }
+   188→
+   189→  // ─── Actions ──────────────────────────────────────────────────────
+   190→
+   191→  const handleCreate = async () => {
+   192→    if (!formPatientId || !formToPractitionerId) {
+   193→      toast({ title: 'Validation', description: 'Select patient and to-practitioner', variant: 'destructive' })
+   194→      return
+   195→    }
+   196→    setSubmitting(true)
+   197→    try {
+   198→      const res = await fetch('/api/referrals', {
+   199→        method: 'POST',
+   200→        headers: { 'Content-Type': 'application/json' },
+   201→        body: JSON.stringify({
+   202→          patientId: formPatientId,
+   203→          toPractitionerId: formToPractitionerId,
+   204→          specialty: formSpecialty,
+   205→          urgency: formUrgency,
+   206→          toModality: formToModality,
+   207→          fromModality: activeModality,
+   208→          clinicalSummary: formClinicalSummary,
+   209→          reason: formReason,
+   210→          notes: formNotes,
+   211→        }),
+   212→      })
+   213→      if (res.ok) {
+   214→        toast({ title: 'Referral Created', description: 'Referral has been submitted successfully' })
+   215→        setAddOpen(false)
+   216→        setFormClinicalSummary('')
+   217→        setFormReason('')
+   218→        setFormNotes('')
+   219→        loadReferrals()
+   220→      } else {
+   221→        toast({ title: 'Error', description: 'Failed to create referral', variant: 'destructive' })
+   222→      }
+   223→    } catch {
+   224→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   225→    } finally {
+   226→      setSubmitting(false)
+   227→    }
+   228→  }
+   229→
+   230→  const handleStatusUpdate = async (id: string, newStatus: ReferralStatus) => {
+   231→    try {
+   232→      const res = await fetch('/api/referrals', {
+   233→        method: 'PUT',
+   234→        headers: { 'Content-Type': 'application/json' },
+   235→        body: JSON.stringify({ id, status: newStatus }),
+   236→      })
+   237→      if (res.ok) {
+   238→        toast({ title: `Referral ${newStatus}`, description: `Status updated to ${newStatus}` })
+   239→        loadReferrals()
+   240→        setDetailReferral(null)
+   241→      }
+   242→    } catch {
+   243→      toast({ title: 'Error', description: 'Failed to update referral', variant: 'destructive' })
+   244→    }
+   245→  }
+   246→
+   247→  // ─── Render ───────────────────────────────────────────────────────
+   248→
+   249→  return (
+   250→    <motion.div {...fadeSlide} className="space-y-4">
+   251→      {/* Stats Cards */}
+   252→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   253→        {[
+   254→          { label: 'Total', value: stats.total, icon: ArrowRightLeft, color: 'text-slate-600 dark:text-slate-400' },
+   255→          { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600 dark:text-amber-400' },
+   256→          { label: 'Accepted', value: stats.accepted, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400' },
+   257→          { label: 'Completed', value: stats.completed, icon: Stethoscope, color: 'text-teal-600 dark:text-teal-400' },
+   258→        ].map((s) => (
+   259→          <Card key={s.label}>
+   260→            <CardContent className="p-4 flex items-center gap-3">
+   261→              <s.icon className={`h-5 w-5 ${s.color}`} />
+   262→              <div>
+   263→                <p className="text-2xl font-bold">{s.value}</p>
+   264→                <p className="text-xs text-muted-foreground">{s.label}</p>
+   265→              </div>
+   266→            </CardContent>
+   267→          </Card>
+   268→        ))}
+   269→      </div>
+   270→
+   271→      {/* Toolbar */}
+   272→      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+   273→        <div className="flex items-center gap-2 flex-wrap">
+   274→          <Filter className="h-4 w-4 text-muted-foreground" />
+   275→          <Select value={filterStatus} onValueChange={setFilterStatus}>
+   276→            <SelectTrigger className="w-32 h-8"><SelectValue placeholder="Status" /></SelectTrigger>
+   277→            <SelectContent>
+   278→              <SelectItem value="ALL">All Status</SelectItem>
+   279→              <SelectItem value="PENDING">Pending</SelectItem>
+   280→              <SelectItem value="ACCEPTED">Accepted</SelectItem>
+   281→              <SelectItem value="REJECTED">Rejected</SelectItem>
+   282→              <SelectItem value="COMPLETED">Completed</SelectItem>
+   283→              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+   284→            </SelectContent>
+   285→          </Select>
+   286→          <Select value={filterUrgency} onValueChange={setFilterUrgency}>
+   287→            <SelectTrigger className="w-32 h-8"><SelectValue placeholder="Urgency" /></SelectTrigger>
+   288→            <SelectContent>
+   289→              <SelectItem value="ALL">All Urgency</SelectItem>
+   290→              <SelectItem value="ROUTINE">Routine</SelectItem>
+   291→              <SelectItem value="URGENT">Urgent</SelectItem>
+   292→              <SelectItem value="EMERGENCY">Emergency</SelectItem>
+   293→            </SelectContent>
+   294→          </Select>
+   295→          <Select value={filterSpecialty} onValueChange={setFilterSpecialty}>
+   296→            <SelectTrigger className="w-36 h-8"><SelectValue placeholder="Specialty" /></SelectTrigger>
+   297→            <SelectContent>
+   298→              <SelectItem value="ALL">All Specialties</SelectItem>
+   299→              {SPECIALTIES.map((s) => (
+   300→                <SelectItem key={s} value={s}>{s}</SelectItem>
+   301→              ))}
+   302→            </SelectContent>
+   303→          </Select>
+   304→        </div>
+   305→
+   306→        <div className="sm:ml-auto">
+   307→          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+   308→            <DialogTrigger asChild>
+   309→              <Button className="gap-2">
+   310→                <Plus className="h-4 w-4" />
+   311→                New Referral
+   312→              </Button>
+   313→            </DialogTrigger>
+   314→            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   315→              <DialogHeader>
+   316→                <DialogTitle className="flex items-center gap-2">
+   317→                  <ArrowRightLeft className="h-5 w-5" />
+   318→                  Create Referral
+   319→                </DialogTitle>
+   320→                <DialogDescription>Cross-practitioner referral with cross-modality support</DialogDescription>
+   321→              </DialogHeader>
+   322→              <div className="grid gap-4 py-4">
+   323→                {/* Patient */}
+   324→                <div className="space-y-2">
+   325→                  <Label>Patient</Label>
+   326→                  <Select value={formPatientId} onValueChange={setFormPatientId}>
+   327→                    <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+   328→                    <SelectContent>
+   329→                      {patients.map((p) => (
+   330→                        <SelectItem key={p.id} value={p.id}>
+   331→                          {p.firstName} {p.lastName}
+   332→                        </SelectItem>
+   333→                      ))}
+   334→                    </SelectContent>
+   335→                  </Select>
+   336→                </div>
+   337→
+   338→                {/* Cross-modality row */}
+   339→                <div className="grid grid-cols-2 gap-3">
+   340→                  <div className="space-y-2">
+   341→                    <Label>From Modality</Label>
+   342→                    <div className="flex items-center h-9 px-3 rounded-md border bg-muted/50">
+   343→                      <ModalityBadge modality={activeModality} />
+   344→                    </div>
+   345→                  </div>
+   346→                  <div className="space-y-2">
+   347→                    <Label>To Modality</Label>
+   348→                    <Select value={formToModality} onValueChange={(v) => setFormToModality(v as Modality)}>
+   349→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   350→                      <SelectContent>
+   351→                        <SelectItem value="ALLOPATHY">Allopathy</SelectItem>
+   352→                        <SelectItem value="AYURVEDA">Ayurveda</SelectItem>
+   353→                        <SelectItem value="HOMEOPATHY">Homeopathy</SelectItem>
+   354→                      </SelectContent>
+   355→                    </Select>
+   356→                  </div>
+   357→                </div>
+   358→
+   359→                {/* To Practitioner */}
+   360→                <div className="space-y-2">
+   361→                  <Label>To Practitioner</Label>
+   362→                  <Select value={formToPractitionerId} onValueChange={setFormToPractitionerId}>
+   363→                    <SelectTrigger><SelectValue placeholder="Select practitioner" /></SelectTrigger>
+   364→                    <SelectContent>
+   365→                      {practitioners
+   366→                        .filter((p) => p.modality === formToModality)
+   367→                        .map((p) => (
+   368→                          <SelectItem key={p.id} value={p.id}>
+   369→                            {p.name} — {p.specialty}
+   370→                          </SelectItem>
+   371→                        ))}
+   372→                      {practitioners.filter((p) => p.modality === formToModality).length === 0 && (
+   373→                        <SelectItem value="__none" disabled>No practitioners for this modality</SelectItem>
+   374→                      )}
+   375→                    </SelectContent>
+   376→                  </Select>
+   377→                </div>
+   378→
+   379→                {/* Specialty + Urgency */}
+   380→                <div className="grid grid-cols-2 gap-3">
+   381→                  <div className="space-y-2">
+   382→                    <Label>Specialty</Label>
+   383→                    <Select value={formSpecialty} onValueChange={(v) => setFormSpecialty(v as typeof SPECIALTIES[number])}>
+   384→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   385→                      <SelectContent>
+   386→                        {SPECIALTIES.map((s) => (
+   387→                          <SelectItem key={s} value={s}>{s}</SelectItem>
+   388→                        ))}
+   389→                      </SelectContent>
+   390→                    </Select>
+   391→                  </div>
+   392→                  <div className="space-y-2">
+   393→                    <Label>Urgency</Label>
+   394→                    <Select value={formUrgency} onValueChange={(v) => setFormUrgency(v as ReferralUrgency)}>
+   395→                      <SelectTrigger><SelectValue /></SelectTrigger>
+   396→                      <SelectContent>
+   397→                        <SelectItem value="ROUTINE">Routine</SelectItem>
+   398→                        <SelectItem value="URGENT">Urgent</SelectItem>
+   399→                        <SelectItem value="EMERGENCY">Emergency</SelectItem>
+   400→                      </SelectContent>
+   401→                    </Select>
+   402→                  </div>
+   403→                </div>
+   404→
+   405→                {/* Clinical Summary */}
+   406→                <div className="space-y-2">
+   407→                  <Label>Clinical Summary</Label>
+   408→                  <Textarea
+   409→                    value={formClinicalSummary}
+   410→                    onChange={(e) => setFormClinicalSummary(e.target.value)}
+   411→                    placeholder="Brief clinical summary for the receiving practitioner..."
+   412→                    rows={3}
+   413→                  />
+   414→                </div>
+   415→
+   416→                {/* Reason */}
+   417→                <div className="space-y-2">
+   418→                  <Label>Reason for Referral</Label>
+   419→                  <Input
+   420→                    value={formReason}
+   421→                    onChange={(e) => setFormReason(e.target.value)}
+   422→                    placeholder="e.g., Second opinion, specialized care..."
+   423→                  />
+   424→                </div>
+   425→
+   426→                {/* Notes */}
+   427→                <div className="space-y-2">
+   428→                  <Label>Notes</Label>
+   429→                  <Textarea
+   430→                    value={formNotes}
+   431→                    onChange={(e) => setFormNotes(e.target.value)}
+   432→                    placeholder="Additional notes..."
+   433→                    rows={2}
+   434→                  />
+   435→                </div>
+   436→              </div>
+   437→              <DialogFooter>
+   438→                <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+   439→                <Button onClick={handleCreate} disabled={submitting}>
+   440→                  {submitting ? 'Submitting...' : 'Submit Referral'}
+   441→                </Button>
+   442→              </DialogFooter>
+   443→            </DialogContent>
+   444→          </Dialog>
+   445→        </div>
+   446→      </div>
+   447→
+   448→      {/* Referral Table */}
+   449→      <Card>
+   450→        <CardHeader>
+   451→          <CardTitle className="text-base flex items-center gap-2">
+   452→            <ArrowRightLeft className="h-5 w-5" />
+   453→            Referrals
+   454→          </CardTitle>
+   455→          <CardDescription>Cross-practitioner referral management with cross-modality support</CardDescription>
+   456→        </CardHeader>
+   457→        <CardContent>
+   458→          {loading ? (
+   459→            <div className="space-y-2">
+   460→              {[1, 2, 3, 4].map((i) => (
+   461→                <Skeleton key={i} className="h-12 w-full" />
+   462→              ))}
+   463→            </div>
+   464→          ) : (
+   465→            <div className="overflow-x-auto">
+   466→              <Table>
+   467→                <TableHeader>
+   468→                  <TableRow>
+   469→                    <TableHead>Patient</TableHead>
+   470→                    <TableHead>From → To</TableHead>
+   471→                    <TableHead>Specialty</TableHead>
+   472→                    <TableHead>Urgency</TableHead>
+   473→                    <TableHead>Status</TableHead>
+   474→                    <TableHead>Date</TableHead>
+   475→                    <TableHead className="text-right">Actions</TableHead>
+   476→                  </TableRow>
+   477→                </TableHeader>
+   478→                <TableBody>
+   479→                  {referrals.map((r) => (
+   480→                    <TableRow key={r.id}>
+   481→                      <TableCell className="font-medium">{r.patientName}</TableCell>
+   482→                      <TableCell>
+   483→                        <div className="flex items-center gap-1 flex-wrap">
+   484→                          <ModalityBadge modality={r.fromModality} />
+   485→                          <span className="text-xs text-muted-foreground">→</span>
+   486→                          <ModalityBadge modality={r.toModality} />
+   487→                        </div>
+   488→                      </TableCell>
+   489→                      <TableCell>{r.specialty}</TableCell>
+   490→                      <TableCell>
+   491→                        <Badge variant="outline" className={`gap-1 ${urgencyStyles[r.urgency]}`}>
+   492→                          {urgencyIcons[r.urgency]}
+   493→                          {r.urgency}
+   494→                        </Badge>
+   495→                      </TableCell>
+   496→                      <TableCell>
+   497→                        <Badge variant="outline" className={statusStyles[r.status]}>
+   498→                          {r.status}
+   499→                        </Badge>
+   500→                      </TableCell>
+   501→                      <TableCell className="text-sm text-muted-foreground">
+   502→                        {new Date(r.createdAt).toLocaleDateString()}
+   503→                      </TableCell>
+   504→                      <TableCell className="text-right">
+   505→                        <div className="flex justify-end gap-1">
+   506→                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setDetailReferral(r)}>
+   507→                            <Eye className="h-3.5 w-3.5" />
+   508→                          </Button>
+   509→                          {r.status === 'PENDING' && (
+   510→                            <>
+   511→                              <Button
+   512→                                size="sm"
+   513→                                variant="outline"
+   514→                                className="h-7 gap-1 text-xs text-green-700 dark:text-green-400"
+   515→                                onClick={() => handleStatusUpdate(r.id, 'ACCEPTED')}
+   516→                              >
+   517→                                <CheckCircle2 className="h-3 w-3" /> Accept
+   518→                              </Button>
+   519→                              <Button
+   520→                                size="sm"
+   521→                                variant="outline"
+   522→                                className="h-7 gap-1 text-xs text-red-700 dark:text-red-400"
+   523→                                onClick={() => handleStatusUpdate(r.id, 'REJECTED')}
+   524→                              >
+   525→                                <XCircle className="h-3 w-3" /> Reject
+   526→                              </Button>
+   527→                            </>
+   528→                          )}
+   529→                        </div>
+   530→                      </TableCell>
+   531→                    </TableRow>
+   532→                  ))}
+   533→                  {referrals.length === 0 && (
+   534→                    <TableRow>
+   535→                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+   536→                        No referrals found
+   537→                      </TableCell>
+   538→                    </TableRow>
+   539→                  )}
+   540→                </TableBody>
+   541→              </Table>
+   542→            </div>
+   543→          )}
+   544→        </CardContent>
+   545→      </Card>
+   546→
+   547→      {/* Detail Dialog */}
+   548→      <Dialog open={!!detailReferral} onOpenChange={(open) => !open && setDetailReferral(null)}>
+   549→        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+   550→          {detailReferral && (
+   551→            <>
+   552→              <DialogHeader>
+   553→                <DialogTitle className="flex items-center gap-2">
+   554→                  <ArrowRightLeft className="h-5 w-5" />
+   555→                  Referral Detail
+   556→                </DialogTitle>
+   557→                <DialogDescription>
+   558→                  Referral for {detailReferral.patientName}
+   559→                </DialogDescription>
+   560→              </DialogHeader>
+   561→              <div className="grid gap-3 py-4 text-sm">
+   562→                <div className="grid grid-cols-2 gap-3">
+   563→                  <div>
+   564→                    <span className="text-muted-foreground">Urgency</span>
+   565→                    <div className="mt-1">
+   566→                      <Badge variant="outline" className={`gap-1 ${urgencyStyles[detailReferral.urgency]}`}>
+   567→                        {urgencyIcons[detailReferral.urgency]}
+   568→                        {detailReferral.urgency}
+   569→                      </Badge>
+   570→                    </div>
+   571→                  </div>
+   572→                  <div>
+   573→                    <span className="text-muted-foreground">Status</span>
+   574→                    <div className="mt-1">
+   575→                      <Badge variant="outline" className={statusStyles[detailReferral.status]}>
+   576→                        {detailReferral.status}
+   577→                      </Badge>
+   578→                    </div>
+   579→                  </div>
+   580→                </div>
+   581→
+   582→                <Separator />
+   583→
+   584→                <div>
+   585→                  <span className="text-muted-foreground">From</span>
+   586→                  <p className="font-medium mt-0.5">{detailReferral.fromPractitionerName}</p>
+   587→                  <ModalityBadge modality={detailReferral.fromModality} className="mt-1" />
+   588→                </div>
+   589→                <div>
+   590→                  <span className="text-muted-foreground">To</span>
+   591→                  <p className="font-medium mt-0.5">{detailReferral.toPractitionerName}</p>
+   592→                  <ModalityBadge modality={detailReferral.toModality} className="mt-1" />
+   593→                </div>
+   594→
+   595→                <Separator />
+   596→
+   597→                <div>
+   598→                  <span className="text-muted-foreground">Specialty</span>
+   599→                  <p className="font-medium mt-0.5">{detailReferral.specialty}</p>
+   600→                </div>
+   601→                <div>
+   602→                  <span className="text-muted-foreground">Clinical Summary</span>
+   603→                  <p className="mt-0.5">{detailReferral.clinicalSummary || '—'}</p>
+   604→                </div>
+   605→                <div>
+   606→                  <span className="text-muted-foreground">Reason</span>
+   607→                  <p className="mt-0.5">{detailReferral.reason || '—'}</p>
+   608→                </div>
+   609→                {detailReferral.notes && (
+   610→                  <div>
+   611→                    <span className="text-muted-foreground">Notes</span>
+   612→                    <p className="mt-0.5">{detailReferral.notes}</p>
+   613→                  </div>
+   614→                )}
+   615→                <div className="grid grid-cols-2 gap-3">
+   616→                  <div>
+   617→                    <span className="text-muted-foreground">Created</span>
+   618→                    <p className="mt-0.5">{new Date(detailReferral.createdAt).toLocaleString()}</p>
+   619→                  </div>
+   620→                  <div>
+   621→                    <span className="text-muted-foreground">Updated</span>
+   622→                    <p className="mt-0.5">{new Date(detailReferral.updatedAt).toLocaleString()}</p>
+   623→                  </div>
+   624→                </div>
+   625→              </div>
+   626→              <DialogFooter>
+   627→                {detailReferral.status === 'PENDING' && (
+   628→                  <>
+   629→                    <Button
+   630→                      variant="outline"
+   631→                      className="gap-1 text-green-700 dark:text-green-400"
+   632→                      onClick={() => handleStatusUpdate(detailReferral.id, 'ACCEPTED')}
+   633→                    >
+   634→                      <CheckCircle2 className="h-4 w-4" /> Accept Referral
+   635→                    </Button>
+   636→                    <Button
+   637→                      variant="outline"
+   638→                      className="gap-1 text-red-700 dark:text-red-400"
+   639→                      onClick={() => handleStatusUpdate(detailReferral.id, 'REJECTED')}
+   640→                    >
+   641→                      <XCircle className="h-4 w-4" /> Reject Referral
+   642→                    </Button>
+   643→                  </>
+   644→                )}
+   645→                {detailReferral.status === 'ACCEPTED' && (
+   646→                  <Button
+   647→                    className="gap-1"
+   648→                    onClick={() => handleStatusUpdate(detailReferral.id, 'COMPLETED')}
+   649→                  >
+   650→                    <CheckCircle2 className="h-4 w-4" /> Mark Completed
+   651→                  </Button>
+   652→                )}
+   653→                <Button variant="ghost" onClick={() => setDetailReferral(null)}>Close</Button>
+   654→              </DialogFooter>
+   655→            </>
+   656→          )}
+   657→        </DialogContent>
+   658→      </Dialog>
+   659→    </motion.div>
+   660→  )
+   661→}
+   662→
