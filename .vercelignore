@@ -1,0 +1,8 @@
+dev.log
+server.log
+tool-results/
+agent-ctx/
+.zscripts/
+Caddyfile
+mini-services/
+worklog.md
