@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+// Auth check helper
+function checkAuth(request: NextRequest): NextResponse | null {
+  const authHeader = request.headers.get('Authorization')
+  if (authHeader !== 'Bearer admin-secret-key') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return null
+}
+
 // ============================================================
 // HEALTH ISSUES - 200+ across 14 body systems
 // ============================================================
@@ -450,6 +459,10 @@ const RECALL_DATA = [
 // SEED ROUTE HANDLER
 // ============================================================
 export async function POST(req: NextRequest) {
+  // Auth check
+  const authError = checkAuth(req)
+  if (authError) return authError
+
   try {
     // Check if already seeded (both issues AND medicines)
     const existingIssues = await db.healthIssue.count()

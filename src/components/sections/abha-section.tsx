@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Fingerprint,
@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from '@/hooks/use-toast'
 
@@ -43,7 +44,7 @@ interface HealthRecord {
   status: string
 }
 
-const mockHealthRecords: HealthRecord[] = [
+const fallbackHealthRecords: HealthRecord[] = [
   { id: '1', type: 'verification', title: 'Identity Verification - Aadhaar', date: '2026-09-15', provider: 'UIDAI', status: 'verified' },
   { id: '2', type: 'prescription', title: 'Prescription - Metformin 500mg', date: '2026-09-20', provider: 'AIIMS Delhi', status: 'active' },
   { id: '3', type: 'lab_report', title: 'Blood Test - Fasting Glucose', date: '2026-09-18', provider: 'SRL Diagnostics', status: 'completed' },
@@ -62,9 +63,65 @@ const recordTypeIcon = (type: string) => {
 }
 
 export function AbhaSection() {
-  const { isAbhaLinked, setIsAbhaLinked } = useAppStore()
+  const { isAbhaLinked, setIsAbhaLinked, selectedPatientId } = useAppStore()
   const [abhaNumber, setAbhaNumber] = useState('')
   const [showGenerateForm, setShowGenerateForm] = useState(false)
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(fallbackHealthRecords)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchData() {
+      setLoading(true)
+      setError(false)
+      try {
+        const patientId = selectedPatientId || 'demo'
+        const res = await fetch(`/api/abha?patientId=${patientId}`)
+        if (!res.ok) throw new Error('Failed to fetch ABHA data')
+        const json = await res.json()
+        if (!cancelled && json?.data) {
+          if (json.data.isLinked) {
+            setIsAbhaLinked(true)
+          }
+          // Map records if available
+          const records = json.data.linkDetails?.recentRecords || []
+          if (records.length > 0) {
+            const mapped: HealthRecord[] = records.map((r: Record<string, unknown>, i: number) => ({
+              id: (r.id as string) || String(i),
+              type: ((r.recordType as string) || 'verification') as HealthRecord['type'],
+              title: (r.title as string) || 'Health Record',
+              date: r.createdAt ? new Date(r.createdAt as string).toISOString().split('T')[0] : '',
+              provider: (r.source as string) || 'ABDM',
+              status: r.verifiedAt ? 'verified' : 'pending',
+            }))
+            setHealthRecords(mapped)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'ABHA Error', description: 'Failed to load ABHA data', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchData()
+    return () => { cancelled = true }
+  }, [selectedPatientId, setIsAbhaLinked])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 3 }).map((_, i) => (<div key={i} className="space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-full" /></div>))}</CardContent></Card>
+      </div>
+    )
+  }
 
   const handleLink = () => {
     if (abhaNumber.length !== 14) {
@@ -244,7 +301,7 @@ export function AbhaSection() {
               <CardContent>
                 <Tabs defaultValue="all">
                   <TabsList className="mb-4">
-                    <TabsTrigger value="all">All ({mockHealthRecords.length})</TabsTrigger>
+                    <TabsTrigger value="all">All ({healthRecords.length})</TabsTrigger>
                     <TabsTrigger value="prescription">Prescriptions</TabsTrigger>
                     <TabsTrigger value="lab_report">Lab Reports</TabsTrigger>
                     <TabsTrigger value="verification">Verifications</TabsTrigger>
@@ -252,7 +309,7 @@ export function AbhaSection() {
                   {['all', 'prescription', 'lab_report', 'verification'].map((tab) => (
                     <TabsContent key={tab} value={tab}>
                       <div className="space-y-3">
-                        {mockHealthRecords
+                        {healthRecords
                           .filter((r) => tab === 'all' || r.type === tab)
                           .map((record, idx) => (
                             <motion.div

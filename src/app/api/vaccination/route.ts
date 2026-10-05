@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 
 // ─── Indian NIS (National Immunization Schedule) reference data ────
@@ -107,9 +108,32 @@ export async function GET(request: NextRequest) {
 
 // ─── POST: Add vaccination record ─────────────────────────────────
 
+const vaccinationPostSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  vaccineName: z.string().min(1, 'vaccineName is required'),
+  doseNumber: z.number().int().positive('doseNumber must be a positive integer'),
+  totalDoses: z.number().int().positive('totalDoses must be a positive integer'),
+  administeredAt: z.string().min(1, 'administeredAt is required'),
+  administeredBy: z.string().optional(),
+  batchNumber: z.string().optional(),
+  manufacturer: z.string().optional(),
+  site: z.string().optional(),
+  nextDueDate: z.string().optional(),
+  adverseEffects: z.unknown().optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const parsed = vaccinationPostSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       patientId,
       vaccineName,
@@ -122,25 +146,12 @@ export async function POST(request: NextRequest) {
       site,
       nextDueDate,
       adverseEffects,
-    } = body as {
-      patientId: string
-      vaccineName: string
-      doseNumber: number
-      totalDoses: number
-      administeredAt: string
-      administeredBy?: string
-      batchNumber?: string
-      manufacturer?: string
-      site?: string
-      nextDueDate?: string
-      adverseEffects?: unknown
-    }
+    } = parsed.data
 
-    if (!patientId || !vaccineName || !doseNumber || !totalDoses || !administeredAt) {
-      return NextResponse.json(
-        { error: 'patientId, vaccineName, doseNumber, totalDoses, and administeredAt are required' },
-        { status: 400 }
-      )
+    // Check patient exists
+    const patient = await db.patient.findUnique({ where: { id: patientId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     const parsedAdministeredAt = new Date(administeredAt)

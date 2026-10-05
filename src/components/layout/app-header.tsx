@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, Stethoscope, Globe, ScanLine, Search } from 'lucide-react'
+import { Bell, Stethoscope, Globe, ScanLine, Search, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/command'
 import { useAppStore, type Modality, type Role, type Language, LANGUAGE_LABELS, type Section } from '@/lib/store'
 import { toast } from '@/hooks/use-toast'
+import { useTheme } from 'next-themes'
 
 const modalityColors: Record<Modality, string> = {
   ALLOPATHY: 'bg-teal-600 text-white hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800',
@@ -64,6 +65,41 @@ const commandActions: CommandAction[] = [
   { id: 'intake', label: 'Clinical Intake', section: 'intake' },
   { id: 'knowledge', label: 'Knowledge Base', section: 'knowledge' },
   { id: 'audit', label: 'Audit Trail', section: 'audit' },
+  // Additional sections (all 39)
+  { id: 'prescriptions', label: 'Prescriptions', section: 'prescriptions' },
+  { id: 'lab-orders', label: 'Lab Orders', section: 'lab-orders' },
+  { id: 'clinical-notes', label: 'Clinical Notes', section: 'clinical-notes' },
+  { id: 'patient-timeline', label: 'Patient Timeline', section: 'patient-timeline' },
+  { id: 'insurance', label: 'Insurance & Billing', section: 'insurance' },
+  { id: 'inventory', label: 'Inventory', section: 'inventory' },
+  { id: 'discharge-summary', label: 'Discharge Summary', section: 'discharge-summary' },
+  { id: 'notifications', label: 'Notifications', section: 'notifications' },
+  { id: 'referrals', label: 'Referrals', section: 'referrals' },
+  { id: 'documents', label: 'Documents', section: 'documents' },
+  { id: 'telemedicine', label: 'Telemedicine', section: 'telemedicine' },
+  { id: 'cds', label: 'CDS Alerts', section: 'cds' },
+  { id: 'follow-up-reminders', label: 'Follow-up Reminders', section: 'follow-up-reminders' },
+  { id: 'dosage-tracker', label: 'Dosage Tracker', section: 'dosage-tracker' },
+  { id: 'expiry-tracker', label: 'Expiry Tracker', section: 'expiry-tracker' },
+  { id: 'abha', label: 'ABHA', section: 'abha' },
+  { id: 'counterfeit', label: 'Counterfeit Detection', section: 'counterfeit' },
+  { id: 'scan-verify', label: 'Scan & Verify', section: 'scan-verify' },
+  { id: 'pharmacy', label: 'Pharmacy Finder', section: 'pharmacy' },
+  { id: 'medicine-compare', label: 'Medicine Compare', section: 'medicine-compare' },
+  { id: 'analytics', label: 'Analytics', section: 'analytics' },
+  { id: 'voice', label: 'Voice Triage', section: 'voice' },
+  { id: 'care-plans', label: 'Care Plans', section: 'care-plans' },
+  { id: 'consent', label: 'Consent', section: 'consent' },
+  { id: 'knowledge', label: 'Knowledge', section: 'knowledge' },
+  { id: 'recalls', label: 'Recall Monitor', section: 'recalls' },
+  { id: 'audit', label: 'Audit Trail', section: 'audit' },
+  { id: 'admin', label: 'Admin Panel', section: 'admin' },
+  { id: 'vaccination', label: 'Vaccination', section: 'vaccination' },
+  { id: 'health-issues', label: 'Health Issues', section: 'health-issues' },
+  { id: 'medicines', label: 'Medicine Catalog', section: 'medicines' },
+  { id: 'drug-interactions', label: 'Drug Interactions', section: 'drug-interactions' },
+  { id: 'appointments', label: 'Appointments', section: 'appointments' },
+  { id: 'clinician-queue', label: 'Clinician Queue', section: 'clinician-queue' },
 ]
 
 interface NotificationItem {
@@ -136,6 +172,8 @@ export function AppHeader() {
     notificationCount,
     setActiveSection,
   } = useAppStore()
+
+  const { theme, setTheme } = useTheme()
 
   const [commandOpen, setCommandOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>(mockNotifications)
@@ -260,6 +298,18 @@ export function AppHeader() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Theme Toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        aria-label="Toggle theme"
+      >
+        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      </Button>
 
       {/* Role Switcher */}
       <DropdownMenu>

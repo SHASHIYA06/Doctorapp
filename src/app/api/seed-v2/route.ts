@@ -1,5 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+
+// Auth check helper
+function checkAuth(request: NextRequest): NextResponse | null {
+  const authHeader = request.headers.get('Authorization')
+  if (authHeader !== 'Bearer admin-secret-key') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  return null
+}
 
 // ============================================================
 // SEED-V2: Comprehensive seed for ALL new models
@@ -1141,7 +1150,11 @@ async function seedAll() {
 // ============================================================
 // GET /api/seed-v2
 // ============================================================
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Auth check
+  const authError = checkAuth(req)
+  if (authError) return authError
+
   try {
     const result = await seedAll()
     return NextResponse.json(result)
@@ -1157,7 +1170,11 @@ export async function GET() {
 // ============================================================
 // POST /api/seed-v2
 // ============================================================
-export async function POST() {
+export async function POST(req: NextRequest) {
+  // Auth check
+  const authError = checkAuth(req)
+  if (authError) return authError
+
   try {
     const result = await seedAll()
     return NextResponse.json(result)

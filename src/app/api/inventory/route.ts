@@ -1,72 +1,125 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { z } from 'zod'
 
-// Pharmacy Inventory API — returns mock data for frontend consumption
-// In production, this would query the database with Prisma
+// ─── Validation Schemas ──────────────────────────────────────────
 
-const inventoryItems = [
-  { id: '1', medicineName: 'Dolo 650', genericName: 'Paracetamol', currentStock: 250, mrp: 32, batchNumber: 'DL-2026-001', expiryDate: '2027-06-15', threshold: 50, category: 'Analgesic', manufacturer: 'Micro Labs Ltd', unit: 'Tablet', lastUpdated: '2026-10-01T09:30:00Z' },
-  { id: '2', medicineName: 'Azithromycin 500mg', genericName: 'Azithromycin', currentStock: 8, mrp: 85, batchNumber: 'AZ-2026-042', expiryDate: '2027-03-20', threshold: 20, category: 'Antibiotic', manufacturer: 'Alkem Laboratories', unit: 'Tablet', lastUpdated: '2026-10-02T11:15:00Z' },
-  { id: '3', medicineName: 'Metformin 500mg', genericName: 'Metformin', currentStock: 0, mrp: 15, batchNumber: 'MT-2026-118', expiryDate: '2028-01-10', threshold: 100, category: 'Antidiabetic', manufacturer: 'USV Pvt Ltd', unit: 'Tablet', lastUpdated: '2026-09-28T14:00:00Z' },
-  { id: '4', medicineName: 'Amlodipine 5mg', genericName: 'Amlodipine', currentStock: 120, mrp: 42, batchNumber: 'AM-2026-077', expiryDate: '2027-09-30', threshold: 30, category: 'Antihypertensive', manufacturer: 'Lupin Ltd', unit: 'Tablet', lastUpdated: '2026-10-03T08:45:00Z' },
-  { id: '5', medicineName: 'Omeprazole 20mg', genericName: 'Omeprazole', currentStock: 5, mrp: 28, batchNumber: 'OM-2026-203', expiryDate: '2027-04-18', threshold: 25, category: 'PPI', manufacturer: 'Dr Reddys', unit: 'Capsule', lastUpdated: '2026-10-02T16:20:00Z' },
-  { id: '6', medicineName: 'Cetirizine 10mg', genericName: 'Cetirizine', currentStock: 180, mrp: 18, batchNumber: 'CT-2026-055', expiryDate: '2028-03-25', threshold: 40, category: 'Antihistamine', manufacturer: 'Cipla Ltd', unit: 'Tablet', lastUpdated: '2026-10-01T10:00:00Z' },
-  { id: '7', medicineName: 'Amoxicillin 500mg', genericName: 'Amoxicillin', currentStock: 0, mrp: 55, batchNumber: 'AX-2026-089', expiryDate: '2027-02-14', threshold: 30, category: 'Antibiotic', manufacturer: 'GlaxoSmithKline', unit: 'Capsule', lastUpdated: '2026-09-25T12:30:00Z' },
-  { id: '8', medicineName: 'Atorvastatin 10mg', genericName: 'Atorvastatin', currentStock: 95, mrp: 65, batchNumber: 'AT-2026-144', expiryDate: '2027-11-20', threshold: 25, category: 'Statin', manufacturer: 'Sun Pharma', unit: 'Tablet', lastUpdated: '2026-10-03T07:00:00Z' },
-  { id: '9', medicineName: 'Pantoprazole 40mg', genericName: 'Pantoprazole', currentStock: 3, mrp: 72, batchNumber: 'PT-2026-312', expiryDate: '2026-10-25', threshold: 20, category: 'PPI', manufacturer: 'Alkem Laboratories', unit: 'Injection', lastUpdated: '2026-10-02T09:10:00Z' },
-  { id: '10', medicineName: 'Ciprofloxacin 500mg', genericName: 'Ciprofloxacin', currentStock: 45, mrp: 38, batchNumber: 'CP-2026-098', expiryDate: '2027-07-08', threshold: 20, category: 'Antibiotic', manufacturer: 'Ranbaxy', unit: 'Tablet', lastUpdated: '2026-10-01T15:45:00Z' },
-  { id: '11', medicineName: 'Losartan 50mg', genericName: 'Losartan', currentStock: 7, mrp: 48, batchNumber: 'LS-2026-066', expiryDate: '2027-08-12', threshold: 30, category: 'Antihypertensive', manufacturer: 'Torrent Pharma', unit: 'Tablet', lastUpdated: '2026-10-03T11:30:00Z' },
-  { id: '12', medicineName: 'Montelukast 10mg', genericName: 'Montelukast', currentStock: 200, mrp: 95, batchNumber: 'ML-2026-177', expiryDate: '2028-02-28', threshold: 35, category: 'Anti-asthmatic', manufacturer: 'Sun Pharma', unit: 'Tablet', lastUpdated: '2026-10-02T08:20:00Z' },
-]
+const inventoryQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(['ALL', 'IN_STOCK', 'LOW_STOCK', 'OUT_OF_STOCK']).default('ALL'),
+  category: z.string().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+})
+
+const stockAdjustSchema = z.object({
+  itemId: z.string().min(1),
+  action: z.enum(['add', 'reduce', 'set']),
+  quantity: z.number().positive(),
+  reason: z.string().optional(),
+})
+
+// ─── GET: Pharmacy Inventory with search, filter, stats ──────────
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const search = searchParams.get('search')?.toLowerCase() || ''
-  const status = searchParams.get('status') || 'ALL'
+  try {
+    const { searchParams } = new URL(request.url)
+    const parsed = inventoryQuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid query parameters', details: parsed.error.flatten() }, { status: 400 })
+    }
 
-  let items = [...inventoryItems]
+    const { search, status, category, page, limit } = parsed.data
 
-  if (search) {
-    items = items.filter(i =>
-      i.medicineName.toLowerCase().includes(search) ||
-      i.genericName.toLowerCase().includes(search) ||
-      i.batchNumber.toLowerCase().includes(search)
-    )
-  }
+    const where: Record<string, unknown> = {}
+    if (search) {
+      where.OR = [
+        { medicineName: { contains: search, mode: 'insensitive' } },
+        { genericName: { contains: search, mode: 'insensitive' } },
+        { batchNumber: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+    if (category) where.category = category
 
-  if (status !== 'ALL') {
-    items = items.filter(i => {
-      const s = i.currentStock === 0 ? 'OUT_OF_STOCK' : i.currentStock < i.threshold ? 'LOW_STOCK' : 'IN_STOCK'
-      return s === status
+    // Status filter
+    if (status === 'OUT_OF_STOCK') where.currentStock = 0
+    else if (status === 'LOW_STOCK') where.AND = [{ currentStock: { gt: 0 } }, { lowStockThreshold: { not: null } }]
+    else if (status === 'IN_STOCK') where.currentStock = { gt: 0 }
+
+    const [items, total] = await Promise.all([
+      db.pharmacyInventory.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { lastUpdated: 'desc' },
+      }),
+      db.pharmacyInventory.count({ where }),
+    ])
+
+    // Compute stats
+    const allItems = await db.pharmacyInventory.findMany({
+      select: { currentStock: true, mrp: true, lowStockThreshold: true },
     })
+    const inStock = allItems.filter(i => i.currentStock > 0 && (i.lowStockThreshold === null || i.currentStock >= (i.lowStockThreshold ?? 0))).length
+    const lowStock = allItems.filter(i => i.currentStock > 0 && i.lowStockThreshold !== null && i.currentStock < (i.lowStockThreshold ?? 0)).length
+    const outOfStock = allItems.filter(i => i.currentStock === 0).length
+    const totalValue = allItems.reduce((sum, i) => sum + i.currentStock * (i.mrp?.toNumber() ?? 0), 0)
+
+    return NextResponse.json({
+      items,
+      stats: { total, inStock, lowStock, outOfStock, totalValue },
+      pagination: { page, limit, total },
+    })
+  } catch (error) {
+    console.error('[INVENTORY_GET]', error)
+    return NextResponse.json({ error: 'Failed to fetch inventory' }, { status: 500 })
   }
-
-  const total = inventoryItems.length
-  const inStock = inventoryItems.filter(i => i.currentStock >= i.threshold && i.currentStock > 0).length
-  const lowStock = inventoryItems.filter(i => i.currentStock > 0 && i.currentStock < i.threshold).length
-  const outOfStock = inventoryItems.filter(i => i.currentStock === 0).length
-  const totalValue = inventoryItems.reduce((sum, i) => sum + i.currentStock * i.mrp, 0)
-
-  return NextResponse.json({
-    items,
-    stats: { total, inStock, lowStock, outOfStock, totalValue },
-  })
 }
+
+// ─── POST: Stock Adjustment ──────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { itemId, action, quantity, reason } = body
-
-    if (!itemId || !action || !quantity || quantity <= 0) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const parsed = stockAdjustSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    // In production, update database with Prisma
-    return NextResponse.json({
-      success: true,
-      message: `Stock ${action === 'add' ? 'added' : 'reduced'}: ${quantity} units for item ${itemId}`,
+    const { itemId, action, quantity, reason } = parsed.data
+
+    const item = await db.pharmacyInventory.findUnique({ where: { id: itemId } })
+    if (!item) {
+      return NextResponse.json({ error: 'Inventory item not found' }, { status: 404 })
+    }
+
+    let newStock = item.currentStock
+    if (action === 'add') newStock += quantity
+    else if (action === 'reduce') {
+      if (quantity > newStock) return NextResponse.json({ error: 'Cannot reduce below zero' }, { status: 400 })
+      newStock -= quantity
+    }
+    else if (action === 'set') newStock = quantity
+
+    const updated = await db.pharmacyInventory.update({
+      where: { id: itemId },
+      data: { currentStock: newStock, lastUpdated: new Date() },
     })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+
+    // Create audit event
+    await db.auditEvent.create({
+      data: {
+        action: `INVENTORY_${action.toUpperCase()}`,
+        entityType: 'PharmacyInventory',
+        entityId: itemId,
+        details: JSON.stringify({ previousStock: item.currentStock, newStock, quantity, reason }),
+        tenantId: item.tenantId || 'default',
+      },
+    })
+
+    return NextResponse.json({ success: true, item: updated })
+  } catch (error) {
+    console.error('[INVENTORY_POST]', error)
+    return NextResponse.json({ error: 'Failed to adjust inventory' }, { status: 500 })
   }
 }

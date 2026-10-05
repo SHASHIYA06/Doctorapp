@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   ShieldAlert,
@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from '@/hooks/use-toast'
 
@@ -52,7 +53,7 @@ interface CounterfeitReport {
   submittedAt: string
 }
 
-const mockReports: CounterfeitReport[] = [
+const fallbackReports: CounterfeitReport[] = [
   { id: '1', medicineName: 'Dolo 650', batchNumber: 'DL-2025-447', manufacturer: 'Micro Labs (Suspected Fake)', purchaseLocation: 'Medical Store, Karol Bagh, Delhi', description: 'Tablets had unusual smell and crumbled easily. Packaging looked different from usual.', severity: 'high', status: 'UNDER_REVIEW', submittedAt: '2026-09-25' },
   { id: '2', medicineName: 'Amoxicillin 500mg', batchNumber: 'AMX-8821', manufacturer: 'Unknown Lab', purchaseLocation: 'Online - QuickMeds App', description: 'No hologram on strip. Batch number not found on CDSCO database.', severity: 'critical', status: 'CONFIRMED', submittedAt: '2026-09-18' },
   { id: '3', medicineName: 'Cetirizine 10mg', batchNumber: 'CET-3302', manufacturer: 'Cipla Ltd (Suspected Fake)', purchaseLocation: 'Pharmacy, Sector 18, Noida', description: 'Strip seal was tampered. Tablets discolored.', severity: 'moderate', status: 'SUBMITTED', submittedAt: '2026-09-28' },
@@ -81,6 +82,9 @@ const severityColor: Record<Severity, string> = {
 }
 
 export function CounterfeitSection() {
+  const [reports, setReports] = useState<CounterfeitReport[]>(fallbackReports)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [formData, setFormData] = useState({
     medicineName: '',
     batchNumber: '',
@@ -90,9 +94,48 @@ export function CounterfeitSection() {
     severity: 'moderate' as Severity,
   })
 
-  const confirmedCount = mockReports.filter((r) => r.status === 'CONFIRMED').length
-  const underReviewCount = mockReports.filter((r) => r.status === 'UNDER_REVIEW').length
-  const totalReports = mockReports.length
+  useEffect(() => {
+    let cancelled = false
+    async function fetchData() {
+      setLoading(true)
+      setError(false)
+      try {
+        const res = await fetch('/api/counterfeit')
+        if (!res.ok) throw new Error('Failed to fetch counterfeit reports')
+        const json = await res.json()
+        if (!cancelled && json?.data) {
+          const apiReports = Array.isArray(json.data) ? json.data : []
+          if (apiReports.length > 0) {
+            const mapped: CounterfeitReport[] = apiReports.map((r: Record<string, unknown>) => ({
+              id: r.id as string,
+              medicineName: (r.medicineName as string) || '',
+              batchNumber: (r.batchNumber as string) || '',
+              manufacturer: (r.manufacturer as string) || '',
+              purchaseLocation: (r.purchaseLocation as string) || '',
+              description: (r.description as string) || '',
+              severity: ((r.severity as string)?.toLowerCase() || 'moderate') as Severity,
+              status: (r.status as ReportStatus) || 'SUBMITTED',
+              submittedAt: r.createdAt ? new Date(r.createdAt as string).toISOString().split('T')[0] : '',
+            }))
+            setReports(mapped)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'Counterfeit Data Error', description: 'Failed to load counterfeit reports', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchData()
+    return () => { cancelled = true }
+  }, [])
+
+  const confirmedCount = reports.filter((r) => r.status === 'CONFIRMED').length
+  const underReviewCount = reports.filter((r) => r.status === 'UNDER_REVIEW').length
+  const totalReports = reports.length
   const pointsEarned = confirmedCount * 50 + underReviewCount * 10
 
   const handleSubmit = () => {
@@ -102,6 +145,21 @@ export function CounterfeitSection() {
     }
     toast({ title: 'Report Submitted', description: 'Your counterfeit medicine report has been submitted for review' })
     setFormData({ medicineName: '', batchNumber: '', manufacturer: '', purchaseLocation: '', description: '', severity: 'moderate' })
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (<Card key={i}><CardContent className="p-4 space-y-2"><Skeleton className="h-8 w-8" /><Skeleton className="h-6 w-16" /><Skeleton className="h-3 w-24" /></CardContent></Card>))}
+        </div>
+        <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="space-y-2 p-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-full" /></div>))}</CardContent></Card>
+      </div>
+    )
   }
 
   return (
@@ -236,7 +294,7 @@ export function CounterfeitSection() {
                 <CardTitle className="text-lg">Recent Reports</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 max-h-80 overflow-y-auto">
-                {mockReports.map((report, idx) => (
+                {reports.map((report, idx) => (
                   <motion.div
                     key={report.id}
                     initial={{ opacity: 0, x: -8 }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   GitCompare,
@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from '@/hooks/use-toast'
 
@@ -74,9 +75,67 @@ const mockAlternatives: AlternativeMedicine[] = [
 export function MedicineCompareSection() {
   const [brandId, setBrandId] = useState('1')
   const [genericId, setGenericId] = useState('2')
+  const [alternatives, setAlternatives] = useState<AlternativeMedicine[]>(mockAlternatives)
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   const brandMed = medicineDatabase.find((m) => m.id === brandId)!
   const genericMed = medicineDatabase.find((m) => m.id === genericId)!
+
+  // Fetch comparison from API when selection changes
+  useEffect(() => {
+    let cancelled = false
+    async function fetchComparison() {
+      setLoading(true)
+      setError(false)
+      try {
+        const res = await fetch(`/api/compare?medicineA=${encodeURIComponent(brandMed.genericName.toLowerCase())}&medicineB=${encodeURIComponent(genericMed.genericName.toLowerCase())}`)
+        if (!res.ok) throw new Error('Failed to fetch comparison')
+        const json = await res.json()
+        if (!cancelled && json?.data) {
+          // Update alternatives from API if available
+          const medA = json.data.medicineA as Record<string, unknown> | undefined
+          const medB = json.data.medicineB as Record<string, unknown> | undefined
+          if (medA && medB) {
+            // Build alternatives list from API data
+            const apiAlternatives: AlternativeMedicine[] = []
+            if (medA.janAushadhiPrice && medA.janAushadhiPrice < medA.mrp) {
+              apiAlternatives.push({
+                name: `${medA.name as string} (Jan Aushadhi)`,
+                genericName: medA.genericName as string,
+                mrp: medA.janAushadhiPrice as number,
+                savingsPercent: medA.savingsPercent as number || Math.round(((medA.mrp as number - (medA.janAushadhiPrice as number)) / medA.mrp as number) * 100),
+                janAushadhi: true,
+              })
+            }
+            if (medB.janAushadhiPrice && medB.janAushadhiPrice < medB.mrp) {
+              apiAlternatives.push({
+                name: `${medB.name as string} (Jan Aushadhi)`,
+                genericName: medB.genericName as string,
+                mrp: medB.janAushadhiPrice as number,
+                savingsPercent: medB.savingsPercent as number || Math.round(((medB.mrp as number - (medB.janAushadhiPrice as number)) / medB.mrp as number) * 100),
+                janAushadhi: true,
+              })
+            }
+            if (apiAlternatives.length > 0) setAlternatives(apiAlternatives)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'Compare Error', description: 'Failed to load medicine comparison', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+          setInitialLoading(false)
+        }
+      }
+    }
+    fetchComparison()
+    return () => { cancelled = true }
+  }, [brandMed.genericName, genericMed.genericName])
 
   const savingsPercent = brandMed.mrp > 0 ? Math.round(((brandMed.mrp - genericMed.mrp) / brandMed.mrp) * 100) : 0
   const savingsAmount = Math.abs(brandMed.mrp - genericMed.mrp)
@@ -95,6 +154,19 @@ export function MedicineCompareSection() {
     { label: 'Strength', brandVal: brandMed.strength, genericVal: genericMed.strength },
     { label: 'Form', brandVal: brandMed.form, genericVal: genericMed.form },
   ]
+
+  if (initialLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <Card><CardContent className="p-4 space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-6 space-y-3"><Skeleton className="h-8 w-32 mx-auto" /><Skeleton className="h-4 w-48 mx-auto" /></CardContent></Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -234,7 +306,7 @@ export function MedicineCompareSection() {
             <CardDescription>Other options with similar generic composition</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 max-h-64 overflow-y-auto">
-            {mockAlternatives.map((alt, idx) => (
+            {alternatives.map((alt, idx) => (
               <motion.div
                 key={alt.name}
                 initial={{ opacity: 0, x: -8 }}

@@ -92,8 +92,8 @@ interface AppState {
   setSelectedAppointmentId: (id: string | null) => void
   isVoiceActive: boolean
   setIsVoiceActive: (active: boolean) => void
-  scanResult: any | null
-  setScanResult: (result: any | null) => void
+  scanResult: Record<string, unknown> | null
+  setScanResult: (result: Record<string, unknown> | null) => void
   notificationCount: number
   setNotificationCount: (count: number) => void
   sidebarCollapsed: boolean
@@ -142,3 +142,42 @@ export const useAppStore = create<AppState>((set) => ({
   unreadNotificationCount: 0,
   setUnreadNotificationCount: (count) => set({ unreadNotificationCount: count }),
 }))
+
+// ─── Cross-Section Deep Linking Helpers ──────────────────────────
+
+/** Navigate to a patient's detail view */
+export function navigateToPatient(patientId: string) {
+  useAppStore.getState().setSelectedPatientId(patientId)
+  useAppStore.getState().setActiveSection('patients')
+}
+
+/** Navigate to a medicine's detail view */
+export function navigateToMedicine(medicineId: string) {
+  useAppStore.getState().setSelectedMedicineId(medicineId)
+  useAppStore.getState().setActiveSection('medicines')
+}
+
+/** Navigate to a prescription with context */
+export function navigateToPrescription(prescriptionId: string, patientId?: string) {
+  useAppStore.getState().setSelectedPrescriptionId(prescriptionId)
+  if (patientId) useAppStore.getState().setSelectedPatientId(patientId)
+  useAppStore.getState().setActiveSection('prescriptions')
+}
+
+/** Navigate to clinical notes for a patient */
+export function navigateToClinicalNotes(patientId: string) {
+  useAppStore.getState().setSelectedPatientId(patientId)
+  useAppStore.getState().setActiveSection('clinical-notes')
+}
+
+/** Navigate to patient timeline */
+export function navigateToTimeline(patientId: string) {
+  useAppStore.getState().setSelectedPatientId(patientId)
+  useAppStore.getState().setActiveSection('patient-timeline')
+}
+
+/** Navigate to appointments */
+export function navigateToAppointments(appointmentId?: string) {
+  if (appointmentId) useAppStore.getState().setSelectedAppointmentId(appointmentId)
+  useAppStore.getState().setActiveSection('appointments')
+}

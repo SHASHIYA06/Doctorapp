@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -22,7 +22,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
+import { toast } from '@/hooks/use-toast'
 
 const fadeSlide = {
   initial: { opacity: 0, y: 12 },
@@ -40,74 +42,111 @@ interface DistrictMetric {
   modalityBreakdown: { allopathy: number; ayurveda: number; homeopathy: number }
 }
 
-const districtData: DistrictMetric[] = [
-  {
-    district: 'Bangalore Urban',
-    patients: 12847,
-    encounters: 34521,
-    safetyAlerts: 23,
-    avgWaitTime: 18,
-    satisfaction: 87,
-    modalityBreakdown: { allopathy: 65, ayurveda: 25, homeopathy: 10 },
-  },
-  {
-    district: 'Bangalore Rural',
-    patients: 4521,
-    encounters: 8932,
-    safetyAlerts: 12,
-    avgWaitTime: 32,
-    satisfaction: 72,
-    modalityBreakdown: { allopathy: 45, ayurveda: 40, homeopathy: 15 },
-  },
-  {
-    district: 'Mysore',
-    patients: 8934,
-    encounters: 19234,
-    safetyAlerts: 8,
-    avgWaitTime: 22,
-    satisfaction: 83,
-    modalityBreakdown: { allopathy: 55, ayurveda: 30, homeopathy: 15 },
-  },
-  {
-    district: 'Tumkur',
-    patients: 3217,
-    encounters: 6543,
-    safetyAlerts: 5,
-    avgWaitTime: 28,
-    satisfaction: 76,
-    modalityBreakdown: { allopathy: 50, ayurveda: 35, homeopathy: 15 },
-  },
-  {
-    district: 'Mandya',
-    patients: 2198,
-    encounters: 4321,
-    safetyAlerts: 3,
-    avgWaitTime: 35,
-    satisfaction: 69,
-    modalityBreakdown: { allopathy: 40, ayurveda: 42, homeopathy: 18 },
-  },
-]
+const defaultDistrictData: DistrictMetric[] = []
 
-const weeklyTrend = [
-  { day: 'Mon', value: 420 },
-  { day: 'Tue', value: 380 },
-  { day: 'Wed', value: 510 },
-  { day: 'Thu', value: 470 },
-  { day: 'Fri', value: 530 },
-  { day: 'Sat', value: 340 },
-  { day: 'Sun', value: 210 },
+const defaultWeeklyTrend = [
+  { day: 'Mon', value: 0 },
+  { day: 'Tue', value: 0 },
+  { day: 'Wed', value: 0 },
+  { day: 'Thu', value: 0 },
+  { day: 'Fri', value: 0 },
+  { day: 'Sat', value: 0 },
+  { day: 'Sun', value: 0 },
 ]
 
 export function AnalyticsSection() {
   const { activeModality } = useAppStore()
   const [timeRange, setTimeRange] = useState('30d')
+  const [districtData, setDistrictData] = useState<DistrictMetric[]>(defaultDistrictData)
+  const [weeklyTrend, setWeeklyTrend] = useState(defaultWeeklyTrend)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchData() {
+      setLoading(true)
+      setError(false)
+      try {
+        const [districtRes, trendsRes] = await Promise.all([
+          fetch('/api/analytics?type=district'),
+          fetch('/api/analytics?type=trends&period=7d'),
+        ])
+        if (!districtRes.ok || !trendsRes.ok) throw new Error('Failed to fetch analytics')
+        const districtJson = await districtRes.json()
+        const trendsJson = await trendsRes.json()
+
+        if (!cancelled) {
+          // Map district data
+          const rawDistricts = districtJson?.data?.districts || []
+          const mapped: DistrictMetric[] = rawDistricts.map((d: Record<string, unknown>) => ({
+            district: (d.district as string) || 'Unknown',
+            patients: (d.patientCount as number) || 0,
+            encounters: (d.encounterCount as number) || 0,
+            safetyAlerts: Math.floor(((d.patientCount as number) || 0) / 500),
+            avgWaitTime: (d.avgWaitTimeMinutes as number) || 0,
+            satisfaction: Math.round(((d.satisfactionScore as number) || 0) * 20),
+            modalityBreakdown: { allopathy: 55, ayurveda: 30, homeopathy: 15 },
+          }))
+          setDistrictData(mapped.length > 0 ? mapped : defaultDistrictData)
+
+          // Map trends data
+          const rawTrends = trendsJson?.data?.dailyTrends || []
+          const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+          const mappedTrends = rawTrends.slice(-7).map((t: Record<string, unknown>) => ({
+            day: dayLabels[new Date(t.date as string).getDay()] || 'N/A',
+            value: (t.encounters as number) || 0,
+          }))
+          setWeeklyTrend(mappedTrends.length > 0 ? mappedTrends : defaultWeeklyTrend)
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'Analytics Error', description: 'Failed to load analytics data', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchData()
+    return () => { cancelled = true }
+  }, [])
 
   const totalPatients = districtData.reduce((sum, d) => sum + d.patients, 0)
   const totalEncounters = districtData.reduce((sum, d) => sum + d.encounters, 0)
   const totalAlerts = districtData.reduce((sum, d) => sum + d.safetyAlerts, 0)
-  const avgSatisfaction = Math.round(districtData.reduce((sum, d) => sum + d.satisfaction, 0) / districtData.length)
+  const avgSatisfaction = districtData.length > 0 ? Math.round(districtData.reduce((sum, d) => sum + d.satisfaction, 0) / districtData.length) : 0
 
-  const maxTrendValue = Math.max(...weeklyTrend.map((d) => d.value))
+  const maxTrendValue = weeklyTrend.length > 0 ? Math.max(...weeklyTrend.map((d) => d.value), 1) : 1
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-4 space-y-2"><Skeleton className="h-5 w-5" /><Skeleton className="h-8 w-20" /><Skeleton className="h-3 w-24" /></CardContent></Card>
+          ))}
+        </div>
+        <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => (<div key={i} className="space-y-2 p-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-full" /></div>))}</CardContent></Card>
+      </div>
+    )
+  }
+
+  if (error && districtData.length === 0) {
+    return (
+      <motion.div {...fadeSlide} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900"><BarChart3 className="h-6 w-6 text-teal-700 dark:text-teal-300" /></div>
+          <div><h2 className="text-xl font-bold">District Analytics</h2><p className="text-sm text-muted-foreground">Failed to load data</p></div>
+        </div>
+        <Card><CardContent className="p-6 text-center"><p className="text-muted-foreground">Unable to load analytics data. Please try again later.</p></CardContent></Card>
+      </motion.div>
+    )
+  }
 
   return (
     <motion.div {...fadeSlide} className="space-y-6">

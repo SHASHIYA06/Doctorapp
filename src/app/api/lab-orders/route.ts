@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 
 // ─── GET: List lab orders ──────────────────────────────────────────
@@ -34,9 +35,33 @@ export async function GET(request: NextRequest) {
 
 // ─── POST: Create lab order ────────────────────────────────────────
 
+const labTestSchema = z.object({
+  testName: z.string().min(1, 'testName is required'),
+  testCode: z.string().optional(),
+  category: z.string().optional(),
+})
+
+const labOrderPostSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  practitionerId: z.string().optional(),
+  priority: z.enum(['ROUTINE', 'URGENT', 'STAT', 'ASAP']).optional(),
+  modality: z.enum(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY']).optional(),
+  notes: z.string().optional(),
+  tests: z.array(labTestSchema).optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const parsed = labOrderPostSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       patientId,
       practitionerId,
@@ -44,10 +69,12 @@ export async function POST(request: NextRequest) {
       modality = 'ALLOPATHY',
       notes,
       tests = [],
-    } = body
+    } = parsed.data
 
-    if (!patientId) {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
+    // Check patient exists
+    const patient = await db.patient.findUnique({ where: { id: patientId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     // Generate order number

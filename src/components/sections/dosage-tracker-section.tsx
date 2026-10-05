@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Pill,
@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { toast } from '@/hooks/use-toast'
 
@@ -61,14 +62,14 @@ interface DoseLog {
   taken: boolean
 }
 
-const mockSchedules: DosageSchedule[] = [
+const fallbackSchedules: DosageSchedule[] = [
   { id: '1', medicineName: 'Metformin 500mg', dosage: '1 tablet', frequency: 'twice', timeSlots: [{ time: '08:00', taken: true }, { time: '20:00', taken: false }], startDate: '2026-09-01', endDate: '2026-12-01', instruction: 'after', notes: 'Take with meals to reduce GI side effects' },
   { id: '2', medicineName: 'Amlodipine 5mg', dosage: '1 tablet', frequency: 'once', timeSlots: [{ time: '07:00', taken: true }], startDate: '2026-08-15', endDate: '2027-02-15', instruction: 'any', notes: '' },
   { id: '3', medicineName: 'Atorvastatin 10mg', dosage: '1 tablet', frequency: 'once', timeSlots: [{ time: '22:00', taken: false }], startDate: '2026-09-10', endDate: '2027-03-10', instruction: 'after', notes: 'Take at bedtime' },
   { id: '4', medicineName: 'Omeprazole 20mg', dosage: '1 capsule', frequency: 'once', timeSlots: [{ time: '06:30', taken: false }], startDate: '2026-09-15', endDate: '2026-10-15', instruction: 'empty_stomach', notes: 'Take 30 min before breakfast' },
 ]
 
-const mockDoseLog: DoseLog[] = [
+const fallbackDoseLog: DoseLog[] = [
   { date: '2026-10-02', medicineName: 'Metformin 500mg', time: '08:00', taken: true },
   { date: '2026-10-02', medicineName: 'Metformin 500mg', time: '20:00', taken: true },
   { date: '2026-10-02', medicineName: 'Amlodipine 5mg', time: '07:00', taken: true },
@@ -104,7 +105,11 @@ const instructionIcon: Record<FoodInstruction, React.ReactNode> = {
 }
 
 export function DosageTrackerSection() {
-  const [schedules, setSchedules] = useState(mockSchedules)
+  const { selectedPatientId } = useAppStore()
+  const [schedules, setSchedules] = useState<DosageSchedule[]>(fallbackSchedules)
+  const [doseLog, setDoseLog] = useState<DoseLog[]>(fallbackDoseLog)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     medicineName: '',
@@ -117,9 +122,71 @@ export function DosageTrackerSection() {
     notes: '',
   })
 
+  useEffect(() => {
+    let cancelled = false
+    async function fetchData() {
+      setLoading(true)
+      setError(false)
+      try {
+        const patientId = selectedPatientId || 'demo'
+        const res = await fetch(`/api/dosage?patientId=${patientId}&includeLogs=true`)
+        if (!res.ok) throw new Error('Failed to fetch dosage data')
+        const json = await res.json()
+        if (!cancelled && json?.data) {
+          const apiSchedules = json.data.schedules || []
+          if (apiSchedules.length > 0) {
+            const mapped: DosageSchedule[] = apiSchedules.map((s: Record<string, unknown>) => {
+              const freqMap: Record<string, Frequency> = { ONCE_DAILY: 'once', TWICE_DAILY: 'twice', THRICE_DAILY: 'thrice', WEEKLY: 'weekly', AS_NEEDED: 'as_needed' }
+              const instrMap: Record<string, FoodInstruction> = { BEFORE_FOOD: 'before', AFTER_FOOD: 'after', WITH_FOOD: 'with', EMPTY_STOMACH: 'empty_stomach' }
+              const logs = (s.doseLogs as Record<string, unknown>[]) || []
+              return {
+                id: s.id as string,
+                medicineName: (s.medicineName as string) || '',
+                dosage: (s.dosage as string) || '',
+                frequency: freqMap[(s.frequency as string) || 'ONCE_DAILY'] || 'once',
+                timeSlots: logs.length > 0 ? logs.map((l: Record<string, unknown>) => ({
+                  time: new Date(l.takenAt as string).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                  taken: l.wasOnTime as boolean,
+                })) : [{ time: '08:00', taken: false }],
+                startDate: s.startDate ? new Date(s.startDate as string).toISOString().split('T')[0] : '',
+                endDate: s.endDate ? new Date(s.endDate as string).toISOString().split('T')[0] : '',
+                instruction: instrMap[(s.foodInstruction as string) || ''] || 'any',
+                notes: (s.notes as string) || '',
+              }
+            })
+            setSchedules(mapped)
+          }
+          // Build dose log from all schedule logs
+          const allLogs: DoseLog[] = []
+          for (const s of apiSchedules) {
+            const logs = (s.doseLogs as Record<string, unknown>[]) || []
+            for (const l of logs) {
+              allLogs.push({
+                date: new Date(l.takenAt as string).toISOString().split('T')[0],
+                medicineName: (s.medicineName as string) || '',
+                time: new Date(l.takenAt as string).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                taken: l.wasOnTime as boolean,
+              })
+            }
+          }
+          if (allLogs.length > 0) setDoseLog(allLogs)
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'Dosage Data Error', description: 'Failed to load dosage schedules', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchData()
+    return () => { cancelled = true }
+  }, [selectedPatientId])
+
   const totalSlotsToday = schedules.reduce((acc, s) => acc + s.timeSlots.length, 0)
   const takenSlotsToday = schedules.reduce((acc, s) => acc + s.timeSlots.filter((t) => t.taken).length, 0)
-  const missedDoses = mockDoseLog.filter((d) => !d.taken).length
+  const missedDoses = doseLog.filter((d) => !d.taken).length
 
   const handleMarkTaken = (scheduleId: string, time: string) => {
     setSchedules((prev) =>
@@ -154,6 +221,33 @@ export function DosageTrackerSection() {
     setShowForm(false)
     setFormData({ medicineName: '', dosage: '', frequency: 'once', time: '08:00', startDate: '', endDate: '', instruction: 'any', notes: '' })
     toast({ title: 'Schedule Added', description: `${formData.medicineName} schedule created` })
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => (<Card key={i}><CardContent className="p-4 space-y-3"><Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-full" /></CardContent></Card>))}
+        </div>
+        <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="space-y-2 p-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-full" /></div>))}</CardContent></Card>
+      </div>
+    )
+  }
+
+  if (!loading && !error && schedules.length === 0) {
+    return (
+      <motion.div {...fadeSlide} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/30"><Pill className="h-6 w-6 text-sky-600" /></div>
+          <div><h2 className="text-2xl font-bold tracking-tight">Dosage Tracker & Schedules</h2><p className="text-sm text-muted-foreground">No schedules found</p></div>
+        </div>
+        <Card><CardContent className="p-6 text-center"><p className="text-muted-foreground">No dosage schedules available. Add a schedule to get started.</p></CardContent></Card>
+      </motion.div>
+    )
   }
 
   return (
@@ -358,7 +452,7 @@ export function DosageTrackerSection() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-            {mockDoseLog.map((log, idx) => (
+            {doseLog.map((log, idx) => (
               <div key={idx} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 text-sm">
                 <span className="font-mono text-xs text-muted-foreground w-20 shrink-0">{log.date}</span>
                 <span className="font-mono text-xs w-12 shrink-0">{log.time}</span>

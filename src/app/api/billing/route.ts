@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 
 // ─── GET: List billing records ───────────────────────────────────
@@ -30,9 +31,39 @@ export async function GET(request: NextRequest) {
 
 // ─── POST: Create billing record ─────────────────────────────────
 
+const billingPostSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  encounterId: z.string().optional(),
+  modality: z.enum(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY']).optional(),
+  status: z.enum(['PENDING', 'PAID', 'OVERDUE', 'CANCELLED', 'PARTIAL']).optional(),
+  consultationFee: z.number().optional(),
+  medicineCharges: z.number().optional(),
+  labCharges: z.number().optional(),
+  procedureCharges: z.number().optional(),
+  otherCharges: z.number().optional(),
+  totalAmount: z.number().optional(),
+  discount: z.number().optional(),
+  tax: z.number().optional(),
+  netAmount: z.number().optional(),
+  paidAmount: z.number().optional(),
+  paymentMethod: z.string().optional(),
+  paymentRef: z.string().optional(),
+  dueDate: z.string().optional(),
+  paidAt: z.string().optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const parsed = billingPostSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       patientId,
       encounterId,
@@ -52,10 +83,12 @@ export async function POST(request: NextRequest) {
       paymentRef,
       dueDate,
       paidAt,
-    } = body
+    } = parsed.data
 
-    if (!patientId) {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
+    // Check patient exists
+    const patient = await db.patient.findUnique({ where: { id: patientId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     // Generate invoiceNumber: INV-YYYYMMDD-XXXX

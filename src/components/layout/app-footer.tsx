@@ -2,11 +2,12 @@
 
 import { ShieldCheck, Stethoscope, ExternalLink } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { useAppStore, type Section } from '@/lib/store'
 
 const footerLinks = [
-  { label: 'Privacy Policy', href: '#privacy' },
-  { label: 'Terms of Service', href: '#terms' },
-  { label: 'Safety Disclaimer', href: '#safety' },
+  { label: 'Privacy Policy', section: 'consent' as Section },
+  { label: 'Terms of Service', section: 'knowledge' as Section },
+  { label: 'Safety Disclaimer', section: 'safety' as Section },
   { label: 'CDSCO Registry', href: 'https://cdsco.gov.in', external: true },
 ]
 
@@ -19,7 +20,7 @@ export function AppFooter() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Stethoscope className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
             <span className="font-semibold text-foreground">MedGovern AI</span>
-            <span>v3.0</span>
+            <span>v5.0</span>
             <Separator orientation="vertical" className="h-3" />
             <span className="flex items-center gap-1">
               <ShieldCheck className="h-3 w-3 text-teal-600" />
@@ -36,14 +37,24 @@ export function AppFooter() {
             {footerLinks.map((link, i) => (
               <span key={link.label} className="flex items-center gap-3">
                 {i > 0 && <Separator orientation="vertical" className="h-3" />}
-                <a
-                  href={link.href}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-0.5"
-                  {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                >
-                  {link.label}
-                  {link.external && <ExternalLink className="h-2.5 w-2.5" />}
-                </a>
+                {link.external ? (
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-0.5"
+                  >
+                    {link.label}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => useAppStore.getState().setActiveSection(link.section!)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-0.5"
+                  >
+                    {link.label}
+                  </button>
+                )}
               </span>
             ))}
           </nav>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 
 // ─── GET: List insurance policies / claims / billing ─────────────
@@ -77,12 +78,75 @@ export async function GET(request: NextRequest) {
 
 // ─── POST: Create insurance policy / claim / billing record ──────
 
+const insuranceClaimSchema = z.object({
+  claimNumber: z.string().min(1, 'claimNumber is required'),
+  policyId: z.string().min(1, 'policyId is required'),
+  patientId: z.string().min(1, 'patientId is required'),
+  encounterId: z.string().optional(),
+  claimType: z.string().optional(),
+  status: z.enum(['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'SETTLED', 'PARTIALLY_SETTLED']).optional(),
+  amountClaimed: z.number().optional(),
+  amountApproved: z.number().optional(),
+  amountSettled: z.number().optional(),
+  denialReason: z.string().optional(),
+  documents: z.string().optional(),
+  submittedAt: z.string().optional(),
+  processedAt: z.string().optional(),
+  settledAt: z.string().optional(),
+})
+
+const insuranceBillingSchema = z.object({
+  invoiceNumber: z.string().min(1, 'invoiceNumber is required'),
+  patientId: z.string().min(1, 'patientId is required'),
+  encounterId: z.string().optional(),
+  modality: z.enum(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY']).optional(),
+  status: z.enum(['PENDING', 'PAID', 'OVERDUE', 'CANCELLED', 'PARTIAL']).optional(),
+  consultationFee: z.number().optional(),
+  medicineCharges: z.number().optional(),
+  labCharges: z.number().optional(),
+  procedureCharges: z.number().optional(),
+  otherCharges: z.number().optional(),
+  totalAmount: z.number().optional(),
+  discount: z.number().optional(),
+  tax: z.number().optional(),
+  netAmount: z.number().optional(),
+  paidAmount: z.number().optional(),
+  paymentMethod: z.string().optional(),
+  paymentRef: z.string().optional(),
+  dueDate: z.string().optional(),
+  paidAt: z.string().optional(),
+})
+
+const insurancePolicySchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  providerName: z.string().min(1, 'providerName is required'),
+  policyNumber: z.string().min(1, 'policyNumber is required'),
+  groupNumber: z.string().optional(),
+  planType: z.string().optional(),
+  coverageType: z.string().optional(),
+  abhaLinked: z.boolean().optional(),
+  isAyushmanBharat: z.boolean().optional(),
+  validFrom: z.string().min(1, 'validFrom is required'),
+  validUntil: z.string().optional(),
+  coPayPercentage: z.number().optional(),
+  maxCoverage: z.number().optional(),
+  isActive: z.boolean().optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
     // ── Create claim if claimNumber present ──
     if (body.claimNumber) {
+      const parsed = insuranceClaimSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+          { status: 400 }
+        )
+      }
+
       const {
         claimNumber,
         policyId,
@@ -98,13 +162,12 @@ export async function POST(request: NextRequest) {
         submittedAt,
         processedAt,
         settledAt,
-      } = body
+      } = parsed.data
 
-      if (!policyId || !patientId) {
-        return NextResponse.json(
-          { error: 'policyId and patientId are required for claims' },
-          { status: 400 }
-        )
+      // Check patient exists
+      const patient = await db.patient.findUnique({ where: { id: patientId } })
+      if (!patient) {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
       }
 
       const claim = await db.insuranceClaim.create({
@@ -135,6 +198,14 @@ export async function POST(request: NextRequest) {
 
     // ── Create billing record if invoiceNumber present ──
     if (body.invoiceNumber) {
+      const parsed = insuranceBillingSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+          { status: 400 }
+        )
+      }
+
       const {
         invoiceNumber,
         patientId,
@@ -155,13 +226,12 @@ export async function POST(request: NextRequest) {
         paymentRef,
         dueDate,
         paidAt,
-      } = body
+      } = parsed.data
 
-      if (!patientId) {
-        return NextResponse.json(
-          { error: 'patientId is required for billing' },
-          { status: 400 }
-        )
+      // Check patient exists
+      const patient = await db.patient.findUnique({ where: { id: patientId } })
+      if (!patient) {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
       }
 
       const record = await db.billingRecord.create({
@@ -195,6 +265,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Default: create insurance policy ──
+    const parsed = insurancePolicySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       patientId,
       providerName,
@@ -209,13 +287,12 @@ export async function POST(request: NextRequest) {
       coPayPercentage = 0,
       maxCoverage,
       isActive = true,
-    } = body
+    } = parsed.data
 
-    if (!patientId || !providerName || !policyNumber) {
-      return NextResponse.json(
-        { error: 'patientId, providerName, and policyNumber are required' },
-        { status: 400 }
-      )
+    // Check patient exists
+    const patient = await db.patient.findUnique({ where: { id: patientId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     const policy = await db.insurancePolicy.create({

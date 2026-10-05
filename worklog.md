@@ -170,3 +170,119 @@ Stage Summary:
 - Database fully seeded with realistic Indian healthcare data
 - All components properly integrated with backend APIs
 - No existing features deleted
+
+---
+
+## Task 6-8-10: Fix Version, Dark Mode, Command Palette, Auth
+**Date:** 2026-10-03
+**Agent:** upgrade-agent
+**Task ID:** 6-8-10
+
+### Summary
+Completed four upgrade tasks: (A) fixed version mismatch, footer links, and duplicate icons; (B) added dark mode support; (C) completed command palette with all 39 sections; (D) added NextAuth.js authentication and protected seed routes.
+
+### Task A: Fix Version, Footer Links, Duplicate Icons
+1. **Footer version**: Changed "v3.0" → "v5.0" in `app-footer.tsx` to match sidebar
+2. **Footer links**: Replaced hash links (#privacy, #terms, #safety) with `useAppStore.getState().setActiveSection()` calls navigating to `consent`, `knowledge`, and `safety` sections respectively
+3. **Duplicate icons** in `app-shell.tsx`:
+   - Prescriptions: `Pill` → `FilePlus2`
+   - CDS Alerts: `AlertTriangle` → `ShieldAlert`
+   - Expiry Tracker: `CalendarClock` → `Timer`
+   - Discharge Summary: `FileText` → `FileCheck`
+
+### Task B: Dark Mode Support
+1. **layout.tsx**: Added `ThemeProvider` from `next-themes` wrapping `{children}` and `<Toaster />` with `attribute="class"`, `defaultTheme="system"`, `enableSystem`, `disableTransitionOnChange`
+2. **app-header.tsx**: Added Sun/Moon theme toggle button using `useTheme()` from `next-themes`, placed before the Role Switcher
+
+### Task C: Complete Command Palette
+- Expanded `commandActions` array from 14 to 39 entries covering all sections
+- Added: prescriptions, lab-orders, clinical-notes, patient-timeline, insurance, inventory, discharge-summary, notifications, referrals, documents, telemedicine, cds, follow-up-reminders, dosage-tracker, expiry-tracker, abha, counterfeit, scan-verify, pharmacy, medicine-compare, analytics, voice, care-plans, consent, knowledge, recalls, audit, admin, vaccination, health-issues, medicines, drug-interactions, appointments, clinician-queue
+
+### Task D: NextAuth.js Authentication
+1. **Created** `src/app/api/auth/[...nextauth]/route.ts` — NextAuth handler with CredentialsProvider, JWT strategy, custom callbacks for role/id
+2. **Updated** `.env` — Added `NEXTAUTH_SECRET` and `NEXTAUTH_URL`
+3. **Protected seed routes** — Added Bearer token auth check to both `/api/seed/route.ts` and `/api/seed-v2/route.ts` (requires `Authorization: Bearer admin-secret-key`)
+
+### Files Created
+
+| # | File | Description |
+|---|------|-------------|
+| 1 | `src/app/api/auth/[...nextauth]/route.ts` | NextAuth.js credentials provider with JWT |
+
+### Files Modified
+
+| # | File | Changes |
+|---|------|---------|
+| 1 | `src/components/layout/app-footer.tsx` | Version v3.0→v5.0, hash links→setActiveSection buttons |
+| 2 | `src/components/layout/app-shell.tsx` | Fixed 4 duplicate icons (Pill→FilePlus2, AlertTriangle→ShieldAlert, CalendarClock→Timer, FileText→FileCheck) |
+| 3 | `src/components/layout/app-header.tsx` | Theme toggle (Sun/Moon), useTheme(), expanded command palette to 39 sections |
+| 4 | `src/app/layout.tsx` | Added ThemeProvider from next-themes |
+| 5 | `src/app/api/seed/route.ts` | Added Bearer token auth check |
+| 6 | `src/app/api/seed-v2/route.ts` | Added Bearer token auth check, NextRequest param |
+| 7 | `.env` | Added NEXTAUTH_SECRET, NEXTAUTH_URL |
+
+### Verification
+- ✅ Lint passes clean on `src/` (0 errors)
+- ✅ All existing features preserved
+
+---
+
+## Task 4-5: Connect Mock Sections to API + Zod Validation
+
+**Date:** 2026-10-03
+**Agent:** api-connect-agent
+**Task ID:** 4-5
+
+### Summary
+Completed two upgrade tasks: (A) Connected 6 mock-only section components to their API endpoints with loading/error/empty states; (B) Added Zod validation with patient existence checks to 6 API routes.
+
+### Task A: Connect 6 Mock Sections to API Data
+
+Each section was updated with `useEffect` + `fetch()` for data loading on mount, Skeleton loading state, error state with toast notification, and empty state handling.
+
+| # | Section Component | API Endpoint | Key Changes |
+|---|-------------------|--------------|-------------|
+| 1 | `analytics-section.tsx` | `/api/analytics?type=district` + `?type=trends&period=7d` | Replaced hardcoded `districtData` and `weeklyTrend` with API-fetched state. Maps API district data (patientCount→patients, encounterCount→encounters, satisfactionScore→satisfaction). Maps dailyTrends to weekly) weekly format with day labels. |
+| 2 | `dosage-tracker-section.tsx` | `/api/dosage?patientId=X&includeLogs=true` | Replaced `mockSchedules` and `mockDoseLog` with API-fetched state.Doses schedules and dose logs. Maps frequency (ONCE_DAILY→once), food instruction, and dose log data. |
+| 3 | `abha. | `/api/abha?patientId=X` | Replaced `mockHealthRecords` with API-fetched state. Auto-sets `isAbhaLinked` from API response. Maps ABHA records from API. |
+| 4 | `vaccination-section.tsx` | `/api/vaccination?patientId=X&includeSchedule=true` | Replaced `mock*Vaccinations` with API-fetched state. Maps vaccination records including site, batch, manufacturer, nextDueDate, isCompleted. |
+| 5 | `counterfeit-section.tsx` | `/api/counterfeit` | Replaced `mockReports` with API-fetched state. Maps counterfeit reports including severity, status, and date mapping. |
+| 6 | `medicine-compare-section.tsx` | `/api/compare?medicineA=X&medicineB=Y` | Added `useEffect` to fetch comparison when medicine selections5Selection changes. Updates alternatives list from API Jan Aushadhi data. |
+
+### Task B: Add Zod Validation to 6 API Routes
+
+Each route now validates POST body with Zod schemas, returns 400 with validation error details on failure, and checks patient existence before creating records (404 if not found).
+
+| # | API Route | Zod Schema | Key Fields Validated |
+|---|-----------|------------|---------------------|
+| 1 | `/api/vaccination/route.ts` | `vaccinationPostSchema` | patientId (required), vaccineName, doseNumber (int+), totalDoses (int+), administeredAt, optional: administeredBy, batchNumber, manufacturer, site, nextDueDate, adverseEffects |
+| 2 | `/api/lab-orders/route.ts` | `labOrderPostSchema` + `labTestSchema` | patientId (required), practitionerId, priority (enum: ROUTINE/URGENT/STAT/ASAP), modality (enum), notes, tests array (testName required, testCode, category) |
+| 3 | `/api/clinical-notes/route.ts` | `clinicalNotePostSchema` | patientId (required), encounterId, practitionerId, noteType (enum: SOAP/PROGRESS/DISCHARGE/REFERRAL/CONSULTATION), modality (enum), SOAP fields, isSigned, signedAt |
+| 4 | `/api/prescriptions/route.ts` | `prescriptionPostSchema` + `prescriptionItemSchema` | patientId (required), practitionerId, encounterId, modality (enum), diagnosis, notes, isCdScoCompliant, items array (medicineName required, dosage, frequency, duration, route, instructions, quantity, refills) |
+| 5 | `/api/billing/route.ts` | `billingPostSchema` | patientId (required), encounterId, modality (enum), status (enum: PENDING/PAID/OVERDUE/CANCELLED/PARTIAL), all fee/charge fields as numbers, paymentMethod, paymentRef, dueDate, paidAt |
+| 6 | `/api/insurance/route.ts` | `insuranceClaimSchema`, `insuranceBillingSchema`, `insurancePolicySchema` | Three sub-route schemas: Claims (claimNumber, policyId, patientId required; status enum), Billing (invoiceNumber, patientId required; status enum), Policy (patientId, providerName, policyNumber required; validFrom required) |
+
+### Files Modified
+
+| # | File | Changes |
+|---|------|---------|
+| 1 | `src/components/sections/analytics-section.tsx` | Added useEffect+fetch for district+trends, loading skeleton, error+empty states, toast import |
+| 2 | `src/components/sections/dosage-tracker-section.tsx` | Added useEffect+fetch for dosage schedules+logs, loading skeleton, error+empty states |
+| 3 | `src/components/sections/abha-section.tsx` | Added useEffect+fetch for ABHA link status, loading skeleton, health records from API |
+| 4 | `src/components/sections/vaccination-section.tsx` | Added useEffect+fetch for vaccination records, loading skeleton, empty state |
+| 5 | `src/components/sections/counterfeit-section.tsx` | Added useEffect+fetch for counterfeit reports, loading skeleton |
+| 6 | `src/components/sections/medicine-compare-section.tsx` | Added useEffect+fetch for medicine comparison on selection change, loading skeleton |
+| 7 | `src/app/api/vaccination/route.ts` | Added Zod schema, safeParse validation, patient existence check (404) |
+| 8 | `src/app/api/lab-orders/route.ts` | Added Zod schemas for lab order + tests, safeParse validation, patient check (404) |
+| 9 | `src/app/api/clinical-notes/route.ts` | Added Zod schema, safeParse validation, patient check (404) |
+| 10 | `src/app/api/prescriptions/route.ts` | Added Zod schemas for prescription + items, safeParse validation, patient check (404) |
+| 11 | `src/app/api/billing/route.ts` | Added Zod schema, safeParse validation, patient check (404) |
+| 12 | `src/app/api/insurance/route.ts` | Added 3 Zod schemas (claim, billing, policy), safeParse validation, patient check (404) for all sub-routes |
+
+### Verification
+- ✅ Lint passes clean on all modified `src/` files (0 errors)
+- ✅ All existing UI/interactivity preserved in all 6 section components
+- ✅ Framer Motion animations intact in all sections
+- ✅ All 6 API routes have proper Zod validation replacing unsafe `body as Type` casting
+- ✅ All 6 API routes return 400 with validation details on invalid input
+- ✅ All 6 API routes check patient existence and return 404 if not found

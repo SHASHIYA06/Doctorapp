@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 
 // ─── GET: List prescriptions ──────────────────────────────────────
@@ -34,9 +35,42 @@ export async function GET(request: NextRequest) {
 
 // ─── POST: Create prescription ─────────────────────────────────────
 
+const prescriptionItemSchema = z.object({
+  medicineName: z.string().min(1, 'medicineName is required'),
+  medicineId: z.string().optional(),
+  dosage: z.string().optional(),
+  frequency: z.string().optional(),
+  duration: z.string().optional(),
+  route: z.string().optional(),
+  instructions: z.string().optional(),
+  scheduleType: z.string().optional(),
+  quantity: z.number().optional(),
+  refills: z.number().optional(),
+})
+
+const prescriptionPostSchema = z.object({
+  patientId: z.string().min(1, 'patientId is required'),
+  practitionerId: z.string().optional(),
+  encounterId: z.string().optional(),
+  modality: z.enum(['ALLOPATHY', 'AYURVEDA', 'HOMEOPATHY']).optional(),
+  diagnosis: z.string().optional(),
+  notes: z.string().optional(),
+  isCdScoCompliant: z.boolean().optional(),
+  items: z.array(prescriptionItemSchema).optional(),
+})
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    const parsed = prescriptionPostSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
     const {
       patientId,
       practitionerId,
@@ -46,10 +80,12 @@ export async function POST(request: NextRequest) {
       notes,
       isCdScoCompliant = true,
       items = [],
-    } = body
+    } = parsed.data
 
-    if (!patientId) {
-      return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
+    // Check patient exists
+    const patient = await db.patient.findUnique({ where: { id: patientId } })
+    if (!patient) {
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
     }
 
     // Generate prescription number

@@ -1,132 +1,137 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { z } from 'zod'
 
-// Notifications API — returns mock data for frontend consumption
-// In production, this would query the database with Prisma
+// ─── Validation Schemas ──────────────────────────────────────────
 
-const now = new Date()
+const notificationQuerySchema = z.object({
+  type: z.string().optional(),
+  category: z.string().optional(),
+  isRead: z.enum(['true', 'false']).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(50),
+})
 
-const mockNotifications = [
-  {
-    id: 'n1', type: 'RECALL', category: 'CRITICAL', title: 'CDSCO Drug Recall Alert',
-    message: 'Dolo 650 (Batch ML-2025-0892) recalled due to dissolution test failure. Quarantine all stock immediately.',
-    isRead: false, createdAt: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
-    actionLabel: 'View Recalls', actionSection: 'recalls',
-  },
-  {
-    id: 'n2', type: 'PRESCRIPTION', category: 'INFO', title: 'New Prescription Signed',
-    message: 'Dr. Anil Mehta signed prescription #RX-2026-452 for Rajesh Kumar Sharma.',
-    isRead: false, createdAt: new Date(now.getTime() - 12 * 60 * 1000).toISOString(),
-    actionLabel: 'View Prescription', actionSection: 'prescriptions', patientName: 'Rajesh Kumar Sharma',
-  },
-  {
-    id: 'n3', type: 'LAB_RESULT', category: 'WARNING', title: 'Critical Lab Result',
-    message: 'Troponin I level 8.5 ng/mL (critical high) for patient Mohammed Asif. Immediate clinical attention required.',
-    isRead: false, createdAt: new Date(now.getTime() - 25 * 60 * 1000).toISOString(),
-    actionLabel: 'View Lab Orders', actionSection: 'lab-orders', patientName: 'Mohammed Asif',
-  },
-  {
-    id: 'n4', type: 'APPOINTMENT', category: 'INFO', title: 'Upcoming Appointment',
-    message: 'Priya Nair has an appointment at 10:30 AM today with Dr. Sunita Reddy.',
-    isRead: true, createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Appointments', actionSection: 'appointments', patientName: 'Priya Nair',
-  },
-  {
-    id: 'n5', type: 'SAFETY', category: 'URGENT', title: 'Drug Interaction Alert',
-    message: 'Potential interaction: Clopidogrel + Omeprazole (reduced antiplatelet effect). Patient: Rajesh Kumar Sharma.',
-    isRead: false, createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Interactions', actionSection: 'drug-interactions', patientName: 'Rajesh Kumar Sharma',
-  },
-  {
-    id: 'n6', type: 'FOLLOW_UP', category: 'INFO', title: 'Follow-up Reminder',
-    message: 'Lakshmi Iyer is due for post-discharge follow-up in 2 days (Cardiology OPD).',
-    isRead: true, createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Follow-ups', actionSection: 'follow-up-reminders', patientName: 'Lakshmi Iyer',
-  },
-  {
-    id: 'n7', type: 'BILLING', category: 'WARNING', title: 'Insurance Claim Pending',
-    message: 'Insurance claim for Priya Nair (₹45,000) pending for 5 days.',
-    isRead: false, createdAt: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Billing', actionSection: 'billing', patientName: 'Priya Nair',
-  },
-  {
-    id: 'n8', type: 'REFERRAL', category: 'INFO', title: 'Specialist Referral Received',
-    message: 'Referral from Dr. Gupta for Mohammed Asif to Cardiology — chest pain evaluation.',
-    isRead: true, createdAt: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Referrals', actionSection: 'referrals', patientName: 'Mohammed Asif',
-  },
-  {
-    id: 'n9', type: 'SYSTEM', category: 'INFO', title: 'System Update Completed',
-    message: 'Clinical decision support rules updated to v2026.10.3.',
-    isRead: true, createdAt: new Date(now.getTime() - 8 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'n10', type: 'SAFETY', category: 'CRITICAL', title: 'Allergy Alert — Near Miss',
-    message: 'Attempted prescription of Ciprofloxacin for Mohammed Asif who has a documented Ciprofloxacin allergy. Prescription blocked.',
-    isRead: false, createdAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
-    actionLabel: 'View Safety Alerts', actionSection: 'safety', patientName: 'Mohammed Asif',
-  },
-  {
-    id: 'n11', type: 'PRESCRIPTION', category: 'INFO', title: 'Prescription Renewal Due',
-    message: "Lakshmi Iyer's prescription for Metformin 500mg expires in 3 days.",
-    isRead: false, createdAt: new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Prescriptions', actionSection: 'prescriptions', patientName: 'Lakshmi Iyer',
-  },
-  {
-    id: 'n12', type: 'LAB_RESULT', category: 'INFO', title: 'Lab Results Ready',
-    message: 'Complete blood count and lipid panel results now available for Rajesh Kumar Sharma.',
-    isRead: true, createdAt: new Date(now.getTime() - 10 * 60 * 60 * 1000).toISOString(),
-    actionLabel: 'View Lab Orders', actionSection: 'lab-orders', patientName: 'Rajesh Kumar Sharma',
-  },
-]
+const notificationActionSchema = z.object({
+  notificationId: z.string().min(1),
+  action: z.enum(['markRead', 'markUnread', 'dismiss']),
+})
+
+const notificationCreateSchema = z.object({
+  type: z.enum(['RECALL', 'PRESCRIPTION', 'LAB_RESULT', 'APPOINTMENT', 'SAFETY', 'FOLLOW_UP', 'BILLING', 'REFERRAL', 'SYSTEM', 'DISCHARGE']),
+  category: z.enum(['INFO', 'WARNING', 'URGENT', 'CRITICAL']).default('INFO'),
+  title: z.string().min(1),
+  message: z.string().min(1),
+  patientId: z.string().optional(),
+  actionLabel: z.string().optional(),
+  actionSection: z.string().optional(),
+  channel: z.enum(['IN_APP', 'SMS', 'WHATSAPP', 'PUSH', 'EMAIL']).default('IN_APP'),
+})
+
+// ─── GET: Notifications with filters and stats ──────────────────
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const type = searchParams.get('type')
-  const category = searchParams.get('category')
-  const isRead = searchParams.get('isRead')
+  try {
+    const { searchParams } = new URL(request.url)
+    const parsed = notificationQuerySchema.safeParse(Object.fromEntries(searchParams.entries()))
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid query parameters', details: parsed.error.flatten() }, { status: 400 })
+    }
 
-  let notifications = [...mockNotifications]
+    const { type, category, isRead, page, limit } = parsed.data
 
-  if (type) {
-    notifications = notifications.filter(n => n.type === type)
+    const where: Record<string, unknown> = {}
+    if (type) where.type = type
+    if (category) where.category = category
+    if (isRead !== undefined) where.isRead = isRead === 'true'
+
+    const [notifications, total] = await Promise.all([
+      db.appNotification.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      db.appNotification.count({ where }),
+    ])
+
+    // Compute stats
+    const [allCount, unreadCount, criticalCount, todayCount] = await Promise.all([
+      db.appNotification.count(),
+      db.appNotification.count({ where: { isRead: false } }),
+      db.appNotification.count({ where: { category: 'CRITICAL' } }),
+      db.appNotification.count({
+        where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+      }),
+    ])
+
+    return NextResponse.json({
+      notifications,
+      stats: { total: allCount, unread: unreadCount, critical: criticalCount, today: todayCount },
+      pagination: { page, limit, total },
+    })
+  } catch (error) {
+    console.error('[NOTIFICATIONS_GET]', error)
+    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 })
   }
-  if (category) {
-    notifications = notifications.filter(n => n.category === category)
-  }
-  if (isRead !== null && isRead !== undefined) {
-    const readBool = isRead === 'true'
-    notifications = notifications.filter(n => n.isRead === readBool)
-  }
-
-  const total = mockNotifications.length
-  const unread = mockNotifications.filter(n => !n.isRead).length
-  const critical = mockNotifications.filter(n => n.category === 'CRITICAL').length
-  const today = mockNotifications.filter(n => {
-    const diffMs = Date.now() - new Date(n.createdAt).getTime()
-    return diffMs < 24 * 60 * 60 * 1000
-  }).length
-
-  return NextResponse.json({
-    notifications,
-    stats: { total, unread, critical, today },
-  })
 }
+
+// ─── POST: Notification Actions & Creation ───────────────────────
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { notificationId, action } = body
 
-    if (!notificationId || !action) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    // Check if it's an action request (markRead/markUnread/dismiss)
+    if (body.notificationId && body.action) {
+      const parsed = notificationActionSchema.safeParse(body)
+      if (!parsed.success) {
+        return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 })
+      }
+
+      const { notificationId, action } = parsed.data
+
+      const notification = await db.appNotification.findUnique({ where: { id: notificationId } })
+      if (!notification) {
+        return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
+      }
+
+      if (action === 'markRead') {
+        await db.appNotification.update({ where: { id: notificationId }, data: { isRead: true, readAt: new Date() } })
+      } else if (action === 'markUnread') {
+        await db.appNotification.update({ where: { id: notificationId }, data: { isRead: false, readAt: null } })
+      } else if (action === 'dismiss') {
+        await db.appNotification.update({ where: { id: notificationId }, data: { isRead: true, readAt: new Date() } })
+      }
+
+      return NextResponse.json({ success: true, message: `Notification ${notificationId} ${action}` })
     }
 
-    // In production, update database with Prisma
-    return NextResponse.json({
-      success: true,
-      message: `Notification ${notificationId} ${action}`,
+    // Otherwise, create a new notification
+    const parsed = notificationCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const data = parsed.data
+
+    const notification = await db.appNotification.create({
+      data: {
+        type: data.type,
+        category: data.category,
+        title: data.title,
+        message: data.message,
+        patientId: data.patientId || null,
+        actionLabel: data.actionLabel || null,
+        actionSection: data.actionSection || null,
+        channel: data.channel,
+        isRead: false,
+      },
     })
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+
+    return NextResponse.json({ success: true, notification })
+  } catch (error) {
+    console.error('[NOTIFICATIONS_POST]', error)
+    return NextResponse.json({ error: 'Failed to process notification request' }, { status: 500 })
   }
 }

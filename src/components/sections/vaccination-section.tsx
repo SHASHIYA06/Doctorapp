@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Syringe,
@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -67,7 +68,7 @@ interface ChildVaccineSchedule {
   status: 'completed' | 'due' | 'upcoming' | 'overdue'
 }
 
-const mockVaccinations: VaccinationRecord[] = [
+const fallbackVaccinations: VaccinationRecord[] = [
   { id: '1', vaccineName: 'COVID-19 (Covishield)', doseNumber: 2, totalDoses: 2, date: '2022-05-15', administeredBy: 'PHC Sector 12, Noida', batch: 'CVS-2022-0847', manufacturer: 'Serum Institute of India', injectionSite: 'Left Deltoid', nextDueDate: null, completed: true },
   { id: '2', vaccineName: 'Hepatitis B', doseNumber: 1, totalDoses: 3, date: '2026-09-01', administeredBy: 'Apollo Hospital, Delhi', batch: 'HEP-2026-112', manufacturer: 'Bharat Biotech', injectionSite: 'Right Deltoid', nextDueDate: '2026-10-01', completed: false },
   { id: '3', vaccineName: 'Typhoid Conjugate', doseNumber: 1, totalDoses: 1, date: '2026-08-20', administeredBy: 'Max Hospital, Noida', batch: 'TYP-2026-033', manufacturer: 'Bharat Biotech', injectionSite: 'Left Deltoid', nextDueDate: null, completed: true },
@@ -96,6 +97,10 @@ const scheduleStatusColor: Record<string, string> = {
 }
 
 export function VaccinationSection() {
+  const { selectedPatientId } = useAppStore()
+  const [vaccinations, setVaccinations] = useState<VaccinationRecord[]>(fallbackVaccinations)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [showAdverseForm, setShowAdverseForm] = useState(false)
   const [adverseReport, setAdverseReport] = useState({ vaccine: '', symptoms: '', severity: 'mild', date: '' })
@@ -110,8 +115,50 @@ export function VaccinationSection() {
     injectionSite: 'left_deltoid',
   })
 
-  const completedVaccines = mockVaccinations.filter((v) => v.completed).length
-  const totalVaccines = mockVaccinations.length
+  useEffect(() => {
+    let cancelled = false
+    async function fetchData() {
+      setLoading(true)
+      setError(false)
+      try {
+        const patientId = selectedPatientId || 'demo'
+        const res = await fetch(`/api/vaccination?patientId=${patientId}&includeSchedule=true`)
+        if (!res.ok) throw new Error('Failed to fetch vaccination data')
+        const json = await res.json()
+        if (!cancelled && json?.data?.records) {
+          const apiRecords = json.data.records
+          if (apiRecords.length > 0) {
+            const mapped: VaccinationRecord[] = apiRecords.map((r: Record<string, unknown>) => ({
+              id: r.id as string,
+              vaccineName: (r.vaccineName as string) || '',
+              doseNumber: (r.doseNumber as number) || 1,
+              totalDoses: (r.totalDoses as number) || 1,
+              date: r.administeredAt ? new Date(r.administeredAt as string).toISOString().split('T')[0] : '',
+              administeredBy: (r.administeredBy as string) || '',
+              batch: (r.batchNumber as string) || '',
+              manufacturer: (r.manufacturer as string) || '',
+              injectionSite: ((r.site as string) || 'left_deltoid').replace(/_/g, ' '),
+              nextDueDate: r.nextDueDate ? new Date(r.nextDueDate as string).toISOString().split('T')[0] : null,
+              completed: r.isCompleted as boolean,
+            }))
+            setVaccinations(mapped)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true)
+          toast({ title: 'Vaccination Error', description: 'Failed to load vaccination records', variant: 'destructive' })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchData()
+    return () => { cancelled = true }
+  }, [selectedPatientId])
+
+  const completedVaccines = vaccinations.filter((v) => v.completed).length
+  const totalVaccines = vaccinations.length
 
   const handleAddVaccination = () => {
     if (!formData.vaccineName || !formData.date) {
@@ -129,6 +176,31 @@ export function VaccinationSection() {
     }
     setShowAdverseForm(false)
     toast({ title: 'Adverse Effect Reported', description: 'Your report has been submitted to the pharmacovigilance team' })
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2"><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></div>
+        </div>
+        <Card><CardContent className="p-4 space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-4 space-y-3">{Array.from({ length: 4 }).map((_, i) => (<div key={i} className="space-y-2 p-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-full" /></div>))}</CardContent></Card>
+      </div>
+    )
+  }
+
+  if (!loading && !error && vaccinations.length === 0) {
+    return (
+      <motion.div {...fadeSlide} className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/30"><Syringe className="h-6 w-6 text-rose-600" /></div>
+          <div><h2 className="text-2xl font-bold tracking-tight">Vaccination Tracker</h2><p className="text-sm text-muted-foreground">No vaccination records found</p></div>
+        </div>
+        <Card><CardContent className="p-6 text-center"><p className="text-muted-foreground">No vaccination records available. Add a vaccination to get started.</p></CardContent></Card>
+      </motion.div>
+    )
   }
 
   return (
@@ -240,7 +312,7 @@ export function VaccinationSection() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-            {mockVaccinations.map((vacc, idx) => (
+            {vaccinations.map((vacc, idx) => (
               <motion.div
                 key={vacc.id}
                 initial={{ opacity: 0, x: -8 }}
