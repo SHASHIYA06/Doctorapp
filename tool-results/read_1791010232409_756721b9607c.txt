@@ -1,0 +1,1168 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import {
+     6→     6→  Search,
+     7→     7→  Pill,
+     8→     8→  Leaf,
+     9→     9→  Sparkles,
+    10→    10→  AlertTriangle,
+    11→    11→  Shield,
+    12→    12→  Clock,
+    13→    13→  Utensils,
+    14→    14→  Baby,
+    15→    15→  Heart,
+    16→    16→  Eye,
+    17→    17→  Activity,
+    18→    18→  ChevronRight,
+    19→    19→  Info,
+    20→    20→  CheckCircle,
+    21→    21→  XCircle,
+    22→    22→} from 'lucide-react'
+    23→    23→import {
+    24→    24→  Card,
+    25→    25→  CardContent,
+    26→    26→  CardHeader,
+    27→    27→  CardTitle,
+    28→    28→  CardDescription,
+    29→    29→} from '@/components/ui/card'
+    30→    30→import { Button } from '@/components/ui/button'
+    31→    31→import { Input } from '@/components/ui/input'
+    32→    32→import { Badge } from '@/components/ui/badge'
+    33→    33→import {
+    34→    34→  Tabs,
+    35→    35→  TabsContent,
+    36→    36→  TabsList,
+    37→    37→  TabsTrigger,
+    38→    38→} from '@/components/ui/tabs'
+    39→    39→import { Skeleton } from '@/components/ui/skeleton'
+    40→    40→import { ScrollArea } from '@/components/ui/scroll-area'
+    41→    41→import {
+    42→    42→  Select,
+    43→    43→  SelectContent,
+    44→    44→  SelectItem,
+    45→    45→  SelectTrigger,
+    46→    46→  SelectValue,
+    47→    47→} from '@/components/ui/select'
+    48→    48→import { Separator } from '@/components/ui/separator'
+    49→    49→import {
+    50→    50→  Accordion,
+    51→    51→  AccordionContent,
+    52→    52→  AccordionItem,
+    53→    53→  AccordionTrigger,
+    54→    54→} from '@/components/ui/accordion'
+    55→    55→import {
+    56→    56→  Dialog,
+    57→    57→  DialogContent,
+    58→    58→  DialogHeader,
+    59→    59→  DialogTitle,
+    60→    60→  DialogTrigger,
+    61→    61→} from '@/components/ui/dialog'
+    62→    62→import { useAppStore } from '@/lib/store'
+    63→    63→import type { Modality } from '@/lib/store'
+    64→    64→
+    65→    65→// ─── Types ───────────────────────────────────────────────────────────────
+    66→    66→
+    67→    67→interface Ingredient {
+    68→    68→  id: string
+    69→    69→  name: string
+    70→    70→  role: 'ACTIVE' | 'EXCIPIENT'
+    71→    71→  strength?: string
+    72→    72→  unit?: string
+    73→    73→}
+    74→    74→
+    75→    75→interface Indication {
+    76→    76→  id: string
+    77→    77→  condition: string
+    78→    78→  whyToUse: string
+    79→    79→  whenToUse: string
+    80→    80→  howToUseDaily: string
+    81→    81→  medianDose: string
+    82→    82→  duration: string
+    83→    83→}
+    84→    84→
+    85→    85→interface Contraindication {
+    86→    86→  id: string
+    87→    87→  condition: string
+    88→    88→  severity: 'ABSOLUTE' | 'RELATIVE'
+    89→    89→  reason: string
+    90→    90→}
+    91→    91→
+    92→    92→interface DrugInteraction {
+    93→    93→  id: string
+    94→    94→  interactingDrug: string
+    95→    95→  severity: 'MINOR' | 'MODERATE' | 'MAJOR' | 'SEVERE'
+    96→    96→  effect: string
+    97→    97→  recommendation: string
+    98→    98→}
+    99→    99→
+   100→   100→interface Warning {
+   101→   101→  id: string
+   102→   102→  category: 'BLACK_BOX' | 'PRESCRIBING' | 'PATIENT' | 'PREGNANCY'
+   103→   103→  message: string
+   104→   104→}
+   105→   105→
+   106→   106→interface SideEffect {
+   107→   107→  id: string
+   108→   108→  name: string
+   109→   109→  frequency: 'VERY_COMMON' | 'COMMON' | 'UNCOMMON' | 'RARE'
+   110→   110→  severity: string
+   111→   111→}
+   112→   112→
+   113→   113→interface AgeRule {
+   114→   114→  id: string
+   115→   115→  minAge?: number
+   116→   116→  maxAge?: number
+   117→   117→  doseAdjustment: string
+   118→   118→  notes: string
+   119→   119→}
+   120→   120→
+   121→   121→interface PopulationRule {
+   122→   122→  id: string
+   123→   123→  population: string
+   124→   124→  pregnancySafety: 'SAFE' | 'CAUTION' | 'AVOID' | 'CONTRAINDICATED'
+   125→   125→  notes: string
+   126→   126→}
+   127→   127→
+   128→   128→interface TimingRule {
+   129→   129→  id: string
+   130→   130→  whenToTake: 'BEFORE_MEAL' | 'WITH_MEAL' | 'AFTER_MEAL' | 'EMPTY_STOMACH' | 'BEDTIME' | 'ANY'
+   131→   131→  offsetMinutes?: number
+   132→   132→  instructions: string
+   133→   133→}
+   134→   134→
+   135→   135→interface FoodInstruction {
+   136→   136→  id: string
+   137→   137→  type: 'AVOID' | 'TAKE_WITH' | 'LIMIT'
+   138→   138→  item: string
+   139→   139→  reason: string
+   140→   140→}
+   141→   141→
+   142→   142→interface DurationRule {
+   143→   143→  id: string
+   144→   144→  minDuration?: number
+   145→   145→  maxDuration?: number
+   146→   146→  defaultDuration: number
+   147→   147→  unit: string
+   148→   148→  notes: string
+   149→   149→}
+   150→   150→
+   151→   151→interface MonitoringRule {
+   152→   152→  id: string
+   153→   153→  parameter: string
+   154→   154→  frequency: string
+   155→   155→  threshold?: string
+   156→   156→  action?: string
+   157→   157→}
+   158→   158→
+   159→   159→interface ActiveRecall {
+   160→   160→  id: string
+   161→   161→  reason: string
+   162→   162→  date: string
+   163→   163→  status: string
+   164→   164→  details?: string
+   165→   165→}
+   166→   166→
+   167→   167→interface MedicineDetail {
+   168→   168→  id: string
+   169→   169→  name: string
+   170→   170→  genericName: string
+   171→   171→  modality: Modality | string
+   172→   172→  category: string
+   173→   173→  form: string
+   174→   174→  strength: string
+   175→   175→  isOTC: boolean
+   176→   176→  brandNames: string[]
+   177→   177→  ingredients: Ingredient[]
+   178→   178→  indications: Indication[]
+   179→   179→  contraindications: Contraindication[]
+   180→   180→  drugInteractions: DrugInteraction[]
+   181→   181→  warnings: Warning[]
+   182→   182→  sideEffects: SideEffect[]
+   183→   183→  ageRules: AgeRule[]
+   184→   184→  populationRules: PopulationRule[]
+   185→   185→  timingRules: TimingRule[]
+   186→   186→  foodInstructions: FoodInstruction[]
+   187→   187→  durationRules: DurationRule[]
+   188→   188→  monitoringRules: MonitoringRule[]
+   189→   189→  activeRecalls: ActiveRecall[]
+   190→   190→}
+   191→   191→
+   192→   192→interface MedicineListItem {
+   193→   193→  id: string
+   194→   194→  name: string
+   195→   195→  genericName: string
+   196→   196→  modality: Modality | string
+   197→   197→  category: string
+   198→   198→  form: string
+   199→   199→  strength: string
+   200→   200→  isOTC: boolean
+   201→   201→  contraindicationCount: number
+   202→   202→  interactionCount: number
+   203→   203→  sideEffectCount: number
+   204→   204→}
+   205→   205→
+   206→   206→interface CatalogResponse {
+   207→   207→  data: MedicineListItem[]
+   208→   208→  total: number
+   209→   209→  page: number
+   210→   210→  limit: number
+   211→   211→}
+   212→   212→
+   213→   213→// ─── Color Maps ──────────────────────────────────────────────────────────
+   214→   214→
+   215→   215→const MODALITY_COLORS: Record<string, { bg: string; text: string; border: string; tab: string; tabActive: string }> = {
+   216→   216→  ALLOPATHY: {
+   217→   217→    bg: 'bg-teal-50 dark:bg-teal-950',
+   218→   218→    text: 'text-teal-700 dark:text-teal-300',
+   219→   219→    border: 'border-teal-300 dark:border-teal-700',
+   220→   220→    tab: 'data-[state=active]:bg-teal-600 data-[state=active]:text-white',
+   221→   221→    tabActive: 'bg-teal-600 text-white',
+   222→   222→  },
+   223→   223→  AYURVEDA: {
+   224→   224→    bg: 'bg-emerald-50 dark:bg-emerald-950',
+   225→   225→    text: 'text-emerald-700 dark:text-emerald-300',
+   226→   226→    border: 'border-emerald-300 dark:border-emerald-700',
+   227→   227→    tab: 'data-[state=active]:bg-emerald-600 data-[state=active]:text-white',
+   228→   228→    tabActive: 'bg-emerald-600 text-white',
+   229→   229→  },
+   230→   230→  HOMEOPATHY: {
+   231→   231→    bg: 'bg-violet-50 dark:bg-violet-950',
+   232→   232→    text: 'text-violet-700 dark:text-violet-300',
+   233→   233→    border: 'border-violet-300 dark:border-violet-700',
+   234→   234→    tab: 'data-[state=active]:bg-violet-600 data-[state=active]:text-white',
+   235→   235→    tabActive: 'bg-violet-600 text-white',
+   236→   236→  },
+   237→   237→}
+   238→   238→
+   239→   239→const MODALITY_ICONS: Record<string, React.ElementType> = {
+   240→   240→  ALLOPATHY: Pill,
+   241→   241→  AYURVEDA: Leaf,
+   242→   242→  HOMEOPATHY: Sparkles,
+   243→   243→}
+   244→   244→
+   245→   245→const POPULATION_SAFETY_COLORS: Record<string, string> = {
+   246→   246→  SAFE: 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200 dark:border-green-700',
+   247→   247→  CAUTION: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   248→   248→  AVOID: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+   249→   249→  CONTRAINDICATED: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   250→   250→}
+   251→   251→
+   252→   252→const INTERACTION_SEVERITY_COLORS: Record<string, string> = {
+   253→   253→  MINOR: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+   254→   254→  MODERATE: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   255→   255→  MAJOR: 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900 dark:text-orange-200 dark:border-orange-700',
+   256→   256→  SEVERE: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   257→   257→}
+   258→   258→
+   259→   259→const WARNING_CATEGORY_COLORS: Record<string, string> = {
+   260→   260→  BLACK_BOX: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   261→   261→  PRESCRIBING: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   262→   262→  PATIENT: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700',
+   263→   263→  PREGNANCY: 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-900 dark:text-pink-200 dark:border-pink-700',
+   264→   264→}
+   265→   265→
+   266→   266→const SIDE_EFFECT_FREQ_COLORS: Record<string, string> = {
+   267→   267→  VERY_COMMON: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+   268→   268→  COMMON: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+   269→   269→  UNCOMMON: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+   270→   270→  RARE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+   271→   271→}
+   272→   272→
+   273→   273→const CONTRA_SEVERITY_COLORS: Record<string, string> = {
+   274→   274→  ABSOLUTE: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900 dark:text-red-200 dark:border-red-700',
+   275→   275→  RELATIVE: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700',
+   276→   276→}
+   277→   277→
+   278→   278→const CATEGORIES = [
+   279→   279→  'ALL',
+   280→   280→  'ANALGESIC',
+   281→   281→  'ANTIBIOTIC',
+   282→   282→  'GI',
+   283→   283→  'ANTIHYPERTENSIVE',
+   284→   284→  'ANTIDIABETIC',
+   285→   285→  'ANTIHISTAMINE',
+   286→   286→  'CORTICOSTEROID',
+   287→   287→  'ANTICOAGULANT',
+   288→   288→  'BRONCHODILATOR',
+   289→   289→  'STATIN',
+   290→   290→  'NSAID',
+   291→   291→  'ANTIFUNGAL',
+   292→   292→  'ANTIVIRAL',
+   293→   293→  'DIURETIC',
+   294→   294→] as const
+   295→   295→
+   296→   296→const TIMING_LABELS: Record<string, string> = {
+   297→   297→  BEFORE_MEAL: 'Before Meal',
+   298→   298→  WITH_MEAL: 'With Meal',
+   299→   299→  AFTER_MEAL: 'After Meal',
+   300→   300→  EMPTY_STOMACH: 'Empty Stomach',
+   301→   301→  BEDTIME: 'Bedtime',
+   302→   302→  ANY: 'Any Time',
+   303→   303→}
+   304→   304→
+   305→   305→const FOOD_TYPE_COLORS: Record<string, string> = {
+   306→   306→  AVOID: 'text-red-600 dark:text-red-400',
+   307→   307→  TAKE_WITH: 'text-green-600 dark:text-green-400',
+   308→   308→  LIMIT: 'text-amber-600 dark:text-amber-400',
+   309→   309→}
+   310→   310→
+   311→   311→const FOOD_TYPE_LABELS: Record<string, string> = {
+   312→   312→  AVOID: 'Avoid',
+   313→   313→  TAKE_WITH: 'Take With',
+   314→   314→  LIMIT: 'Limit',
+   315→   315→}
+   316→   316→
+   317→   317→// ─── Animation Presets ───────────────────────────────────────────────────
+   318→   318→
+   319→   319→const fadeSlide = {
+   320→   320→  initial: { opacity: 0, y: 12 },
+   321→   321→  animate: { opacity: 1, y: 0 },
+   322→   322→  transition: { duration: 0.3 },
+   323→   323→}
+   324→   324→
+   325→   325→const staggerContainer = {
+   326→   326→  animate: { transition: { staggerChildren: 0.04 } },
+   327→   327→}
+   328→   328→
+   329→   329→const staggerItem = {
+   330→   330→  initial: { opacity: 0, y: 8 },
+   331→   331→  animate: { opacity: 1, y: 0 },
+   332→   332→}
+   333→   333→
+   334→   334→// ─── Sub-components ──────────────────────────────────────────────────────
+   335→   335→
+   336→   336→function SafetyBadges({
+   337→   337→  contraindicationCount,
+   338→   338→  interactionCount,
+   339→   339→  sideEffectCount,
+   340→   340→}: {
+   341→   341→  contraindicationCount: number
+   342→   342→  interactionCount: number
+   343→   343→  sideEffectCount: number
+   344→   344→}) {
+   345→   345→  return (
+   346→   346→    <div className="flex items-center gap-1.5 flex-wrap">
+   347→   347→      {contraindicationCount > 0 && (
+   348→   348→        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">
+   349→   349→          <XCircle className="h-3 w-3 mr-1" />
+   350→   350→          {contraindicationCount} Contra
+   351→   351→        </Badge>
+   352→   352→      )}
+   353→   353→      {interactionCount > 0 && (
+   354→   354→        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800">
+   355→   355→          <AlertTriangle className="h-3 w-3 mr-1" />
+   356→   356→          {interactionCount} Interactions
+   357→   357→        </Badge>
+   358→   358→      )}
+   359→   359→      {sideEffectCount > 0 && (
+   360→   360→        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800">
+   361→   361→          <Info className="h-3 w-3 mr-1" />
+   362→   362→          {sideEffectCount} Side Effects
+   363→   363→        </Badge>
+   364→   364→      )}
+   365→   365→    </div>
+   366→   366→  )
+   367→   367→}
+   368→   368→
+   369→   369→function SectionHeader({ icon: Icon, title, count }: { icon: React.ElementType; title: string; count?: number }) {
+   370→   370→  return (
+   371→   371→    <div className="flex items-center gap-2 mb-3">
+   372→   372→      <Icon className="h-5 w-5 text-muted-foreground" />
+   373→   373→      <h3 className="font-semibold text-base">{title}</h3>
+   374→   374→      {count !== undefined && (
+   375→   375→        <Badge variant="secondary" className="text-xs">{count}</Badge>
+   376→   376→      )}
+   377→   377→    </div>
+   378→   378→  )
+   379→   379→}
+   380→   380→
+   381→   381→function DetailIndications({ indications }: { indications: Indication[] }) {
+   382→   382→  if (indications.length === 0) return <p className="text-sm text-muted-foreground">No indications listed.</p>
+   383→   383→  return (
+   384→   384→    <div className="space-y-4">
+   385→   385→      {indications.map((ind) => (
+   386→   386→        <Card key={ind.id} className="border-l-4 border-l-teal-400 dark:border-l-teal-600">
+   387→   387→          <CardContent className="p-4 space-y-3">
+   388→   388→            <div className="font-semibold text-sm">{ind.condition}</div>
+   389→   389→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+   390→   390→              <div>
+   391→   391→                <span className="text-muted-foreground font-medium block mb-0.5">Why to Use</span>
+   392→   392→                <span>{ind.whyToUse}</span>
+   393→   393→              </div>
+   394→   394→              <div>
+   395→   395→                <span className="text-muted-foreground font-medium block mb-0.5">When to Use</span>
+   396→   396→                <span>{ind.whenToUse}</span>
+   397→   397→              </div>
+   398→   398→              <div>
+   399→   399→                <span className="text-muted-foreground font-medium block mb-0.5">How to Use (Daily)</span>
+   400→   400→                <span>{ind.howToUseDaily}</span>
+   401→   401→              </div>
+   402→   402→              <div>
+   403→   403→                <span className="text-muted-foreground font-medium block mb-0.5">Median Dose</span>
+   404→   404→                <span className="font-mono">{ind.medianDose}</span>
+   405→   405→              </div>
+   406→   406→              <div className="sm:col-span-2">
+   407→   407→                <span className="text-muted-foreground font-medium block mb-0.5">Duration</span>
+   408→   408→                <span>{ind.duration}</span>
+   409→   409→              </div>
+   410→   410→            </div>
+   411→   411→          </CardContent>
+   412→   412→        </Card>
+   413→   413→      ))}
+   414→   414→    </div>
+   415→   415→  )
+   416→   416→}
+   417→   417→
+   418→   418→function DetailContraindications({ items }: { items: Contraindication[] }) {
+   419→   419→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No contraindications listed.</p>
+   420→   420→  return (
+   421→   421→    <div className="space-y-2">
+   422→   422→      {items.map((c) => (
+   423→   423→        <div key={c.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
+   424→   424→          <Badge variant="outline" className={`shrink-0 text-xs ${CONTRA_SEVERITY_COLORS[c.severity] ?? ''}`}>
+   425→   425→            {c.severity}
+   426→   426→          </Badge>
+   427→   427→          <div>
+   428→   428→            <div className="text-sm font-medium">{c.condition}</div>
+   429→   429→            <div className="text-xs text-muted-foreground">{c.reason}</div>
+   430→   430→          </div>
+   431→   431→        </div>
+   432→   432→      ))}
+   433→   433→    </div>
+   434→   434→  )
+   435→   435→}
+   436→   436→
+   437→   437→function DetailDrugInteractions({ items }: { items: DrugInteraction[] }) {
+   438→   438→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No drug interactions listed.</p>
+   439→   439→  return (
+   440→   440→    <div className="space-y-2">
+   441→   441→      {items.map((di) => (
+   442→   442→        <div key={di.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
+   443→   443→          <Badge variant="outline" className={`shrink-0 text-xs ${INTERACTION_SEVERITY_COLORS[di.severity] ?? ''}`}>
+   444→   444→            {di.severity}
+   445→   445→          </Badge>
+   446→   446→          <div className="min-w-0">
+   447→   447→            <div className="text-sm font-medium">{di.interactingDrug}</div>
+   448→   448→            <div className="text-xs text-muted-foreground">Effect: {di.effect}</div>
+   449→   449→            <div className="text-xs text-muted-foreground">Recommendation: {di.recommendation}</div>
+   450→   450→          </div>
+   451→   451→        </div>
+   452→   452→      ))}
+   453→   453→    </div>
+   454→   454→  )
+   455→   455→}
+   456→   456→
+   457→   457→function DetailWarnings({ items }: { items: Warning[] }) {
+   458→   458→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No warnings listed.</p>
+   459→   459→  return (
+   460→   460→    <div className="space-y-2">
+   461→   461→      {items.map((w) => (
+   462→   462→        <div key={w.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50">
+   463→   463→          <Badge variant="outline" className={`shrink-0 text-xs ${WARNING_CATEGORY_COLORS[w.category] ?? ''}`}>
+   464→   464→            {w.category.replace('_', ' ')}
+   465→   465→          </Badge>
+   466→   466→          <p className="text-sm">{w.message}</p>
+   467→   467→        </div>
+   468→   468→      ))}
+   469→   469→    </div>
+   470→   470→  )
+   471→   471→}
+   472→   472→
+   473→   473→function DetailSideEffects({ items }: { items: SideEffect[] }) {
+   474→   474→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No side effects listed.</p>
+   475→   475→  return (
+   476→   476→    <div className="space-y-2">
+   477→   477→      {items.map((se) => (
+   478→   478→        <div key={se.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+   479→   479→          <span className="text-sm flex-1">{se.name}</span>
+   480→   480→          <Badge variant="outline" className={`text-xs ${SIDE_EFFECT_FREQ_COLORS[se.frequency] ?? ''}`}>
+   481→   481→            {se.frequency.replace('_', ' ')}
+   482→   482→          </Badge>
+   483→   483→          <Badge variant="secondary" className="text-xs">{se.severity}</Badge>
+   484→   484→        </div>
+   485→   485→      ))}
+   486→   486→    </div>
+   487→   487→  )
+   488→   488→}
+   489→   489→
+   490→   490→function DetailIngredients({ items }: { items: Ingredient[] }) {
+   491→   491→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No ingredients listed.</p>
+   492→   492→  return (
+   493→   493→    <div className="space-y-1">
+   494→   494→      {items.map((ing) => (
+   495→   495→        <div key={ing.id} className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm">
+   496→   496→          <Badge variant="outline" className={`text-xs shrink-0 ${ing.role === 'ACTIVE' ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800' : 'bg-muted text-muted-foreground'}`}>
+   497→   497→            {ing.role}
+   498→   498→          </Badge>
+   499→   499→          <span className="font-medium">{ing.name}</span>
+   500→   500→          {ing.strength && <span className="text-muted-foreground">{ing.strength}{ing.unit ? ` ${ing.unit}` : ''}</span>}
+   501→   501→        </div>
+   502→   502→      ))}
+   503→   503→    </div>
+   504→   504→  )
+   505→   505→}
+   506→   506→
+   507→   507→function DetailAgeRules({ items }: { items: AgeRule[] }) {
+   508→   508→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No age-specific rules.</p>
+   509→   509→  return (
+   510→   510→    <div className="space-y-2">
+   511→   511→      {items.map((ar) => (
+   512→   512→        <div key={ar.id} className="p-3 rounded-lg bg-muted/50 text-sm">
+   513→   513→          <div className="font-medium mb-1">
+   514→   514→            Age: {ar.minAge ?? 0} – {ar.maxAge ?? '∞'} years
+   515→   515→          </div>
+   516→   516→          <div className="text-muted-foreground">Dose: {ar.doseAdjustment}</div>
+   517→   517→          {ar.notes && <div className="text-xs text-muted-foreground mt-1">{ar.notes}</div>}
+   518→   518→        </div>
+   519→   519→      ))}
+   520→   520→    </div>
+   521→   521→  )
+   522→   522→}
+   523→   523→
+   524→   524→function DetailPopulationRules({ items }: { items: PopulationRule[] }) {
+   525→   525→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No population-specific rules.</p>
+   526→   526→  return (
+   527→   527→    <div className="space-y-2">
+   528→   528→      {items.map((pr) => (
+   529→   529→        <div key={pr.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
+   530→   530→          <Badge variant="outline" className={`shrink-0 text-xs ${POPULATION_SAFETY_COLORS[pr.pregnancySafety] ?? ''}`}>
+   531→   531→            {pr.pregnancySafety}
+   532→   532→          </Badge>
+   533→   533→          <div>
+   534→   534→            <div className="font-medium">{pr.population}</div>
+   535→   535→            <div className="text-xs text-muted-foreground">{pr.notes}</div>
+   536→   536→          </div>
+   537→   537→        </div>
+   538→   538→      ))}
+   539→   539→    </div>
+   540→   540→  )
+   541→   541→}
+   542→   542→
+   543→   543→function DetailTimingRules({ items }: { items: TimingRule[] }) {
+   544→   544→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No timing rules.</p>
+   545→   545→  return (
+   546→   546→    <div className="space-y-2">
+   547→   547→      {items.map((tr) => (
+   548→   548→        <div key={tr.id} className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 text-sm">
+   549→   549→          <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+   550→   550→          <Badge variant="secondary" className="text-xs shrink-0">
+   551→   551→            {TIMING_LABELS[tr.whenToTake] ?? tr.whenToTake}
+   552→   552→          </Badge>
+   553→   553→          <span>{tr.instructions}</span>
+   554→   554→          {tr.offsetMinutes != null && (
+   555→   555→            <span className="text-xs text-muted-foreground">({tr.offsetMinutes} min offset)</span>
+   556→   556→          )}
+   557→   557→        </div>
+   558→   558→      ))}
+   559→   559→    </div>
+   560→   560→  )
+   561→   561→}
+   562→   562→
+   563→   563→function DetailFoodInstructions({ items }: { items: FoodInstruction[] }) {
+   564→   564→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No food instructions.</p>
+   565→   565→  return (
+   566→   566→    <div className="space-y-2">
+   567→   567→      {items.map((fi) => (
+   568→   568→        <div key={fi.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
+   569→   569→          <Utensils className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+   570→   570→          <div>
+   571→   571→            <span className={`font-medium ${FOOD_TYPE_COLORS[fi.type] ?? ''}`}>
+   572→   572→              {FOOD_TYPE_LABELS[fi.type] ?? fi.type}: {fi.item}
+   573→   573→            </span>
+   574→   574→            <div className="text-xs text-muted-foreground">{fi.reason}</div>
+   575→   575→          </div>
+   576→   576→        </div>
+   577→   577→      ))}
+   578→   578→    </div>
+   579→   579→  )
+   580→   580→}
+   581→   581→
+   582→   582→function DetailDurationRules({ items }: { items: DurationRule[] }) {
+   583→   583→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No duration rules.</p>
+   584→   584→  return (
+   585→   585→    <div className="space-y-2">
+   586→   586→      {items.map((dr) => (
+   587→   587→        <div key={dr.id} className="p-3 rounded-lg bg-muted/50 text-sm">
+   588→   588→          <div className="font-medium mb-1">
+   589→   589→            Default: {dr.defaultDuration} {dr.unit}
+   590→   590→            {dr.minDuration != null && dr.maxDuration != null && (
+   591→   591→              <span className="text-muted-foreground ml-2">(Range: {dr.minDuration}–{dr.maxDuration} {dr.unit})</span>
+   592→   592→            )}
+   593→   593→          </div>
+   594→   594→          {dr.notes && <div className="text-xs text-muted-foreground">{dr.notes}</div>}
+   595→   595→        </div>
+   596→   596→      ))}
+   597→   597→    </div>
+   598→   598→  )
+   599→   599→}
+   600→   600→
+   601→   601→function DetailMonitoringRules({ items }: { items: MonitoringRule[] }) {
+   602→   602→  if (items.length === 0) return <p className="text-sm text-muted-foreground">No monitoring rules.</p>
+   603→   603→  return (
+   604→   604→    <div className="space-y-2">
+   605→   605→      {items.map((mr) => (
+   606→   606→        <div key={mr.id} className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
+   607→   607→          <Eye className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+   608→   608→          <div>
+   609→   609→            <div className="font-medium">{mr.parameter}</div>
+   610→   610→            <div className="text-xs text-muted-foreground">Frequency: {mr.frequency}</div>
+   611→   611→            {mr.threshold && <div className="text-xs text-muted-foreground">Threshold: {mr.threshold}</div>}
+   612→   612→            {mr.action && <div className="text-xs text-muted-foreground">Action: {mr.action}</div>}
+   613→   613→          </div>
+   614→   614→        </div>
+   615→   615→      ))}
+   616→   616→    </div>
+   617→   617→  )
+   618→   618→}
+   619→   619→
+   620→   620→function DetailActiveRecalls({ items }: { items: ActiveRecall[] }) {
+   621→   621→  if (items.length === 0) return (
+   622→   622→    <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+   623→   623→      <CheckCircle className="h-4 w-4" />
+   624→   624→      No active recalls
+   625→   625→    </div>
+   626→   626→  )
+   627→   627→  return (
+   628→   628→    <div className="space-y-2">
+   629→   629→      {items.map((ar) => (
+   630→   630→        <div key={ar.id} className="p-3 rounded-lg border border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950 text-sm">
+   631→   631→          <div className="font-semibold text-red-800 dark:text-red-200 mb-1">Recall: {ar.reason}</div>
+   632→   632→          <div className="text-xs text-red-700 dark:text-red-300">Date: {new Date(ar.date).toLocaleDateString()}</div>
+   633→   633→          <div className="text-xs text-red-700 dark:text-red-300">Status: {ar.status}</div>
+   634→   634→          {ar.details && <div className="text-xs text-muted-foreground mt-1">{ar.details}</div>}
+   635→   635→        </div>
+   636→   636→      ))}
+   637→   637→    </div>
+   638→   638→  )
+   639→   639→}
+   640→   640→
+   641→   641→// ─── Main Component ──────────────────────────────────────────────────────
+   642→   642→
+   643→   643→export function MedicinesSection() {
+   644→   644→  const { activeModality, setActiveModality, selectedIssueId } = useAppStore()
+   645→   645→
+   646→   646→  const [search, setSearch] = useState('')
+   647→   647→  const [debouncedSearch, setDebouncedSearch] = useState('')
+   648→   648→  const [modality, setModality] = useState<Modality>(activeModality)
+   649→   649→  const [category, setCategory] = useState<string>('ALL')
+   650→   650→  const [page, setPage] = useState(1)
+   651→   651→  const [medicines, setMedicines] = useState<MedicineListItem[]>([])
+   652→   652→  const [total, setTotal] = useState(0)
+   653→   653→  const [loading, setLoading] = useState(true)
+   654→   654→  const [selectedMedicine, setSelectedMedicine] = useState<MedicineDetail | null>(null)
+   655→   655→  const [detailLoading, setDetailLoading] = useState(false)
+   656→   656→  const [detailOpen, setDetailOpen] = useState(false)
+   657→   657→
+   658→   658→  const limit = 20
+   659→   659→  const totalPages = Math.ceil(total / limit)
+   660→   660→
+   661→   661→  // Debounce search
+   662→   662→  useEffect(() => {
+   663→   663→    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+   664→   664→    return () => clearTimeout(timer)
+   665→   665→  }, [search])
+   666→   666→
+   667→   667→  // Sync modality from store
+   668→   668→  useEffect(() => {
+   669→   669→    setModality(activeModality)
+   670→   670→  }, [activeModality])
+   671→   671→
+   672→   672→  // Fetch catalog
+   673→   673→  const fetchCatalog = useCallback(async () => {
+   674→   674→    setLoading(true)
+   675→   675→    try {
+   676→   676→      const params = new URLSearchParams()
+   677→   677→      if (debouncedSearch) params.set('search', debouncedSearch)
+   678→   678→      params.set('modality', modality)
+   679→   679→      if (category && category !== 'ALL') params.set('category', category)
+   680→   680→      if (selectedIssueId) params.set('issueId', selectedIssueId)
+   681→   681→      params.set('page', String(page))
+   682→   682→      params.set('limit', String(limit))
+   683→   683→
+   684→   684→      const res = await fetch(`/api/medicine-catalog?${params.toString()}`)
+   685→   685→      const data: CatalogResponse = await res.json()
+   686→   686→      setMedicines(data.data ?? [])
+   687→   687→      setTotal(data.total ?? 0)
+   688→   688→    } catch {
+   689→   689→      setMedicines([])
+   690→   690→      setTotal(0)
+   691→   691→    } finally {
+   692→   692→      setLoading(false)
+   693→   693→    }
+   694→   694→  }, [debouncedSearch, modality, category, selectedIssueId, page])
+   695→   695→
+   696→   696→  useEffect(() => {
+   697→   697→    fetchCatalog()
+   698→   698→  }, [fetchCatalog])
+   699→   699→
+   700→   700→  // Reset page when filters change
+   701→   701→  useEffect(() => {
+   702→   702→    setPage(1)
+   703→   703→  }, [debouncedSearch, modality, category, selectedIssueId])
+   704→   704→
+   705→   705→  // Fetch medicine detail
+   706→   706→  const handleSelectMedicine = async (id: string) => {
+   707→   707→    setDetailLoading(true)
+   708→   708→    setDetailOpen(true)
+   709→   709→    try {
+   710→   710→      const res = await fetch(`/api/medicine-catalog/${id}`)
+   711→   711→      const data = await res.json()
+   712→   712→      setSelectedMedicine(data.data ?? data)
+   713→   713→    } catch {
+   714→   714→      setSelectedMedicine(null)
+   715→   715→    } finally {
+   716→   716→      setDetailLoading(false)
+   717→   717→    }
+   718→   718→  }
+   719→   719→
+   720→   720→  const handleModalityChange = (value: string) => {
+   721→   721→    const m = value as Modality
+   722→   722→    setModality(m)
+   723→   723→    setActiveModality(m)
+   724→   724→  }
+   725→   725→
+   726→   726→  const modalityConfig = MODALITY_COLORS[modality] ?? MODALITY_COLORS.ALLOPATHY
+   727→   727→  const ModalityIcon = MODALITY_ICONS[modality] ?? Pill
+   728→   728→
+   729→   729→  return (
+   730→   730→    <motion.div {...fadeSlide} className="space-y-4">
+   731→   731→      {/* ── Search & Filters ── */}
+   732→   732→      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+   733→   733→        <div className="relative flex-1 w-full sm:max-w-sm">
+   734→   734→          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   735→   735→          <Input
+   736→   736→            placeholder="Search medicines..."
+   737→   737→            value={search}
+   738→   738→            onChange={(e) => setSearch(e.target.value)}
+   739→   739→            className="pl-9"
+   740→   740→          />
+   741→   741→        </div>
+   742→   742→        <Select value={category} onValueChange={setCategory}>
+   743→   743→          <SelectTrigger className="w-full sm:w-48">
+   744→   744→            <SelectValue placeholder="Category" />
+   745→   745→          </SelectTrigger>
+   746→   746→          <SelectContent>
+   747→   747→            {CATEGORIES.map((cat) => (
+   748→   748→              <SelectItem key={cat} value={cat}>
+   749→   749→                {cat === 'ALL' ? 'All Categories' : cat}
+   750→   750→              </SelectItem>
+   751→   751→            ))}
+   752→   752→          </SelectContent>
+   753→   753→        </Select>
+   754→   754→      </div>
+   755→   755→
+   756→   756→      {/* ── Modality Tabs ── */}
+   757→   757→      <Tabs value={modality} onValueChange={handleModalityChange}>
+   758→   758→        <TabsList className="w-full sm:w-auto">
+   759→   759→          <TabsTrigger
+   760→   760→            value="ALLOPATHY"
+   761→   761→            className="gap-1.5 data-[state=active]:bg-teal-600 data-[state=active]:text-white"
+   762→   762→          >
+   763→   763→            <Pill className="h-4 w-4" />
+   764→   764→            <span className="hidden sm:inline">Allopathy</span>
+   765→   765→          </TabsTrigger>
+   766→   766→          <TabsTrigger
+   767→   767→            value="AYURVEDA"
+   768→   768→            className="gap-1.5 data-[state=active]:bg-emerald-600 data-[state=active]:text-white"
+   769→   769→          >
+   770→   770→            <Leaf className="h-4 w-4" />
+   771→   771→            <span className="hidden sm:inline">Ayurveda</span>
+   772→   772→          </TabsTrigger>
+   773→   773→          <TabsTrigger
+   774→   774→            value="HOMEOPATHY"
+   775→   775→            className="gap-1.5 data-[state=active]:bg-violet-600 data-[state=active]:text-white"
+   776→   776→          >
+   777→   777→            <Sparkles className="h-4 w-4" />
+   778→   778→            <span className="hidden sm:inline">Homeopathy</span>
+   779→   779→          </TabsTrigger>
+   780→   780→        </TabsList>
+   781→   781→
+   782→   782→        <TabsContent value={modality} className="mt-4">
+   783→   783→          {/* ── Results header ── */}
+   784→   784→          <div className="flex items-center justify-between mb-3">
+   785→   785→            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   786→   786→              <ModalityIcon className="h-4 w-4" />
+   787→   787→              <span>
+   788→   788→                {total} medicine{total !== 1 ? 's' : ''} found
+   789→   789→                {category !== 'ALL' && ` in ${category}`}
+   790→   790→                {selectedIssueId && ' (filtered by issue)'}
+   791→   791→              </span>
+   792→   792→            </div>
+   793→   793→            {totalPages > 1 && (
+   794→   794→              <span className="text-xs text-muted-foreground">
+   795→   795→                Page {page} of {totalPages}
+   796→   796→              </span>
+   797→   797→            )}
+   798→   798→          </div>
+   799→   799→
+   800→   800→          {/* ── Medicine Grid ── */}
+   801→   801→          {loading ? (
+   802→   802→            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+   803→   803→              {Array.from({ length: 6 }).map((_, i) => (
+   804→   804→                <Skeleton key={i} className="h-36 w-full rounded-lg" />
+   805→   805→              ))}
+   806→   806→            </div>
+   807→   807→          ) : medicines.length === 0 ? (
+   808→   808→            <div className="text-center py-12 text-muted-foreground">
+   809→   809→              <Pill className="h-10 w-10 mx-auto mb-3 opacity-40" />
+   810→   810→              <p className="text-sm">No medicines found.</p>
+   811→   811→              <p className="text-xs mt-1">Try adjusting your search or filters.</p>
+   812→   812→            </div>
+   813→   813→          ) : (
+   814→   814→            <motion.div
+   815→   815→              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+   816→   816→              variants={staggerContainer}
+   817→   817→              initial="initial"
+   818→   818→              animate="animate"
+   819→   819→            >
+   820→   820→              {medicines.map((med) => {
+   821→   821→                const mColors = MODALITY_COLORS[med.modality] ?? MODALITY_COLORS.ALLOPATHY
+   822→   822→                const MIcon = MODALITY_ICONS[med.modality] ?? Pill
+   823→   823→                return (
+   824→   824→                  <motion.div key={med.id} variants={staggerItem}>
+   825→   825→                    <Dialog open={detailOpen && selectedMedicine?.id === med.id} onOpenChange={(open) => { if (!open) setDetailOpen(false) }}>
+   826→   826→                      <DialogTrigger asChild>
+   827→   827→                        <Card
+   828→   828→                          className={`cursor-pointer hover:shadow-md transition-shadow border-l-4 ${mColors.border}`}
+   829→   829→                          onClick={() => handleSelectMedicine(med.id)}
+   830→   830→                        >
+   831→   831→                          <CardContent className="p-4">
+   832→   832→                            <div className="flex items-start gap-3">
+   833→   833→                              <div className={`p-2 rounded-lg ${mColors.bg}`}>
+   834→   834→                                <MIcon className={`h-5 w-5 ${mColors.text}`} />
+   835→   835→                              </div>
+   836→   836→                              <div className="flex-1 min-w-0 space-y-1.5">
+   837→   837→                                <div className="flex items-center gap-2 flex-wrap">
+   838→   838→                                  <span className="font-semibold text-sm truncate">{med.name}</span>
+   839→   839→                                  <Badge variant="outline" className={`text-xs shrink-0 ${med.isOTC ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'}`}>
+   840→   840→                                    {med.isOTC ? 'OTC' : 'Rx'}
+   841→   841→                                  </Badge>
+   842→   842→                                </div>
+   843→   843→                                <p className="text-xs text-muted-foreground truncate">{med.genericName}</p>
+   844→   844→                                <div className="flex items-center gap-1.5 flex-wrap">
+   845→   845→                                  <Badge variant="secondary" className="text-xs">{med.category}</Badge>
+   846→   846→                                  <Badge variant="outline" className="text-xs">{med.form}</Badge>
+   847→   847→                                  <Badge variant="outline" className="text-xs font-mono">{med.strength}</Badge>
+   848→   848→                                </div>
+   849→   849→                                <SafetyBadges
+   850→   850→                                  contraindicationCount={med.contraindicationCount}
+   851→   851→                                  interactionCount={med.interactionCount}
+   852→   852→                                  sideEffectCount={med.sideEffectCount}
+   853→   853→                                />
+   854→   854→                              </div>
+   855→   855→                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+   856→   856→                            </div>
+   857→   857→                          </CardContent>
+   858→   858→                        </Card>
+   859→   859→                      </DialogTrigger>
+   860→   860→
+   861→   861→                      <DialogContent className="max-w-3xl max-h-[90vh] p-0">
+   862→   862→                        <ScrollArea className="max-h-[85vh]">
+   863→   863→                          <div className="p-6 space-y-6">
+   864→   864→                            {detailLoading ? (
+   865→   865→                              <div className="space-y-3">
+   866→   866→                                <Skeleton className="h-8 w-3/4" />
+   867→   867→                                <Skeleton className="h-4 w-1/2" />
+   868→   868→                                <Skeleton className="h-32 w-full" />
+   869→   869→                              </div>
+   870→   870→                            ) : selectedMedicine ? (
+   871→   871→                              <>
+   872→   872→                                {/* ── Detail Header ── */}
+   873→   873→                                <div className="space-y-2">
+   874→   874→                                  <DialogHeader>
+   875→   875→                                    <DialogTitle className="text-xl">{selectedMedicine.name}</DialogTitle>
+   876→   876→                                  </DialogHeader>
+   877→   877→                                  <div className="flex items-center gap-2 flex-wrap">
+   878→   878→                                    <Badge variant="outline" className={`text-xs ${modalityConfig.border} ${modalityConfig.text} ${modalityConfig.bg}`}>
+   879→   879→                                      {selectedMedicine.modality}
+   880→   880→                                    </Badge>
+   881→   881→                                    <Badge variant="outline" className={`text-xs ${selectedMedicine.isOTC ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'}`}>
+   882→   882→                                      {selectedMedicine.isOTC ? 'OTC' : 'Prescription'}
+   883→   883→                                    </Badge>
+   884→   884→                                    <Badge variant="secondary" className="text-xs">{selectedMedicine.category}</Badge>
+   885→   885→                                    <Badge variant="outline" className="text-xs">{selectedMedicine.form}</Badge>
+   886→   886→                                    <Badge variant="outline" className="text-xs font-mono">{selectedMedicine.strength}</Badge>
+   887→   887→                                  </div>
+   888→   888→                                  <p className="text-sm text-muted-foreground">
+   889→   889→                                    Generic: <span className="font-medium">{selectedMedicine.genericName}</span>
+   890→   890→                                  </p>
+   891→   891→                                </div>
+   892→   892→
+   893→   893→                                {/* ── Active Recalls Alert ── */}
+   894→   894→                                {selectedMedicine.activeRecalls.length > 0 && (
+   895→   895→                                  <div className="p-4 rounded-lg border-2 border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950">
+   896→   896→                                    <SectionHeader icon={AlertTriangle} title="Active Recalls" count={selectedMedicine.activeRecalls.length} />
+   897→   897→                                    <DetailActiveRecalls items={selectedMedicine.activeRecalls} />
+   898→   898→                                  </div>
+   899→   899→                                )}
+   900→   900→
+   901→   901→                                <Separator />
+   902→   902→
+   903→   903→                                {/* ── Accordion Sections ── */}
+   904→   904→                                <Accordion type="multiple" defaultValue={['indications', 'composition', 'contraindications', 'interactions']} className="space-y-1">
+   905→   905→                                  {/* Indications */}
+   906→   906→                                  <AccordionItem value="indications">
+   907→   907→                                    <AccordionTrigger className="hover:no-underline">
+   908→   908→                                      <div className="flex items-center gap-2">
+   909→   909→                                        <CheckCircle className="h-4 w-4 text-teal-500" />
+   910→   910→                                        <span className="font-semibold">Indications</span>
+   911→   911→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.indications.length}</Badge>
+   912→   912→                                      </div>
+   913→   913→                                    </AccordionTrigger>
+   914→   914→                                    <AccordionContent>
+   915→   915→                                      <DetailIndications indications={selectedMedicine.indications} />
+   916→   916→                                    </AccordionContent>
+   917→   917→                                  </AccordionItem>
+   918→   918→
+   919→   919→                                  {/* Brand Names & Composition */}
+   920→   920→                                  <AccordionItem value="composition">
+   921→   921→                                    <AccordionTrigger className="hover:no-underline">
+   922→   922→                                      <div className="flex items-center gap-2">
+   923→   923→                                        <Pill className="h-4 w-4 text-blue-500" />
+   924→   924→                                        <span className="font-semibold">Brand Names &amp; Composition</span>
+   925→   925→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.ingredients.length}</Badge>
+   926→   926→                                      </div>
+   927→   927→                                    </AccordionTrigger>
+   928→   928→                                    <AccordionContent className="space-y-4">
+   929→   929→                                      {selectedMedicine.brandNames.length > 0 && (
+   930→   930→                                        <div>
+   931→   931→                                          <h4 className="text-sm font-medium mb-2">Brand Names</h4>
+   932→   932→                                          <div className="flex flex-wrap gap-1.5">
+   933→   933→                                            {selectedMedicine.brandNames.map((bn, i) => (
+   934→   934→                                              <Badge key={i} variant="outline" className="text-xs">{bn}</Badge>
+   935→   935→                                            ))}
+   936→   936→                                          </div>
+   937→   937→                                        </div>
+   938→   938→                                      )}
+   939→   939→                                      <div>
+   940→   940→                                        <h4 className="text-sm font-medium mb-2">Ingredients / Composition</h4>
+   941→   941→                                        <DetailIngredients items={selectedMedicine.ingredients} />
+   942→   942→                                      </div>
+   943→   943→                                    </AccordionContent>
+   944→   944→                                  </AccordionItem>
+   945→   945→
+   946→   946→                                  {/* Contraindications */}
+   947→   947→                                  <AccordionItem value="contraindications">
+   948→   948→                                    <AccordionTrigger className="hover:no-underline">
+   949→   949→                                      <div className="flex items-center gap-2">
+   950→   950→                                        <XCircle className="h-4 w-4 text-red-500" />
+   951→   951→                                        <span className="font-semibold">Contraindications</span>
+   952→   952→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.contraindications.length}</Badge>
+   953→   953→                                      </div>
+   954→   954→                                    </AccordionTrigger>
+   955→   955→                                    <AccordionContent>
+   956→   956→                                      <DetailContraindications items={selectedMedicine.contraindications} />
+   957→   957→                                    </AccordionContent>
+   958→   958→                                  </AccordionItem>
+   959→   959→
+   960→   960→                                  {/* Drug Interactions */}
+   961→   961→                                  <AccordionItem value="interactions">
+   962→   962→                                    <AccordionTrigger className="hover:no-underline">
+   963→   963→                                      <div className="flex items-center gap-2">
+   964→   964→                                        <AlertTriangle className="h-4 w-4 text-amber-500" />
+   965→   965→                                        <span className="font-semibold">Drug Interactions</span>
+   966→   966→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.drugInteractions.length}</Badge>
+   967→   967→                                      </div>
+   968→   968→                                    </AccordionTrigger>
+   969→   969→                                    <AccordionContent>
+   970→   970→                                      <DetailDrugInteractions items={selectedMedicine.drugInteractions} />
+   971→   971→                                    </AccordionContent>
+   972→   972→                                  </AccordionItem>
+   973→   973→
+   974→   974→                                  {/* Warnings */}
+   975→   975→                                  <AccordionItem value="warnings">
+   976→   976→                                    <AccordionTrigger className="hover:no-underline">
+   977→   977→                                      <div className="flex items-center gap-2">
+   978→   978→                                        <Shield className="h-4 w-4 text-orange-500" />
+   979→   979→                                        <span className="font-semibold">Warnings</span>
+   980→   980→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.warnings.length}</Badge>
+   981→   981→                                      </div>
+   982→   982→                                    </AccordionTrigger>
+   983→   983→                                    <AccordionContent>
+   984→   984→                                      <DetailWarnings items={selectedMedicine.warnings} />
+   985→   985→                                    </AccordionContent>
+   986→   986→                                  </AccordionItem>
+   987→   987→
+   988→   988→                                  {/* Side Effects */}
+   989→   989→                                  <AccordionItem value="side-effects">
+   990→   990→                                    <AccordionTrigger className="hover:no-underline">
+   991→   991→                                      <div className="flex items-center gap-2">
+   992→   992→                                        <Activity className="h-4 w-4 text-pink-500" />
+   993→   993→                                        <span className="font-semibold">Side Effects</span>
+   994→   994→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.sideEffects.length}</Badge>
+   995→   995→                                      </div>
+   996→   996→                                    </AccordionTrigger>
+   997→   997→                                    <AccordionContent>
+   998→   998→                                      <DetailSideEffects items={selectedMedicine.sideEffects} />
+   999→   999→                                    </AccordionContent>
+  1000→  1000→                                  </AccordionItem>
+  1001→  1001→
+  1002→  1002→                                  {/* Age Rules */}
+  1003→  1003→                                  <AccordionItem value="age-rules">
+  1004→  1004→                                    <AccordionTrigger className="hover:no-underline">
+  1005→  1005→                                      <div className="flex items-center gap-2">
+  1006→  1006→                                        <Baby className="h-4 w-4 text-sky-500" />
+  1007→  1007→                                        <span className="font-semibold">Age / Pediatric Dosing</span>
+  1008→  1008→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.ageRules.length}</Badge>
+  1009→  1009→                                      </div>
+  1010→  1010→                                    </AccordionTrigger>
+  1011→  1011→                                    <AccordionContent>
+  1012→  1012→                                      <DetailAgeRules items={selectedMedicine.ageRules} />
+  1013→  1013→                                    </AccordionContent>
+  1014→  1014→                                  </AccordionItem>
+  1015→  1015→
+  1016→  1016→                                  {/* Population Rules */}
+  1017→  1017→                                  <AccordionItem value="population-rules">
+  1018→  1018→                                    <AccordionTrigger className="hover:no-underline">
+  1019→  1019→                                      <div className="flex items-center gap-2">
+  1020→  1020→                                        <Heart className="h-4 w-4 text-rose-500" />
+  1021→  1021→                                        <span className="font-semibold">Population Rules (Pregnancy Safety)</span>
+  1022→  1022→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.populationRules.length}</Badge>
+  1023→  1023→                                      </div>
+  1024→  1024→                                    </AccordionTrigger>
+  1025→  1025→                                    <AccordionContent>
+  1026→  1026→                                      <DetailPopulationRules items={selectedMedicine.populationRules} />
+  1027→  1027→                                    </AccordionContent>
+  1028→  1028→                                  </AccordionItem>
+  1029→  1029→
+  1030→  1030→                                  {/* Timing Rules */}
+  1031→  1031→                                  <AccordionItem value="timing-rules">
+  1032→  1032→                                    <AccordionTrigger className="hover:no-underline">
+  1033→  1033→                                      <div className="flex items-center gap-2">
+  1034→  1034→                                        <Clock className="h-4 w-4 text-indigo-500" />
+  1035→  1035→                                        <span className="font-semibold">Timing Rules</span>
+  1036→  1036→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.timingRules.length}</Badge>
+  1037→  1037→                                      </div>
+  1038→  1038→                                    </AccordionTrigger>
+  1039→  1039→                                    <AccordionContent>
+  1040→  1040→                                      <DetailTimingRules items={selectedMedicine.timingRules} />
+  1041→  1041→                                    </AccordionContent>
+  1042→  1042→                                  </AccordionItem>
+  1043→  1043→
+  1044→  1044→                                  {/* Food Instructions */}
+  1045→  1045→                                  <AccordionItem value="food-instructions">
+  1046→  1046→                                    <AccordionTrigger className="hover:no-underline">
+  1047→  1047→                                      <div className="flex items-center gap-2">
+  1048→  1048→                                        <Utensils className="h-4 w-4 text-yellow-600" />
+  1049→  1049→                                        <span className="font-semibold">Food Instructions</span>
+  1050→  1050→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.foodInstructions.length}</Badge>
+  1051→  1051→                                      </div>
+  1052→  1052→                                    </AccordionTrigger>
+  1053→  1053→                                    <AccordionContent>
+  1054→  1054→                                      <DetailFoodInstructions items={selectedMedicine.foodInstructions} />
+  1055→  1055→                                    </AccordionContent>
+  1056→  1056→                                  </AccordionItem>
+  1057→  1057→
+  1058→  1058→                                  {/* Duration Rules */}
+  1059→  1059→                                  <AccordionItem value="duration-rules">
+  1060→  1060→                                    <AccordionTrigger className="hover:no-underline">
+  1061→  1061→                                      <div className="flex items-center gap-2">
+  1062→  1062→                                        <Clock className="h-4 w-4 text-teal-500" />
+  1063→  1063→                                        <span className="font-semibold">Duration Rules</span>
+  1064→  1064→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.durationRules.length}</Badge>
+  1065→  1065→                                      </div>
+  1066→  1066→                                    </AccordionTrigger>
+  1067→  1067→                                    <AccordionContent>
+  1068→  1068→                                      <DetailDurationRules items={selectedMedicine.durationRules} />
+  1069→  1069→                                    </AccordionContent>
+  1070→  1070→                                  </AccordionItem>
+  1071→  1071→
+  1072→  1072→                                  {/* Monitoring Rules */}
+  1073→  1073→                                  <AccordionItem value="monitoring-rules">
+  1074→  1074→                                    <AccordionTrigger className="hover:no-underline">
+  1075→  1075→                                      <div className="flex items-center gap-2">
+  1076→  1076→                                        <Eye className="h-4 w-4 text-cyan-500" />
+  1077→  1077→                                        <span className="font-semibold">Monitoring Rules</span>
+  1078→  1078→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.monitoringRules.length}</Badge>
+  1079→  1079→                                      </div>
+  1080→  1080→                                    </AccordionTrigger>
+  1081→  1081→                                    <AccordionContent>
+  1082→  1082→                                      <DetailMonitoringRules items={selectedMedicine.monitoringRules} />
+  1083→  1083→                                    </AccordionContent>
+  1084→  1084→                                  </AccordionItem>
+  1085→  1085→
+  1086→  1086→                                  {/* Active Recalls (in accordion too) */}
+  1087→  1087→                                  <AccordionItem value="recalls">
+  1088→  1088→                                    <AccordionTrigger className="hover:no-underline">
+  1089→  1089→                                      <div className="flex items-center gap-2">
+  1090→  1090→                                        <AlertTriangle className="h-4 w-4 text-red-500" />
+  1091→  1091→                                        <span className="font-semibold">Active Recalls</span>
+  1092→  1092→                                        <Badge variant="secondary" className="text-xs">{selectedMedicine.activeRecalls.length}</Badge>
+  1093→  1093→                                      </div>
+  1094→  1094→                                    </AccordionTrigger>
+  1095→  1095→                                    <AccordionContent>
+  1096→  1096→                                      <DetailActiveRecalls items={selectedMedicine.activeRecalls} />
+  1097→  1097→                                    </AccordionContent>
+  1098→  1098→                                  </AccordionItem>
+  1099→  1099→                                </Accordion>
+  1100→  1100→                              </>
+  1101→  1101→                            ) : (
+  1102→  1102→                              <div className="text-center py-8 text-muted-foreground">
+  1103→  1103→                                <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+  1104→  1104→                                <p className="text-sm">Could not load medicine details.</p>
+  1105→  1105→                              </div>
+  1106→  1106→                            )}
+  1107→  1107→                          </div>
+  1108→  1108→                        </ScrollArea>
+  1109→  1109→                      </DialogContent>
+  1110→  1110→                    </Dialog>
+  1111→  1111→                  </motion.div>
+  1112→  1112→                )
+  1113→  1113→              })}
+  1114→  1114→            </motion.div>
+  1115→  1115→          )}
+  1116→  1116→
+  1117→  1117→          {/* ── Pagination ── */}
+  1118→  1118→          {totalPages > 1 && (
+  1119→  1119→            <div className="flex items-center justify-center gap-2 mt-6">
+  1120→  1120→              <Button
+  1121→  1121→                variant="outline"
+  1122→  1122→                size="sm"
+  1123→  1123→                disabled={page <= 1}
+  1124→  1124→                onClick={() => setPage((p) => Math.max(1, p - 1))}
+  1125→  1125→              >
+  1126→  1126→                Previous
+  1127→  1127→              </Button>
+  1128→  1128→              <div className="flex items-center gap-1">
+  1129→  1129→                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+  1130→  1130→                  let pageNum: number
+  1131→  1131→                  if (totalPages <= 5) {
+  1132→  1132→                    pageNum = i + 1
+  1133→  1133→                  } else if (page <= 3) {
+  1134→  1134→                    pageNum = i + 1
+  1135→  1135→                  } else if (page >= totalPages - 2) {
+  1136→  1136→                    pageNum = totalPages - 4 + i
+  1137→  1137→                  } else {
+  1138→  1138→                    pageNum = page - 2 + i
+  1139→  1139→                  }
+  1140→  1140→                  return (
+  1141→  1141→                    <Button
+  1142→  1142→                      key={pageNum}
+  1143→  1143→                      variant={pageNum === page ? 'default' : 'outline'}
+  1144→  1144→                      size="sm"
+  1145→  1145→                      className="w-8 h-8 p-0"
+  1146→  1146→                      onClick={() => setPage(pageNum)}
+  1147→  1147→                    >
+  1148→  1148→                      {pageNum}
+  1149→  1149→                    </Button>
+  1150→  1150→                  )
+  1151→  1151→                })}
+  1152→  1152→              </div>
+  1153→  1153→              <Button
+  1154→  1154→                variant="outline"
+  1155→  1155→                size="sm"
+  1156→  1156→                disabled={page >= totalPages}
+  1157→  1157→                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+  1158→  1158→              >
+  1159→  1159→                Next
+  1160→  1160→              </Button>
+  1161→  1161→            </div>
+  1162→  1162→          )}
+  1163→  1163→        </TabsContent>
+  1164→  1164→      </Tabs>
+  1165→  1165→    </motion.div>
+  1166→  1166→  )
+  1167→  1167→}
+  1168→  1168→

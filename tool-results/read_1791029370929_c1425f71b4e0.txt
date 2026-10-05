@@ -1,0 +1,1607 @@
+     1→// ================================================================
+     2→// Clinician-Governed Multi-Modality Healthcare SaaS
+     3→// Three Care Tracks: ALLOPATHY, AYURVEDA, HOMEOPATHY (NEVER MERGED)
+     4→// Database: PostgreSQL (Neon Serverless)
+     5→// ================================================================
+     6→
+     7→generator client {
+     8→  provider = "prisma-client-js"
+     9→}
+    10→
+    11→datasource db {
+    12→  provider  = "postgresql"
+    13→  url       = env("DATABASE_URL")
+    14→  directUrl = env("DATABASE_URL_UNPOOLED")
+    15→}
+    16→
+    17→// ============================================================
+    18→// TENANCY & AUTH
+    19→// ============================================================
+    20→
+    21→model Tenant {
+    22→  id           String   @id @default(cuid())
+    23→  name         String
+    24→  code         String   @unique
+    25→  jurisdiction String   @default("IN")
+    26→  isActive     Boolean  @default(true)
+    27→  createdAt    DateTime @default(now())
+    28→  updatedAt    DateTime @updatedAt
+    29→
+    30→  users             User[]
+    31→  patients          Patient[]
+    32→  practitioners     Practitioner[]
+    33→  knowledgeSources  KnowledgeSource[]
+    34→  auditEvents       AuditEvent[]
+    35→  counterfeitReports CounterfeitReport[]
+    36→  apiKeys           APIKey[]
+    37→}
+    38→
+    39→model Role {
+    40→  id          String   @id @default(cuid())
+    41→  name        String   @unique
+    42→  description String?
+    43→  permissions String   // JSON array
+    44→  createdAt   DateTime @default(now())
+    45→
+    46→  users User[]
+    47→}
+    48→
+    49→model User {
+    50→  id        String   @id @default(cuid())
+    51→  tenantId  String
+    52→  email     String
+    53→  name      String
+    54→  role      String   @default("PATIENT")
+    55→  roleId    String?
+    56→  isActive  Boolean  @default(true)
+    57→  createdAt DateTime @default(now())
+    58→  updatedAt DateTime @updatedAt
+    59→
+    60→  tenant  Tenant @relation(fields: [tenantId], references: [id])
+    61→  roleRef Role?  @relation(fields: [roleId], references: [id])
+    62→
+    63→  @@unique([tenantId, email])
+    64→}
+    65→
+    66→// ============================================================
+    67→// PRACTITIONER
+    68→// ============================================================
+    69→
+    70→model Practitioner {
+    71→  id             String   @id @default(cuid())
+    72→  tenantId       String
+    73→  userId         String?
+    74→  name           String
+    75→  specialization String
+    76→  modality       String   @default("ALLOPATHY")
+    77→  licenseNumber  String?
+    78→  isActive       Boolean  @default(true)
+    79→  createdAt      DateTime @default(now())
+    80→  updatedAt      DateTime @updatedAt
+    81→
+    82→  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+    83→  encounters     Encounter[]
+    84→  signedCarePlans SignedCarePlan[]
+    85→  prescriptions  Prescription[]
+    86→  labOrders      LabOrder[]
+    87→  appointments   Appointment[]
+    88→  clinicalNotes  ClinicalNote[]
+    89→  dischargeSummaries DischargeSummary[]
+    90→  sentReferrals  Referral[]       @relation("FromPractitioner")
+    91→  receivedReferrals Referral[]    @relation("ToPractitioner")
+    92→  telemedicineSessions TelemedicineSession[]
+    93→  documents      DocumentUpload[]
+    94→}
+    95→
+    96→// ============================================================
+    97→// PATIENT & PROFILE
+    98→// ============================================================
+    99→
+   100→model Patient {
+   101→  id               String   @id @default(cuid())
+   102→  tenantId         String
+   103→  userId           String?
+   104→  firstName        String
+   105→  lastName         String
+   106→  dateOfBirth      String?
+   107→  gender           String?
+   108→  phone            String?
+   109→  email            String?
+   110→  address          String?
+   111→  bloodGroup       String?
+   112→  emergencyContact String?
+   113→  isActive         Boolean  @default(true)
+   114→  createdAt        DateTime @default(now())
+   115→  updatedAt        DateTime @updatedAt
+   116→
+   117→  tenant              Tenant              @relation(fields: [tenantId], references: [id])
+   118→  consents            Consent[]
+   119→  encounters          Encounter[]
+   120→  allergies           Allergy[]
+   121→  medicationStatements MedicationStatement[]
+   122→  symptoms            Symptom[]
+   123→  conditions          Condition[]
+   124→  safetyAlerts        SafetyAlert[]
+   125→  clinicalDrafts      ClinicalDraft[]
+   126→  signedCarePlans     SignedCarePlan[]
+   127→  followUps           FollowUp[]
+   128→  adverseEvents       AdverseEvent[]
+   129→  prescriptions       Prescription[]
+   130→  labOrders           LabOrder[]
+   131→  appointments        Appointment[]
+   132→  clinicalNotes       ClinicalNote[]
+   133→  insurancePolicies   InsurancePolicy[]
+   134→  insuranceClaims     InsuranceClaim[]
+   135→  billingRecords      BillingRecord[]
+   136→  dischargeSummaries  DischargeSummary[]
+   137→  referrals           Referral[]
+   138→  timelineEvents      PatientTimelineEvent[]
+   139→  telemedicineSessions TelemedicineSession[]
+   140→  followUpReminders   FollowUpReminder[]
+   141→  documents           DocumentUpload[]
+   142→}
+   143→
+   144→// ============================================================
+   145→// CONSENT
+   146→// ============================================================
+   147→
+   148→model Consent {
+   149→  id        String    @id @default(cuid())
+   150→  patientId String
+   151→  type      String    // TREATMENT, DATA_SHARING, AI_ASSISTED, RESEARCH
+   152→  modality  String    @default("ALLOPATHY")
+   153→  status    String    @default("PENDING")
+   154→  grantedAt DateTime?
+   155→  revokedAt DateTime?
+   156→  expiresAt DateTime?
+   157→  notes     String?
+   158→  createdAt DateTime  @default(now())
+   159→  updatedAt DateTime  @updatedAt
+   160→
+   161→  patient Patient @relation(fields: [patientId], references: [id])
+   162→}
+   163→
+   164→// ============================================================
+   165→// CLINICAL ENCOUNTER
+   166→// ============================================================
+   167→
+   168→model Encounter {
+   169→  id             String    @id @default(cuid())
+   170→  patientId      String
+   171→  practitionerId String?
+   172→  tenantId       String
+   173→  modality       String    @default("ALLOPATHY")
+   174→  status         String    @default("PLANNED")
+   175→  priority       String    @default("ROUTINE")
+   176→  reason         String?
+   177→  startedAt      DateTime?
+   178→  endedAt        DateTime?
+   179→  createdAt      DateTime  @default(now())
+   180→  updatedAt      DateTime  @updatedAt
+   181→
+   182→  patient          Patient          @relation(fields: [patientId], references: [id])
+   183→  practitioner     Practitioner?    @relation(fields: [practitionerId], references: [id])
+   184→  intake           Intake?
+   185→  triageAssessment TriageAssessment?
+   186→  clinicalDrafts   ClinicalDraft[]
+   187→}
+   188→
+   189→// ============================================================
+   190→// INTAKE
+   191→// ============================================================
+   192→
+   193→model Intake {
+   194→  id                      String   @id @default(cuid())
+   195→  encounterId             String   @unique
+   196→  chiefComplaint          String
+   197→  historyOfPresentIllness String?
+   198→  reviewOfSystems         String?
+   199→  createdAt               DateTime @default(now())
+   200→  updatedAt               DateTime @updatedAt
+   201→
+   202→  encounter Encounter @relation(fields: [encounterId], references: [id])
+   203→}
+   204→
+   205→// ============================================================
+   206→// CLINICAL ENTITIES
+   207→// ============================================================
+   208→
+   209→model Symptom {
+   210→  id          String   @id @default(cuid())
+   211→  patientId   String
+   212→  encounterId String?
+   213→  name        String
+   214→  severity    String   @default("MODERATE")
+   215→  onset       String?
+   216→  duration    String?
+   217→  notes       String?
+   218→  createdAt   DateTime @default(now())
+   219→
+   220→  patient Patient @relation(fields: [patientId], references: [id])
+   221→}
+   222→
+   223→model Condition {
+   224→  id        String   @id @default(cuid())
+   225→  patientId String
+   226→  code      String
+   227→  name      String
+   228→  modality  String   @default("ALLOPATHY")
+   229→  status    String   @default("ACTIVE")
+   230→  onsetDate String?
+   231→  notes     String?
+   232→  createdAt DateTime @default(now())
+   233→
+   234→  patient Patient @relation(fields: [patientId], references: [id])
+   235→}
+   236→
+   237→model Allergy {
+   238→  id        String   @id @default(cuid())
+   239→  patientId String
+   240→  substance String
+   241→  reaction  String?
+   242→  severity  String   @default("MODERATE")
+   243→  verified  Boolean  @default(false)
+   244→  createdAt DateTime @default(now())
+   245→
+   246→  patient Patient @relation(fields: [patientId], references: [id])
+   247→}
+   248→
+   249→model MedicationStatement {
+   250→  id        String   @id @default(cuid())
+   251→  patientId String
+   252→  medication String
+   253→  dosage    String?
+   254→  frequency String?
+   255→  route     String?
+   256→  startDate String?
+   257→  endDate   String?
+   258→  modality  String   @default("ALLOPATHY")
+   259→  isActive  Boolean  @default(true)
+   260→  notes     String?
+   261→  createdAt DateTime @default(now())
+   262→
+   263→  patient Patient @relation(fields: [patientId], references: [id])
+   264→}
+   265→
+   266→// ============================================================
+   267→// TRIAGE & SAFETY
+   268→// ============================================================
+   269→
+   270→model TriageRule {
+   271→  id        String   @id @default(cuid())
+   272→  name      String
+   273→  modality  String   @default("ALLOPATHY")
+   274→  condition String
+   275→  priority  String
+   276→  action    String
+   277→  isActive  Boolean  @default(true)
+   278→  createdAt DateTime @default(now())
+   279→}
+   280→
+   281→model TriageAssessment {
+   282→  id          String   @id @default(cuid())
+   283→  encounterId String   @unique
+   284→  priority    String   @default("ROUTINE")
+   285→  ruleIds     String?
+   286→  reasoning   String?
+   287→  assessedAt  DateTime @default(now())
+   288→
+   289→  encounter Encounter @relation(fields: [encounterId], references: [id])
+   290→}
+   291→
+   292→model SafetyAlert {
+   293→  id              String    @id @default(cuid())
+   294→  patientId       String
+   295→  encounterId     String?
+   296→  type            String
+   297→  severity        String    @default("WARNING")
+   298→  message         String
+   299→  source          String
+   300→  status          String    @default("ACTIVE")
+   301→  acknowledgedBy  String?
+   302→  acknowledgedAt  DateTime?
+   303→  metadata        String?
+   304→  createdAt       DateTime  @default(now())
+   305→
+   306→  patient Patient @relation(fields: [patientId], references: [id])
+   307→}
+   308→
+   309→// ============================================================
+   310→// CARE TRACK & CLINICAL DRAFTS
+   311→// ============================================================
+   312→
+   313→model CareTrack {
+   314→  id          String   @id @default(cuid())
+   315→  name        String
+   316→  modality    String   @default("ALLOPATHY")
+   317→  description String?
+   318→  isActive    Boolean  @default(true)
+   319→  createdAt   DateTime @default(now())
+   320→}
+   321→
+   322→model ClinicalDraft {
+   323→  id             String    @id @default(cuid())
+   324→  patientId      String
+   325→  encounterId    String?
+   326→  practitionerId String?
+   327→  modality       String    @default("ALLOPATHY")
+   328→  content        String
+   329→  aiGenerated    Boolean   @default(false)
+   330→  citations      String?
+   331→  safetyFlags    String?
+   332→  status         String    @default("DRAFT")
+   333→  reviewedBy     String?
+   334→  reviewedAt     DateTime?
+   335→  reviewNotes    String?
+   336→  signedBy       String?
+   337→  signedAt       DateTime?
+   338→  version        Int       @default(1)
+   339→  createdAt      DateTime  @default(now())
+   340→  updatedAt      DateTime  @updatedAt
+   341→
+   342→  patient   Patient    @relation(fields: [patientId], references: [id])
+   343→  encounter Encounter? @relation(fields: [encounterId], references: [id])
+   344→}
+   345→
+   346→model SignedCarePlan {
+   347→  id             String   @id @default(cuid())
+   348→  patientId      String
+   349→  practitionerId String?
+   350→  draftId        String?
+   351→  modality       String   @default("ALLOPATHY")
+   352→  content        String
+   353→  patientSummary String?
+   354→  signedBy       String
+   355→  signedAt       DateTime @default(now())
+   356→  isActive       Boolean  @default(true)
+   357→  createdAt      DateTime @default(now())
+   358→
+   359→  patient      Patient       @relation(fields: [patientId], references: [id])
+   360→  practitioner Practitioner? @relation(fields: [practitionerId], references: [id])
+   361→}
+   362→
+   363→model FollowUp {
+   364→  id          String    @id @default(cuid())
+   365→  patientId   String
+   366→  carePlanId  String?
+   367→  type        String
+   368→  scheduledAt DateTime
+   369→  status      String    @default("SCHEDULED")
+   370→  notes       String?
+   371→  createdAt   DateTime  @default(now())
+   372→
+   373→  patient Patient @relation(fields: [patientId], references: [id])
+   374→}
+   375→
+   376→model AdverseEvent {
+   377→  id          String   @id @default(cuid())
+   378→  patientId   String
+   379→  type        String
+   380→  description String
+   381→  severity    String   @default("MODERATE")
+   382→  outcome     String?
+   383→  reportedAt  DateTime @default(now())
+   384→  createdAt   DateTime @default(now())
+   385→
+   386→  patient Patient @relation(fields: [patientId], references: [id])
+   387→}
+   388→
+   389→// ============================================================
+   390→// KNOWLEDGE & RAG
+   391→// ============================================================
+   392→
+   393→model KnowledgeSource {
+   394→  id             String    @id @default(cuid())
+   395→  tenantId       String
+   396→  name           String
+   397→  modality       String    @default("ALLOPATHY")
+   398→  sourceType     String
+   399→  evidenceLevel  String?
+   400→  jurisdiction   String    @default("IN")
+   401→  license        String?
+   402→  sourceUrl      String?
+   403→  reviewStatus   String    @default("PENDING")
+   404→  reviewerId     String?
+   405→  effectiveFrom  DateTime?
+   406→  effectiveUntil DateTime?
+   407→  isActive       Boolean   @default(true)
+   408→  createdAt      DateTime  @default(now())
+   409→  updatedAt      DateTime  @updatedAt
+   410→
+   411→  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+   412→  documents SourceDocument[]
+   413→}
+   414→
+   415→model SourceDocument {
+   416→  id         String   @id @default(cuid())
+   417→  sourceId   String
+   418→  title      String
+   419→  content    String
+   420→  version    Int      @default(1)
+   421→  metadata   String?
+   422→  chunkCount Int      @default(0)
+   423→  createdAt  DateTime @default(now())
+   424→  updatedAt  DateTime @updatedAt
+   425→
+   426→  source KnowledgeSource @relation(fields: [sourceId], references: [id])
+   427→}
+   428→
+   429→// ============================================================
+   430→// COMMERCE (Firewalled from Clinical)
+   431→// ============================================================
+   432→
+   433→model Supplier {
+   434→  id            String   @id @default(cuid())
+   435→  name          String
+   436→  licenseNumber String?
+   437→  isActive      Boolean  @default(true)
+   438→  createdAt     DateTime @default(now())
+   439→
+   440→  products Product[]
+   441→}
+   442→
+   443→model Product {
+   444→  id         String   @id @default(cuid())
+   445→  name       String
+   446→  modality   String   @default("ALLOPATHY")
+   447→  supplierId String?
+   448→  sku        String?
+   449→  isActive   Boolean  @default(true)
+   450→  createdAt  DateTime @default(now())
+   451→
+   452→  supplier Supplier? @relation(fields: [supplierId], references: [id])
+   453→}
+   454→
+   455→// ============================================================
+   456→// AUDIT
+   457→// ============================================================
+   458→
+   459→model AuditEvent {
+   460→  id           String   @id @default(cuid())
+   461→  tenantId     String
+   462→  actorId      String?
+   463→  actorRole    String?
+   464→  patientId    String?
+   465→  encounterId  String?
+   466→  action       String
+   467→  resourceType String
+   468→  resourceId   String?
+   469→  outcome      String   @default("SUCCESS")
+   470→  reason       String?
+   471→  metadata     String?
+   472→  createdAt    DateTime @default(now())
+   473→
+   474→  tenant Tenant @relation(fields: [tenantId], references: [id])
+   475→}
+   476→
+   477→// ============================================================
+   478→// VOICE SESSIONS
+   479→// ============================================================
+   480→
+   481→model VoiceSession {
+   482→  id         String   @id @default(cuid())
+   483→  patientId  String?
+   484→  encounterId String?
+   485→  transcript String?
+   486→  status     String   @default("ACTIVE")
+   487→  handoffTo  String?
+   488→  createdAt  DateTime @default(now())
+   489→  updatedAt  DateTime @updatedAt
+   490→}
+   491→
+   492→// ============================================================
+   493→// APPOINTMENTS
+   494→// ============================================================
+   495→
+   496→model Appointment {
+   497→  id              String    @id @default(cuid())
+   498→  patientId       String
+   499→  practitionerId  String?
+   500→  appointmentNo   String    @unique
+   501→  type            String    @default("CONSULTATION") // CONSULTATION, FOLLOW_UP, TELEMEDICINE, PROCEDURE, CHECKUP
+   502→  modality        String    @default("ALLOPATHY")
+   503→  status          String    @default("SCHEDULED") // SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+   504→  scheduledAt     DateTime
+   505→  duration        Int       @default(15) // minutes
+   506→  reason          String?
+   507→  notes           String?
+   508→  isUrgent        Boolean   @default(false)
+   509→  reminderSent    Boolean   @default(false)
+   510→  cancelledReason String?
+   511→  createdAt       DateTime  @default(now())
+   512→  updatedAt       DateTime  @updatedAt
+   513→
+   514→  patient      Patient        @relation(fields: [patientId], references: [id])
+   515→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+   516→}
+   517→
+   518→// ============================================================
+   519→// HEALTH ISSUE TAXONOMY
+   520→// Hierarchical: Body System → Clinical Domain → Symptom Group → Issue → Subtype
+   521→// ============================================================
+   522→
+   523→model HealthIssue {
+   524→  id              String   @id @default(cuid())
+   525→  code            String?  // ICD-10 or modality-specific code
+   526→  name            String
+   527→  description     String?
+   528→  bodySystem      String   // RESPIRATORY, CARDIOVASCULAR, GASTROINTESTINAL, etc.
+   529→  clinicalDomain  String   // General Medicine, Pulmonology, Cardiology, etc.
+   530→  symptomGroup    String   // Cough, Chest Pain, Abdominal Pain, etc.
+   531→  severity        String   @default("MODERATE") // MILD, MODERATE, SEVERE, CRITICAL
+   532→  chronicity      String   @default("ACUTE") // ACUTE, CHRONIC, ACUTE_ON_CHRONIC
+   533→  prevalence      String?  // RARE, UNCOMMON, COMMON, VERY_COMMON
+   534→  isSubtype       Boolean  @default(false)
+   535→  parentIssueId   String?
+   536→  isActive        Boolean  @default(true)
+   537→  createdAt       DateTime @default(now())
+   538→  updatedAt       DateTime @updatedAt
+   539→
+   540→  aliases       HealthIssueAlias[]
+   541→  translations  HealthIssueTranslation[]
+   542→  wingApproaches HealthIssueWing[]
+   543→  indications   MedicineIndication[]
+   544→  patternIssues TreatmentPatternIssue[]
+   545→}
+   546→
+   547→model HealthIssueAlias {
+   548→  id         String   @id @default(cuid())
+   549→  issueId    String
+   550→  alias      String   // "pet dard", "stomach ache", "abd pain"
+   551→  language   String   @default("en")
+   552→  createdAt  DateTime @default(now())
+   553→
+   554→  issue HealthIssue @relation(fields: [issueId], references: [id])
+   555→
+   556→  @@index([alias])
+   557→  @@index([language])
+   558→}
+   559→
+   560→model HealthIssueTranslation {
+   561→  id          String   @id @default(cuid())
+   562→  issueId     String
+   563→  language    String   // en, hi, bn, ta, te, mr, gu, kn, ml, pa, or, ur
+   564→  name        String
+   565→  description String?
+   566→  createdAt   DateTime @default(now())
+   567→
+   568→  issue HealthIssue @relation(fields: [issueId], references: [id])
+   569→
+   570→  @@unique([issueId, language])
+   571→}
+   572→
+   573→model HealthIssueWing {
+   574→  id                String   @id @default(cuid())
+   575→  issueId           String
+   576→  modality          String   // ALLOPATHY, AYURVEDA, HOMEOPATHY
+   577→  approach          String   // Brief clinical approach description
+   578→  commonMedicines   String?  // JSON array of medicine IDs
+   579→  lifestyleAdvice   String?
+   580→  whenToSeeDoctor   String?
+   581→  redFlags          String?  // JSON array of red flag symptoms
+   582→  evidenceLevel     String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+   583→  createdAt         DateTime @default(now())
+   584→  updatedAt         DateTime @updatedAt
+   585→
+   586→  issue HealthIssue @relation(fields: [issueId], references: [id])
+   587→
+   588→  @@unique([issueId, modality])
+   589→}
+   590→
+   591→// ============================================================
+   592→// MEDICINE KNOWLEDGE ENGINE (16 Sub-Models)
+   593→// ============================================================
+   594→
+   595→model Medicine {
+   596→  id              String   @id @default(cuid())
+   597→  name            String
+   598→  genericName     String?
+   599→  modality        String   // ALLOPATHY, AYURVEDA, HOMEOPATHY
+   600→  category        String   // ANALGESIC, ANTIBIOTIC, ANTACID, HERB, DILUTION, etc.
+   601→  subCategory     String?
+   602→  form            String?  // TABLET, CAPSULE, SYRUP, INJECTION, CHURNA, KWATH, etc.
+   603→  strength        String?  // "500mg", "30C", "200CH"
+   604→  packSize        String?  // "10 tablets", "100ml"
+   605→  manufacturer    String?
+   606→  isGeneric       Boolean  @default(false)
+   607→  isOTC           Boolean  @default(false) // Over the counter
+   608→  isPrescription  Boolean  @default(true)
+   609→  isActive        Boolean  @default(true)
+   610→  createdAt       DateTime @default(now())
+   611→  updatedAt       DateTime @updatedAt
+   612→
+   613→  brands            MedicineBrand[]
+   614→  ingredients       MedicineIngredient[]
+   615→  indications       MedicineIndication[]
+   616→  contraindications MedicineContraindication[]
+   617→  interactions      MedicineInteraction[]
+   618→  warnings          MedicineWarning[]
+   619→  sideEffects       MedicineSideEffect[]
+   620→  ageRules          MedicineAgeRule[]
+   621→  populationRules   MedicinePopulationRule[]
+   622→  timingRules       MedicineTimingRule[]
+   623→  foodInstructions  MedicineFoodInstruction[]
+   624→  durationRules     MedicineDurationRule[]
+   625→  monitoringRules   MedicineMonitoringRule[]
+   626→  recalls           MedicineRecall[]
+   627→  reviews           MedicineReview[]
+   628→  treatmentPatterns MedicineTreatmentPattern[]
+   629→}
+   630→
+   631→model MedicineBrand {
+   632→  id          String   @id @default(cuid())
+   633→  medicineId  String
+   634→  brandName   String
+   635→  manufacturer String
+   636→  mrp         Float?
+   637→  packSize    String?
+   638→  isActive    Boolean  @default(true)
+   639→  createdAt   DateTime @default(now())
+   640→
+   641→  medicine Medicine @relation(fields: edicineId], references: [id])
+   642→}
+   643→
+   644→model MedicineIngredient {
+   645→  id          String   @id @default(cuid())
+   646→  medicineId  String
+   647→  ingredient  String
+   648→  quantity    String?  // "500mg", "10mg", "2 drops"
+   649→  role        String   @default("ACTIVE") // ACTIVE, EXCIPIENT, PRESERVATIVE, FLAVOURING
+   650→  createdAt   DateTime @default(now())
+   651→
+   652→  medicine Medicine @relation(fields: edicineId], references: [id])
+   653→}
+   654→
+   655→model MedicineIndication {
+   656→  id              String   @id @default(cuid())
+   657→  medicineId      String
+   658→  issueId         String?
+   659→  indication      String   // "Relief of headache", "Treatment of hypertension"
+   660→  whyToUse        String?  // Clinical reasoning for this indication
+   661→  whenToUse       String?  // When this medicine is appropriate vs alternatives
+   662→  howToUseDaily   String?  // "Take 1 tablet twice daily after meals"
+   663→  medianDose      String?  // "500mg 2-3 times daily"
+   664→  duration        String?  // "5-7 days", "Until symptoms resolve"
+   665→  priority        Int      @default(1) // 1=Primary, 2=Secondary, 3=Tertiary
+   666→  evidenceLevel   String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+   667→  createdAt       DateTime @default(now())
+   668→
+   669→  medicine Medicine    @relation(fields: edicineId], references: [id])
+   670→  issue    HealthIssue? @relation(fields: [issueId], references: [id])
+   671→}
+   672→
+   673→model MedicineContraindication {
+   674→  id                String   @id @default(cuid())
+   675→  medicineId        String
+   676→  contraindication  String   // "Pregnancy", "Peptic ulcer", "Hypersensitivity"
+   677→  reason            String?  // Why this is contraindicated
+   678→  severity          String   @default("ABSOLUTE") // ABSOLUTE, RELATIVE
+   679→  population        String?  // PREGNANT, PEDIATRIC, ELDERLY, RENAL_IMPAIRMENT, HEPATIC_IMPAIRMENT
+   680→  createdAt         DateTime @default(now())
+   681→
+   682→  medicine Medicine @relation(fields: edicineId], references: [id])
+   683→}
+   684→
+   685→model MedicineInteraction {
+   686→  id                String   @id @default(cuid())
+   687→  medicineId        String
+   688→  interactingWith   String   // Medicine name or class
+   689→  interactionType   String   // DRUG_DRUG, DRUG_FOOD, DRUG_DISEASE, DRUG_HERB
+   690→  severity          String   @default("MODERATE") // MINOR, MODERATE, MAJOR, SEVERE
+   691→  effect            String   // "Increased risk of bleeding", "Reduced efficacy"
+   692→  recommendation    String?  // "Avoid combination", "Monitor closely"
+   693→  mechanism         String?  // Pharmacological mechanism
+   694→  createdAt         DateTime @default(now())
+   695→
+   696→  medicine Medicine @relation(fields: edicineId], references: [id])
+   697→}
+   698→
+   699→model MedicineWarning {
+   700→  id          String   @id @default(cuid())
+   701→  medicineId  String
+   702→  warning     String
+   703→  category    String   // BLACK_BOX, PRESCRIBING, PATIENT, PREGNANCY, LACTATION
+   704→  createdAt   DateTime @default(now())
+   705→
+   706→  medicine Medicine @relation(fields: edicineId], references: [id])
+   707→}
+   708→
+   709→model MedicineSideEffect {
+   710→  id          String   @id @default(cuid())
+   711→  medicineId  String
+   712→  sideEffect  String
+   713→  frequency   String?  // VERY_COMMON, COMMON, UNCOMMON, RARE, VERY_RARE
+   714→  severity    String   @default("MILD") // MILD, MODERATE, SEVERE, LIFE_THREATENING
+   715→  isReversible Boolean @default(true)
+   716→  management  String?  // "Take with food", "Reduce dose"
+   717→  createdAt   DateTime @default(now())
+   718→
+   719→  medicine Medicine @relation(fields: edicineId], references: [id])
+   720→}
+   721→
+   722→model MedicineAgeRule {
+   723→  id           String   @id @default(cuid())
+   724→  medicineId   String
+   725→  minAge       Int?     // in months
+   726→  maxAge       Int?     // in months
+   727→  ageGroup     String?  // NEONATE, INFANT, CHILD, ADOLESCENT, ADULT, ELDERLY
+   728→  doseAdjustment String? // "Half adult dose", "0.1mg/kg"
+   729→  caution      String?
+   730→  isContraindicated Boolean @default(false)
+   731→  createdAt    DateTime @default(now())
+   732→
+   733→  medicine Medicine @relation(fields: edicineId], references: [id])
+   734→}
+   735→
+   736→model MedicinePopulationRule {
+   737→  id           String   @id @default(cuid())
+   738→  medicineId   String
+   739→  population   String   // PREGNANT, LACTATING, RENAL_IMPAIRMENT, HEPATIC_IMPAIRMENT, DIABETIC
+   740→  safetyCategory String @default("CAUTION") // SAFE, CAUTION, AVOID, CONTRAINDICATED
+   741→  trimester    String?  // FIRST, SECOND, THIRD (for pregnancy)
+   742→  doseAdjustment String?
+   743→  rationale    String?
+   744→  createdAt    DateTime @default(now())
+   745→
+   746→  medicine Medicine @relation(fields: edicineId], references: [id])
+   747→}
+   748→
+   749→model MedicineTimingRule {
+   750→  id          String   @id @default(cuid())
+   751→  medicineId  String
+   752→  timing      String   // BEFORE_MEAL, WITH_MEAL, AFTER_MEAL, EMPTY_STOMACH, BEDTIME
+   753→  instruction String?  // "Take 30 minutes before food"
+   754→  reason      String?
+   755→  createdAt   DateTime @default(now())
+   756→
+   757→  medicine Medicine @relation(fields: edicineId], references: [id])
+   758→}
+   759→
+   760→model MedicineFoodInstruction {
+   761→  id          String   @id @default(cuid())
+   762→  medicineId  String
+   763→  food        String   // "Milk", "Grapefruit juice", "Alcohol"
+   764→  instruction String   // AVOID, TAKE_WITH, SEPARATE_BY_2H
+   765→  reason      String?
+   766→  createdAt   DateTime @default(now())
+   767→
+   768→  medicine Medicine @relation(fields: edicineId], references: [id])
+   769→}
+   770→
+   771→model MedicineDurationRule {
+   772→  id             String   @id @default(cuid())
+   773→  medicineId     String
+   774→  minDuration    String?  // "3 days"
+   775→  maxDuration    String?  // "14 days"
+   776→  defaultDuration String? // "7 days"
+   777→  condition      String?  // "Acute infection", "Chronic management"
+   778→  reviewBy       String?  // "Review after 5 days"
+   779→  createdAt      DateTime @default(now())
+   780→
+   781→  medicine Medicine @relation(fields: edicineId], references: [id])
+   782→}
+   783→
+   784→model MedicineMonitoringRule {
+   785→  id             String   @id @default(cuid())
+   786→  medicineId     String
+   787→  parameter      String   // "Liver function", "Kidney function", "Blood glucose"
+   788→  frequency      String?  // "Before starting", "Every 3 months", "Weekly for first month"
+   789→  threshold      String?  // "ALT > 3x ULN"
+   790→  action         String?  // "Discontinue", "Reduce dose", "Refer to specialist"
+   791→  createdAt      DateTime @default(now())
+   792→
+   793→  medicine Medicine @relation(fields: edicineId], references: [id])
+   794→}
+   795→
+   796→model MedicineRecall {
+   797→  id          String    @id @default(cuid())
+   798→  medicineId  String
+   799→  batchNumber String?
+   800→  reason      String
+   801→  severity    String    @default("MODERATE")
+   802→  initiatedBy String?
+   803→  recallDate  DateTime  @default(now())
+   804→  isActive    Boolean   @default(true)
+   805→  createdAt   DateTime  @default(now())
+   806→
+   807→  medicine Medicine @relation(fields: edicineId], references: [id])
+   808→}
+   809→
+   810→model MedicineReview {
+   811→  id          String   @id @default(cuid())
+   812→  medicineId  String
+   813→  reviewerId  String?
+   814→  reviewerName String?
+   815→  rating      Int?     // 1-5
+   816→  efficacy    String?  // EXCELLENT, GOOD, MODERATE, POOR
+   817→  safety      String?  // EXCELLENT, GOOD, MODERATE, POOR
+   818→  comment     String?
+   819→  createdAt   DateTime @default(now())
+   820→
+   821→  medicine Medicine @relation(fields: edicineId], references: [id])
+   822→}
+   823→
+   824→// ============================================================
+   825→// TREATMENT PATTERNS & CLINICAL CONSENSUS
+   826→// ============================================================
+   827→
+   828→model TreatmentPattern {
+   829→  id              String   @id @default(cuid())
+   830→  name            String
+   831→  modality        String
+   832→  description     String?
+   833→  frequency       Int      @default(0) // How often this pattern is used
+   834→  evidenceLevel   String?  // STRONG, MODERATE, LIMITED, TRADITIONAL
+   835→  isActive        Boolean  @default(true)
+   836→  createdAt       DateTime @default(now())
+   837→  updatedAt       DateTime @updatedAt
+   838→
+   839→  medicines MedicineTreatmentPattern[]
+   840→  issues    TreatmentPatternIssue[]
+   841→}
+   842→
+   843→model MedicineTreatmentPattern {
+   844→  id               String   @id @default(cuid())
+   845→  treatmentPatternId String
+   846→  medicineId       String
+   847→  sequence         Int      @default(1)
+   848→  isPrimary        Boolean  @default(false)
+   849→  notes            String?
+   850→  createdAt        DateTime @default(now())
+   851→
+   852→  treatmentPattern TreatmentPattern @relation(fields: [treatmentPatternId], references: [id])
+   853→  medicine         Medicine         @relation(fields: edicineId], references: [id])
+   854→
+   855→  @@unique([treatmentPatternId, medicineId])
+   856→}
+   857→
+   858→model TreatmentPatternIssue {
+   859→  id               String   @id @default(cuid())
+   860→  treatmentPatternId String
+   861→  issueId          String
+   862→  relevance        Int      @default(5) // 1-10 relevance score
+   863→  createdAt        DateTime @default(now())
+   864→
+   865→  treatmentPattern TreatmentPattern @relation(fields: [treatmentPatternId], references: [id])
+   866→  issue            HealthIssue      @relation(fields: [issueId], references: [id])
+   867→
+   868→  @@unique([treatmentPatternId, issueId])
+   869→}
+   870→
+   871→// ============================================================
+   872→// AI CONTEXT & DECISION TRACES
+   873→// ============================================================
+   874→
+   875→model AIContextPacket {
+   876→  id              String   @id @default(cuid())
+   877→  patientId       String?
+   878→  encounterId     String?
+   879→  issueId         String?
+   880→  modality        String   @default("ALLOPATHY")
+   881→  contextType     String   // SYMPTOM_ANALYSIS, DRUG_RECOMMENDATION, SAFETY_CHECK, DIFFERENTIAL
+   882→  inputSummary    String   // JSON - what went into the AI
+   883→  outputSummary   String   // JSON - what the AI produced
+   884→  evidenceCited   String?  // JSON array of evidence references
+   885→  confidenceScore Float?
+   886→  safetyFlags     String?  // JSON
+   887→  createdAt       DateTime @default(now())
+   888→
+   889→  decisionTraces AIDecisionTrace[]
+   890→}
+   891→
+   892→model AIDecisionTrace {
+   893→  id              String   @id @default(cuid())
+   894→  contextPacketId String
+   895→  step            Int
+   896→  decisionType    String   // RETRIEVAL, REASONING, FILTERING, RANKING, SAFETY_CHECK
+   897→  input           String   // JSON
+   898→  output          String   // JSON
+   899→  reasoning       String?  // Human-readable explanation
+   900→  duration        Int?     // ms
+   901→  createdAt       DateTime @default(now())
+   902→
+   903→  contextPacket AIContextPacket @relation(fields: [contextPacketId], references: [id])
+   904→}
+   905→
+   906→// ============================================================
+   907→// ABHA (AYUSHMAN BHARAT HEALTH ACCOUNT)
+   908→// ============================================================
+   909→
+   910→model ABHALink {
+   911→  id             String   @id @default(cuid())
+   912→  patientId      String?
+   913→  abhaNumber     String   @unique
+   914→  healthId       String?
+   915→  name           String?
+   916→  gender         String?
+   917→  dateOfBirth    String?
+   918→  mobile         String?
+   919→  email          String?
+   920→  address        String?
+   921→  district       String?
+   922→  state          String?
+   923→  pincode        String?
+   924→  encryptionSalt String?  // per-record scrypt→AES-256-CBC
+   925→  isActive       Boolean  @default(true)
+   926→  linkedAt       DateTime @default(now())
+   927→  createdAt      DateTime @default(now())
+   928→  updatedAt      DateTime @updatedAt
+   929→
+   930→  records ABHARecord[]
+   931→}
+   932→
+   933→model ABHARecord {
+   934→  id         String   @id @default(cuid())
+   935→  abhaLinkId String
+   936→  recordType String   // verification, prescription, health_record, lab_report
+   937→  data       String   // JSON - record content
+   938→  source     String?
+   939→  verifiedAt DateTime?
+   940→  createdAt  DateTime @default(now())
+   941→
+   942→  abhaLink ABHALink @relation(fields: [abhaLinkId], references: [id])
+   943→}
+   944→
+   945→// ============================================================
+   946→// COUNTERFEIT MEDICINE REPORTS
+   947→// ============================================================
+   948→
+   949→model CounterfeitReport {
+   950→  id               String   @id @default(cuid())
+   951→  tenantId         String
+   952→  reporterName     String?
+   953→  reporterPhone    String?
+   954→  medicineName     String
+   955→  batchNumber      String?
+   956→  manufacturer     String?
+   957→  purchaseLocation String?
+   958→  purchaseDate     String?
+   959→  description      String?
+   960→  photoUrl         String?
+   961→  proofImageUrl    String?
+   962→  severity         String   @default("MODERATE") // LOW, MODERATE, HIGH, CRITICAL
+   963→  status           String   @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, CONFIRMED, DISMISSED
+   964→  verifiedBy       String?
+   965→  verifiedAt       DateTime?
+   966→  adminNotes       String?
+   967→  createdAt        DateTime @default(now())
+   968→  updatedAt        DateTime @updatedAt
+   969→
+   970→  tenant Tenant @relation(fields: [tenantId], references: [id])
+   971→}
+   972→
+   973→// ============================================================
+   974→// EXPIRY TRACKER
+   975→// ============================================================
+   976→
+   977→model ExpiryTrackerItem {
+   978→  id             String   @id @default(cuid())
+   979→  patientId      String?
+   980→  medicineId     String?
+   981→  medicineName   String
+   982→  batchNumber    String?
+   983→  expiryDate     DateTime
+   984→  quantity       Int?
+   985→  notified7d     Boolean  @default(false)
+   986→  notified14d    Boolean  @default(false)
+   987→  notified30d    Boolean  @default(false)
+   988→  snoozedUntil   DateTime?
+   989→  isVerified     Boolean  @default(false)
+   990→  isActive       Boolean  @default(true)
+   991→  createdAt      DateTime @default(now())
+   992→  updatedAt      DateTime @updatedAt
+   993→}
+   994→
+   995→// ============================================================
+   996→// DOSAGE SCHEDULES & LOGGING
+   997→// ============================================================
+   998→
+   999→model MedicineSchedule {
+  1000→  id           String   @id @default(cuid())
+  1001→  patientId    String
+  1002→  medicineId   String?
+  1003→  medicineName String
+  1004→  dosage       String   // e.g., "1 tablet", "10ml"
+  1005→  frequency    String   // ONCE_DAILY, TWICE_DAILY, THRICE_DAILY, WEEKLY, AS_NEEDED
+  1006→  timing       String?  // JSON array: ["08:00", "20:00"]
+  1007→  startDate    DateTime
+  1008→  endDate      DateTime?
+  1009→  instructions String?  // before food, after food, etc.
+  1010→  isActive     Boolean  @default(true)
+  1011→  createdBy    String?
+  1012→  createdAt    DateTime @default(now())
+  1013→  updatedAt    DateTime @updatedAt
+  1014→
+  1015→  doseLogs DoseLog[]
+  1016→}
+  1017→
+  1018→model DoseLog {
+  1019→  id           String   @id @default(cuid())
+  1020→  scheduleId   String
+  1021→  patientId    String
+  1022→  medicineName String
+  1023→  dosageTaken  String?
+  1024→  takenAt      DateTime
+  1025→  wasOnTime    Boolean  @default(true)
+  1026→  notes        String?
+  1027→  createdAt    DateTime @default(now())
+  1028→
+  1029→  schedule MedicineSchedule @relation(fields: [scheduleId], references: [id])
+  1030→}
+  1031→
+  1032→model DosageReminderDelivery {
+  1033→  id         String   @id @default(cuid())
+  1034→  scheduleId String
+  1035→  patientId  String
+  1036→  channel    String   // PUSH, SMS, WHATSAPP, IN_APP
+  1037→  sentAt     DateTime @default(now())
+  1038→  deliveredAt DateTime?
+  1039→  status     String   @default("SENT") // SENT, DELIVERED, FAILED
+  1040→}
+  1041→
+  1042→// ============================================================
+  1043→// SCAN HISTORY
+  1044→// ============================================================
+  1045→
+  1046→model ScanHistory {
+  1047→  id           String   @id @default(cuid())
+  1048→  patientId    String?
+  1049→  medicineName String?
+  1050→  batchNumber  String?
+  1051→  barcode      String?
+  1052→  scanType     String   // BARCODE, OCR, MANUAL, VOICE
+  1053→  result       String?  // JSON - scan result data
+  1054→  isVerified   Boolean  @default(false)
+  1055→  createdAt    DateTime @default(now())
+  1056→}
+  1057→
+  1058→// ============================================================
+  1059→// WISHLIST / FAVORITES
+  1060→// ============================================================
+  1061→
+  1062→model WishlistItem {
+  1063→  id         String   @id @default(cuid())
+  1064→  patientId  String
+  1065→  medicineId String?
+  1066→  medicineName String
+  1067→  notes      String?
+  1068→  createdAt  DateTime @default(now())
+  1069→
+  1070→  @@unique([patientId, medicineName])
+  1071→}
+  1072→
+  1073→// ============================================================
+  1074→// PHARMACY INVENTORY
+  1075→// ============================================================
+  1076→
+  1077→model PharmacyInventory {
+  1078→  id          String   @id @default(cuid())
+  1079→  pharmacyId  String
+  1080→  medicineId  String?
+  1081→  medicineName String
+  1082→  stockCount  Int      @default(0)
+  1083→  mrp         Float?
+  1084→  isAvailable Boolean  @default(true)
+  1085→  lastChecked DateTime @default(now())
+  1086→  createdAt   DateTime @default(now())
+  1087→  updatedAt   DateTime @updatedAt
+  1088→}
+  1089→
+  1090→// ============================================================
+  1091→// API KEY MANAGEMENT
+  1092→// ============================================================
+  1093→
+  1094→model APIKey {
+  1095→  id          String   @id @default(cuid())
+  1096→  tenantId    String
+  1097→  name        String
+  1098→  keyHash     String   // SHA-256 hash
+  1099→  keySalt     String   // per-key PBKDF2 salt
+  1100→  keyPrefix   String   // first 8 chars for identification
+  1101→  description String?
+  1102→  expiresAt   DateTime?
+  1103→  isRevoked   Boolean  @default(false)
+  1104→  lastUsedAt  DateTime?
+  1105→  createdAt   DateTime @default(now())
+  1106→
+  1107→  tenant Tenant @relation(fields: [tenantId], references: [id])
+  1108→}
+  1109→
+  1110→// ============================================================
+  1111→// VACCINATION TRACKER
+  1112→// ============================================================
+  1113→
+  1114→model VaccinationRecord {
+  1115→  id              String   @id @default(cuid())
+  1116→  patientId       String
+  1117→  vaccineName     String
+  1118→  doseNumber      Int
+  1119→  totalDoses      Int
+  1120→  administeredAt  DateTime
+  1121→  administeredBy  String?
+  1122→  batchNumber     String?
+  1123→  manufacturer    String?
+  1124→  site           String?  // LEFT_ARM, RIGHT_ARM, etc.
+  1125→  nextDueDate    DateTime?
+  1126→  adverseEffects String?  // JSON
+  1127→  isCompleted    Boolean  @default(false)
+  1128→  createdAt      DateTime @default(now())
+  1129→  updatedAt      DateTime @updatedAt
+  1130→}
+  1131→
+  1132→// ============================================================
+  1133→// NOTIFICATION SUBSCRIBERS
+  1134→// ============================================================
+  1135→
+  1136→model NotificationSubscriber {
+  1137→  id        String   @id @default(cuid())
+  1138→  phone     String?
+  1139→  userId    String?
+  1140→  language  String   @default("en")
+  1141→  channels  String   @default("in_app") // JSON: ["sms","whatsapp","push","in_app"]
+  1142→  district  String?
+  1143→  frequency String   @default("IMMEDIATE") // IMMEDIATE, DAILY, WEEKLY
+  1144→  isActive  Boolean  @default(true)
+  1145→  createdAt DateTime @default(now())
+  1146→}
+  1147→
+  1148→// ============================================================
+  1149→// OUTBREAK ALERT
+  1150→// ============================================================
+  1151→
+  1152→model OutbreakAlert {
+  1153→  id          String   @id @default(cuid())
+  1154→  title       String
+  1155→  description String
+  1156→  district    String?
+  1157→  state       String?
+  1158→  severity    String   @default("HIGH") // LOW, MODERATE, HIGH, CRITICAL
+  1159→  source      String?  // CDSCO, WHO, ICMR
+  1160→  sourceUrl   String?
+  1161→  isActive    Boolean  @default(true)
+  1162→  startsAt    DateTime @default(now())
+  1163→  endsAt      DateTime?
+  1164→  createdAt   DateTime @default(now())
+  1165→}
+  1166→
+  1167→// ============================================================
+  1168→// OCR SYNONYMS (corrects OCR misreads)
+  1169→// ============================================================
+  1170→
+  1171→model OCRSynonym {
+  1172→  id         String   @id @default(cuid())
+  1173→  ocrText    String   @unique // What OCR incorrectly reads
+  1174→  correctText String // The correct medicine name
+  1175→  createdAt  DateTime @default(now())
+  1176→}
+  1177→
+  1178→// ============================================================
+  1179→// LASA ALERTS (Look-Alike Sound-Alike)
+  1180→// ============================================================
+  1181→
+  1182→model LASAAlert {
+  1183→  id             String   @id @default(cuid())
+  1184→  medicineA      String
+  1185→  medicineB      String
+  1186→  matchType      String   // SOUND_ALIKE, LOOK_ALIKE
+  1187→  similarityScore Float
+  1188→  isHighRisk     Boolean  @default(false)
+  1189→  tallManLetterA String?  // e.g., hydrALAZINE vs hydrOXYzine
+  1190→  tallManLetterB String?
+  1191→  createdAt      DateTime @default(now())
+  1192→}
+  1193→
+  1194→// ============================================================
+  1195→// USER POINTS (GAMIFICATION)
+  1196→// ============================================================
+  1197→
+  1198→model UserPoints {
+  1199→  id         String   @id @default(cuid())
+  1200→  userId     String   @unique
+  1201→  points     Int      @default(0)
+  1202→  level      Int      @default(1)
+  1203→  badges     String?  // JSON array of badge IDs
+  1204→  updatedAt  DateTime @updatedAt
+  1205→}
+  1206→
+  1207→// ============================================================
+  1208→// E-PRESCRIPTION SYSTEM (CDSCO Compliant)
+  1209→// ============================================================
+  1210→
+  1211→model Prescription {
+  1212→  id              String   @id @default(cuid())
+  1213→  patientId       String
+  1214→  practitionerId  String?
+  1215→  encounterId     String?
+  1216→  prescriptionNo  String   @unique // Auto-generated Rx number
+  1217→  modality        String   @default("ALLOPATHY") // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  1218→  status          String   @default("DRAFT") // DRAFT, ACTIVE, DISPENSED, EXPIRED, CANCELLED
+  1219→  diagnosis       String?
+  1220→  notes           String?
+  1221→  qrCodeData      String?  // QR code payload for verification
+  1222→  digitalSignature String? // Base64 digital signature
+  1223→  isCdScoCompliant Boolean @default(true)
+  1224→  validFrom       DateTime @default(now())
+  1225→  validUntil      DateTime?
+  1226→  dispensedAt     DateTime?
+  1227→  createdAt       DateTime @default(now())
+  1228→  updatedAt       DateTime @updatedAt
+  1229→
+  1230→  patient      Patient             @relation(fields: [patientId], references: [id])
+  1231→  practitioner Practitioner?      @relation(fields: [practitionerId], references: [id])
+  1232→  items        PrescriptionItem[]
+  1233→}
+  1234→
+  1235→model PrescriptionItem {
+  1236→  id             String   @id @default(cuid())
+  1237→  prescriptionId String
+  1238→  medicineId     String?
+  1239→  medicineName   String
+  1240→  dosage         String   // e.g., "1 tablet", "10ml"
+  1241→  frequency      String   // ONCE_DAILY, TWICE_DAILY, THRICE_DAILY, AS_NEEDED, STAT
+  1242→  duration       String?  // e.g., "7 days", "1 month"
+  1243→  route          String?  // ORAL, IV, IM, SC, TOPICAL, INHALATION
+  1244→  instructions   String?  // before food, after food, etc.
+  1245→  isSubstitutable Boolean @default(false)
+  1246→  scheduleType   String?  // OTC, SCHEDULE_H, SCHEDULE_H1, SCHEDULE_X, NARCOTIC
+  1247→  quantity       Int?
+  1248→  refills        Int      @default(0)
+  1249→  sequence       Int      @default(1)
+  1250→  createdAt      DateTime @default(now())
+  1251→
+  1252→  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  1253→}
+  1254→
+  1255→// ============================================================
+  1256→// LAB ORDERS & DIAGNOSTICS
+  1257→// ============================================================
+  1258→
+  1259→model LabOrder {
+  1260→  id             String   @id @default(cuid())
+  1261→  patientId      String
+  1262→  practitionerId String?
+  1263→  orderNumber    String   @unique
+  1264→  status         String   @default("ORDERED") // ORDERED, SAMPLE_COLLECTED, PROCESSING, COMPLETED, CANCELLED
+  1265→  priority       String   @default("ROUTINE") // ROUTINE, URGENT, STAT
+  1266→  modality       String   @default("ALLOPATHY")
+  1267→  notes          String?
+  1268→  orderedAt      DateTime @default(now())
+  1269→  sampleCollectedAt DateTime?
+  1270→  completedAt    DateTime?
+  1271→  createdAt      DateTime @default(now())
+  1272→  updatedAt      DateTime @updatedAt
+  1273→
+  1274→  patient      Patient        @relation(fields: [patientId], references: [id])
+  1275→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  1276→  tests        LabTest[]
+  1277→}
+  1278→
+  1279→model LabTest {
+  1280→  id            String   @id @default(cuid())
+  1281→  labOrderId    String
+  1282→  testName      String   // e.g., "Complete Blood Count", "HbA1c"
+  1283→  testCode      String?  // LOINC code
+  1284→  category      String?  // HEMATOLOGY, BIOCHEMISTRY, MICROBIOLOGY, RADIOLOGY, PATHOLOGY
+  1285→  status        String   @default("ORDERED") // ORDERED, PROCESSING, COMPLETED, CANCELLED
+  1286→  resultValue   String?
+  1287→  resultUnit    String?  // mg/dL, g%, etc.
+  1288→  referenceRange String?
+  1289→  isAbnormal    Boolean  @default(false)
+  1290→  remarks       String?
+  1291→  completedAt   DateTime?
+  1292→  createdAt     DateTime @default(now())
+  1293→
+  1294→  labOrder LabOrder @relation(fields: [labOrderId], references: [id])
+  1295→}
+  1296→
+  1297→// ============================================================
+  1298→// CLINICAL NOTES (SOAP Format)
+  1299→// ============================================================
+  1300→
+  1301→model ClinicalNote {
+  1302→  id              String   @id @default(cuid())
+  1303→  patientId       String
+  1304→  encounterId     String?
+  1305→  practitionerId  String?
+  1306→  noteType        String   @default("SOAP") // SOAP, PROGRESS, DISCHARGE, REFERRAL, PROCEDURE
+  1307→  modality        String   @default("ALLOPATHY")
+  1308→  subjective      String?  // Patient's symptoms, complaints
+  1309→  objective       String?  // Vitals, physical exam findings
+  1310→  assessment      String?  // Diagnosis, clinical impression
+  1311→  plan            String?  // Treatment plan, orders
+  1312→  summary         String?  // AI-generated summary
+  1313→  isSigned        Boolean  @default(false)
+  1314→  signedAt        DateTime?
+  1315→  createdAt       DateTime @default(now())
+  1316→  updatedAt       DateTime @updatedAt
+  1317→
+  1318→  patient      Patient        @relation(fields: [patientId], references: [id])
+  1319→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  1320→}
+  1321→
+  1322→// ============================================================
+  1323→// INSURANCE & BILLING
+  1324→// ============================================================
+  1325→
+  1326→model InsurancePolicy {
+  1327→  id              String   @id @default(cuid())
+  1328→  patientId       String
+  1329→  providerName    String   // e.g., "Star Health", "ICICI Lombard"
+  1330→  policyNumber    String
+  1331→  groupNumber     String?
+  1332→  planType        String   // INDIVIDUAL, FAMILY, GROUP, CORPORATE
+  1333→  coverageType    String   // CASHLESS, REIMBURSEMENT
+  1334→  abhaLinked      Boolean  @default(false)
+  1335→  isAyushmanBharat Boolean @default(false) // PM-JAY scheme
+  1336→  validFrom       DateTime
+  1337→  validUntil      DateTime?
+  1338→  coPayPercentage Float    @default(0)
+  1339→  maxCoverage     Float?
+  1340→  isActive        Boolean  @default(true)
+  1341→  createdAt       DateTime @default(now())
+  1342→  updatedAt       DateTime @updatedAt
+  1343→
+  1344→  patient Patient           @relation(fields: [patientId], references: [id])
+  1345→  claims  InsuranceClaim[]
+  1346→}
+  1347→
+  1348→model InsuranceClaim {
+  1349→  id              String   @id @default(cuid())
+  1350→  policyId        String
+  1351→  patientId       String
+  1352→  encounterId     String?
+  1353→  claimNumber     String   @unique
+  1354→  claimType       String   // CASHLESS, REIMBURSEMENT
+  1355→  status          String   @default("SUBMITTED") // SUBMITTED, UNDER_REVIEW, APPROVED, PARTIALLY_APPROVED, REJECTED, SETTLED
+  1356→  amountClaimed   Float
+  1357→  amountApproved  Float?
+  1358→  amountSettled   Float?
+  1359→  denialReason    String?
+  1360→  documents       String?  // JSON array of document IDs
+  1361→  submittedAt     DateTime @default(now())
+  1362→  processedAt     DateTime?
+  1363→  settledAt       DateTime?
+  1364→  createdAt       DateTime @default(now())
+  1365→  updatedAt       DateTime @updatedAt
+  1366→
+  1367→  policy InsurancePolicy @relation(fields: [policyId], references: [id])
+  1368→  patient Patient       @relation(fields: [patientId], references: [id])
+  1369→}
+  1370→
+  1371→model BillingRecord {
+  1372→  id              String   @id @default(cuid())
+  1373→  patientId       String
+  1374→  encounterId     String?
+  1375→  invoiceNumber   String   @unique
+  1376→  modality        String   @default("ALLOPATHY")
+  1377→  status          String   @default("PENDING") // PENDING, PAID, PARTIALLY_PAID, OVERDUE, CANCELLED
+  1378→  consultationFee Float    @default(0)
+  1379→  medicineCharges Float    @default(0)
+  1380→  labCharges      Float    @default(0)
+  1381→  procedureCharges Float   @default(0)
+  1382→  otherCharges    Float    @default(0)
+  1383→  totalAmount     Float    @default(0)
+  1384→  discount        Float    @default(0)
+  1385→  tax             Float    @default(0)
+  1386→  netAmount       Float    @default(0)
+  1387→  paidAmount      Float    @default(0)
+  1388→  paymentMethod   String?  // CASH, UPI, CARD, INSURANCE
+  1389→  paymentRef      String?
+  1390→  dueDate         DateTime?
+  1391→  paidAt          DateTime?
+  1392→  createdAt       DateTime @default(now())
+  1393→  updatedAt       DateTime @updatedAt
+  1394→
+  1395→  patient Patient @relation(fields: [patientId], references: [id])
+  1396→}
+  1397→
+  1398→// ============================================================
+  1399→// DISCHARGE SUMMARY (AI-Generated)
+  1400→// ============================================================
+  1401→
+  1402→model DischargeSummary {
+  1403→  id              String   @id @default(cuid())
+  1404→  patientId       String
+  1405→  encounterId     String?
+  1406→  practitionerId  String?
+  1407→  summaryNumber   String   @unique
+  1408→  admissionDate   DateTime
+  1409→  dischargeDate   DateTime @default(now())
+  1410→  modality        String   @default("ALLOPATHY")
+  1411→  admittingDiagnosis String?
+  1412→  dischargeDiagnosis String?
+  1413→  chiefComplaints String?  // JSON array
+  1414→  investigations  String?  // JSON array of lab results
+  1415→  treatmentGiven  String?
+  1416→  conditionAtDischarge String? // STABLE, IMPROVED, CRITICAL, EXPIRED
+  1417→  medicationsOnDischarge String? // JSON array
+  1418→  followUpInstructions String?
+  1419→  dietAdvice      String?
+  1420→  restrictions    String?  // Activity restrictions
+  1421→  aiGeneratedSummary String? // AI-generated full summary
+  1422→  isSigned        Boolean  @default(false)
+  1423→  signedAt        DateTime?
+  1424→  createdAt       DateTime @default(now())
+  1425→  updatedAt       DateTime @updatedAt
+  1426→
+  1427→  patient      Patient        @relation(fields: [patientId], references: [id])
+  1428→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  1429→}
+  1430→
+  1431→// ============================================================
+  1432→// REFERRAL SYSTEM
+  1433→// ============================================================
+  1434→
+  1435→model Referral {
+  1436→  id               String   @id @default(cuid())
+  1437→  patientId        String
+  1438→  fromPractitionerId String
+  1439→  toPractitionerId  String?
+  1440→  referralNumber   String   @unique
+  1441→  modality         String   @default("ALLOPATHY")
+  1442→  targetModality   String?  // For cross-modality referral
+  1443→  reason           String
+  1444→  clinicalSummary  String?
+  1445→  urgency          String   @default("ROUTINE") // ROUTINE, URGENT, EMERGENCY
+  1446→  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, COMPLETED, CANCELLED
+  1447→  referredSpeciality String? // e.g., "Cardiology", "Neurology"
+  1448→  notes            String?
+  1449→  respondedAt      DateTime?
+  1450→  completedAt      DateTime?
+  1451→  createdAt        DateTime @default(now())
+  1452→  updatedAt        DateTime @updatedAt
+  1453→
+  1454→  patient          Patient      @relation(fields: [patientId], references: [id])
+  1455→  fromPractitioner Practitioner @relation("FromPractitioner", fields: [fromPractitionerId], references: [id])
+  1456→  toPractitioner   Practitioner? @relation("ToPractitioner", fields: [toPractitionerId], references: [id])
+  1457→}
+  1458→
+  1459→// ============================================================
+  1460→// UNIFIED NOTIFICATIONS
+  1461→// ============================================================
+  1462→
+  1463→model AppNotification {
+  1464→  id          String   @id @default(cuid())
+  1465→  userId      String?
+  1466→  patientId   String?
+  1467→  type        String   // PRESCRIPTION, APPOINTMENT, RECALL, SAFETY, LAB_RESULT, FOLLOW_UP, REFERRAL, BILLING, SYSTEM
+  1468→  category    String   @default("INFO") // INFO, WARNING, URGENT, CRITICAL
+  1469→  title       String
+  1470→  message     String
+  1471→  actionUrl   String?  // Deep link to relevant section
+  1472→  actionLabel String?  // Button label
+  1473→  isRead      Boolean  @default(false)
+  1474→  readAt      DateTime?
+  1475→  channel     String   @default("IN_APP") // IN_APP, SMS, WHATSAPP, PUSH, EMAIL
+  1476→  sentAt      DateTime @default(now())
+  1477→  expiresAt   DateTime?
+  1478→  createdAt   DateTime @default(now())
+  1479→}
+  1480→
+  1481→// ============================================================
+  1482→// DOCUMENT UPLOAD + OCR
+  1483→// ============================================================
+  1484→
+  1485→model DocumentUpload {
+  1486→  id            String   @id @default(cuid())
+  1487→  patientId     String?
+  1488→  practitionerId String?
+  1489→  documentType  String   // PRESCRIPTION, LAB_REPORT, ID_PROOF, INSURANCE_CARD, DISCHARGE_SUMMARY, REFERRAL_LETTER, OTHER
+  1490→  fileName      String
+  1491→  fileSize      Int?     // bytes
+  1492→  mimeType      String?
+  1493→  storageUrl    String?  // S3/OSS URL
+  1494→  ocrExtracted  String?  // OCR text result
+  1495→  ocrConfidence Float?   // 0-1
+  1496→  aiSummary     String?  // AI-generated summary of document
+  1497→  isVerified    Boolean  @default(false)
+  1498→  verifiedBy    String?
+  1499→  verifiedAt    DateTime?
+  1500→  uploadedAt    DateTime @default(now())
+  1501→  createdAt     DateTime @default(now())
+  1502→  updatedAt     DateTime @updatedAt
+  1503→
+  1504→  patient      Patient?       @relation(fields: [patientId], references: [id])
+  1505→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  1506→}
+  1507→
+  1508→// ============================================================
+  1509→// TELEMEDICINE SESSIONS
+  1510→// ============================================================
+  1511→
+  1512→model TelemedicineSession {
+  1513→  id              String   @id @default(cuid())
+  1514→  patientId       String
+  1515→  practitionerId  String?
+  1516→  appointmentId   String?
+  1517→  sessionToken    String?  // Video call session token
+  1518→  modality        String   @default("ALLOPATHY")
+  1519→  status          String   @default("SCHEDULED") // SCHEDULED, WAITING, IN_PROGRESS, COMPLETED, CANCELLED, FAILED
+  1520→  platform        String   @default("BUILT_IN") // BUILT_IN, JITSI, WHEREBY
+  1521→  patientUrl      String?  // Patient join URL
+  1522→  practitionerUrl String?  // Practitioner join URL
+  1523→  recordingUrl    String?
+  1524→  duration        Int?     // seconds
+  1525→  notes           String?
+  1526→  prescriptionId  String?  // Post-consultation prescription
+  1527→  rating          Int?     // 1-5 patient rating
+  1528→  feedback        String?
+  1529→  startedAt       DateTime?
+  1530→  endedAt         DateTime?
+  1531→  createdAt       DateTime @default(now())
+  1532→  updatedAt       DateTime @updatedAt
+  1533→
+  1534→  patient      Patient        @relation(fields: [patientId], references: [id])
+  1535→  practitioner Practitioner?  @relation(fields: [practitionerId], references: [id])
+  1536→}
+  1537→
+  1538→// ============================================================
+  1539→// CLINICAL DECISION SUPPORT (CDS) ALERTS
+  1540→// ============================================================
+  1541→
+  1542→model CDSAlert {
+  1543→  id             String   @id @default(cuid())
+  1544→  patientId      String?
+  1545→  practitionerId String?
+  1546→  encounterId    String?
+  1547→  alertType      String   // DRUG_INTERACTION, ALLERGY, DUPLICATE, DOSAGE, CONTRAINDICATION, LAB_ALERT, RECALL, GUIDELINE
+  1548→  severity       String   @default("INFO") // INFO, WARNING, CRITICAL
+  1549→  title          String
+  1550→  description    String
+  1551→  evidence       String?  // Reference/guideline
+  1552→  suggestedAction String?
+  1553→  isOverrideable Boolean  @default(true)
+  1554→  isAcknowledged Boolean  @default(false)
+  1555→  acknowledgedBy String?
+  1556→  acknowledgedAt DateTime?
+  1557→  overrideReason String?
+  1558→  isActive       Boolean  @default(true)
+  1559→  createdAt      DateTime @default(now())
+  1560→  updatedAt      DateTime @updatedAt
+  1561→}
+  1562→
+  1563→// ============================================================
+  1564→// FOLLOW-UP REMINDERS
+  1565→// ============================================================
+  1566→
+  1567→model FollowUpReminder {
+  1568→  id             String   @id @default(cuid())
+  1569→  patientId      String
+  1570→  practitionerId String?
+  1571→  type           String   // FOLLOW_UP, MEDICATION_REMINDER, LAB_REMINDER, VACCINATION_DUE, CHECKUP
+  1572→  title          String
+  1573→  description    String?
+  1574→  scheduledAt    DateTime
+  1575→  isCompleted    Boolean  @default(false)
+  1576→  completedAt    DateTime?
+  1577→  reminderSent   Boolean  @default(false)
+  1578→  reminderSentAt DateTime?
+  1579→  channel        String   @default("IN_APP") // IN_APP, SMS, WHATSAPP, PUSH
+  1580→  recurrence     String?  // ONCE, DAILY, WEEKLY, MONTHLY
+  1581→  nextRecurrence DateTime?
+  1582→  isActive       Boolean  @default(true)
+  1583→  createdAt      DateTime @default(now())
+  1584→  updatedAt      DateTime @updatedAt
+  1585→
+  1586→  patient Patient @relation(fields: [patientId], references: [id])
+  1587→}
+  1588→
+  1589→// ============================================================
+  1590→// PATIENT TIMELINE EVENTS
+  1591→// ============================================================
+  1592→
+  1593→model PatientTimelineEvent {
+  1594→  id          String   @id @default(cuid())
+  1595→  patientId   String
+  1596→  eventType   String   // ENCOUNTER, PRESCRIPTION, LAB_RESULT, VACCINATION, REFERRAL, ADMISSION, DISCHARGE, NOTE, FOLLOW_UP
+  1597→  eventDate   DateTime
+  1598→  title       String
+  1599→  description String?
+  1600→  data        String?  // JSON - event-specific data
+  1601→  modality    String?  // ALLOPATHY, AYURVEDA, HOMEOPATHY
+  1602→  referenceId String?  // ID of the related entity
+  1603→  isSignificant Boolean @default(false) // Highlights important events
+  1604→  createdAt   DateTime @default(now())
+  1605→
+  1606→  patient Patient @relation(fields: [patientId], references: [id])
+  1607→}

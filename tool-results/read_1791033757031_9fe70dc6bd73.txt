@@ -1,0 +1,875 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  FlaskConical,
+     7→  TestTube,
+     8→  Clock,
+     9→  CheckCircle2,
+    10→  AlertCircle,
+    11→  Beaker,
+    12→  Plus,
+    13→} from 'lucide-react'
+    14→import {
+    15→  Card,
+    16→  CardContent,
+    17→  CardHeader,
+    18→  CardTitle,
+    19→  CardDescription,
+    20→} from '@/components/ui/card'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Input } from '@/components/ui/input'
+    23→import { Badge } from '@/components/ui/badge'
+    24→import { Label } from '@/components/ui/label'
+    25→import { Textarea } from '@/components/ui/textarea'
+    26→import { Skeleton } from '@/components/ui/skeleton'
+    27→import { ScrollArea } from '@/components/ui/scroll-area'
+    28→import { Separator } from '@/components/ui/separator'
+    29→import {
+    30→  Tabs,
+    31→  TabsContent,
+    32→  TabsList,
+    33→  TabsTrigger,
+    34→} from '@/components/ui/tabs'
+    35→import {
+    36→  Table,
+    37→  TableBody,
+    38→  TableCell,
+    39→  TableHead,
+    40→  TableHeader,
+    41→  TableRow,
+    42→} from '@/components/ui/table'
+    43→import {
+    44→  Dialog,
+    45→  DialogContent,
+    46→  DialogDescription,
+    47→  DialogFooter,
+    48→  DialogHeader,
+    49→  DialogTitle,
+    50→} from '@/components/ui/dialog'
+    51→import {
+    52→  Select,
+    53→  SelectContent,
+    54→  SelectItem,
+    55→  SelectTrigger,
+    56→  SelectValue,
+    57→} from '@/components/ui/select'
+    58→import { useAppStore } from '@/lib/store'
+    59→import { toast } from '@/hooks/use-toast'
+    60→
+    61→// ─── Types ───────────────────────────────────────────────────────────────
+    62→
+    63→type LabOrderStatus = 'ORDERED' | 'SAMPLE_COLLECTED' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED'
+    64→type LabPriority = 'ROUTINE' | 'URGENT' | 'STAT'
+    65→type TestCategory = 'HEMATOLOGY' | 'BIOCHEMISTRY' | 'MICROBIOLOGY' | 'RADIOLOGY' | 'PATHOLOGY'
+    66→
+    67→interface LabTest {
+    68→  id: string
+    69→  testName: string
+    70→  testCode: string | null
+    71→  category: string | null
+    72→  status: string
+    73→  resultValue: string | null
+    74→  resultUnit: string | null
+    75→  referenceRange: string | null
+    76→  isAbnormal: boolean
+    77→  remarks: string | null
+    78→  completedAt: string | null
+    79→  createdAt: string
+    80→}
+    81→
+    82→interface LabOrder {
+    83→  id: string
+    84→  orderNumber: string
+    85→  patientId: string
+    86→  patient?: { id: string; firstName: string; lastName: string }
+    87→  practitioner?: { id: string; name: string }
+    88→  status: LabOrderStatus
+    89→  priority: LabPriority
+    90→  modality: string
+    91→  notes: string | null
+    92→  orderedAt: string
+    93→  sampleCollectedAt: string | null
+    94→  completedAt: string | null
+    95→  createdAt: string
+    96→  tests: LabTest[]
+    97→}
+    98→
+    99→interface Patient {
+   100→  id: string
+   101→  firstName: string
+   102→  lastName: string
+   103→}
+   104→
+   105→// ─── Constants ───────────────────────────────────────────────────────────
+   106→
+   107→const STATUS_STEPS: LabOrderStatus[] = [
+   108→  'ORDERED',
+   109→  'SAMPLE_COLLECTED',
+   110→  'PROCESSING',
+   111→  'COMPLETED',
+   112→]
+   113→
+   114→const STATUS_CONFIG: Record<LabOrderStatus, { label: string; className: string }> = {
+   115→  ORDERED: {
+   116→    label: 'Ordered',
+   117→    className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+   118→  },
+   119→  SAMPLE_COLLECTED: {
+   120→    label: 'Sample Collected',
+   121→    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+   122→  },
+   123→  PROCESSING: {
+   124→    label: 'Processing',
+   125→    className: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
+   126→  },
+   127→  COMPLETED: {
+   128→    label: 'Completed',
+   129→    className: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+   130→  },
+   131→  CANCELLED: {
+   132→    label: 'Cancelled',
+   133→    className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+   134→  },
+   135→}
+   136→
+   137→const PRIORITY_CONFIG: Record<LabPriority, { label: string; className: string }> = {
+   138→  ROUTINE: {
+   139→    label: 'Routine',
+   140→    className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+   141→  },
+   142→  URGENT: {
+   143→    label: 'Urgent',
+   144→    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+   145→  },
+   146→  STAT: {
+   147→    label: 'STAT',
+   148→    className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+   149→  },
+   150→}
+   151→
+   152→const CATEGORY_ICONS: Record<string, React.ElementType> = {
+   153→  HEMATOLOGY: Beaker,
+   154→  BIOCHEMISTRY: FlaskConical,
+   155→  MICROBIOLOGY: TestTube,
+   156→  RADIOLOGY: AlertCircle,
+   157→  PATHOLOGY: FlaskConical,
+   158→}
+   159→
+   160→// Common tests with LOINC codes
+   161→const COMMON_TESTS: Array<{
+   162→  name: string
+   163→  loinc: string
+   164→  category: TestCategory
+   165→}> = [
+   166→  { name: 'Complete Blood Count (CBC)', loinc: '58410-2', category: 'HEMATOLOGY' },
+   167→  { name: 'Hemoglobin (Hb)', loinc: '718-7', category: 'HEMATOLOGY' },
+   168→  { name: 'HbA1c', loinc: '4548-4', category: 'BIOCHEMISTRY' },
+   169→  { name: 'Lipid Profile', loinc: '57698-3', category: 'BIOCHEMISTRY' },
+   170→  { name: 'Liver Function Test (LFT)', loinc: '24321-2', category: 'BIOCHEMISTRY' },
+   171→  { name: 'Kidney Function Test (KFT)', loinc: '62238-1', category: 'BIOCHEMISTRY' },
+   172→  { name: 'Thyroid Panel (TSH/T3/T4)', loinc: '48013-1', category: 'BIOCHEMISTRY' },
+   173→  { name: 'Blood Glucose Fasting', loinc: '2345-7', category: 'BIOCHEMISTRY' },
+   174→  { name: 'Blood Glucose Post-Prandial', loinc: '88362-6', category: 'BIOCHEMISTRY' },
+   175→  { name: 'Urinalysis', loinc: '24357-3', category: 'MICROBIOLOGY' },
+   176→  { name: 'ESR', loinc: '4537-7', category: 'HEMATOLOGY' },
+   177→  { name: 'CRP (C-Reactive Protein)', loinc: '1988-5', category: 'BIOCHEMISTRY' },
+   178→  { name: 'WBC Differential', loinc: '6718-6', category: 'HEMATOLOGY' },
+   179→  { name: 'Platelet Count', loinc: '777-3', category: 'HEMATOLOGY' },
+   180→  { name: 'Serum Electrolytes', loinc: '2951-2', category: 'BIOCHEMISTRY' },
+   181→  { name: 'Vitamin D (25-OH)', loinc: '1989-3', category: 'BIOCHEMISTRY' },
+   182→  { name: 'Vitamin B12', loinc: '2131-1', category: 'BIOCHEMISTRY' },
+   183→  { name: 'D-Dimer', loinc: '48067-7', category: 'BIOCHEMISTRY' },
+   184→  { name: 'Chest X-Ray', loinc: '58417-7', category: 'RADIOLOGY' },
+   185→  { name: 'ECG', loinc: '11556-8', category: 'RADIOLOGY' },
+   186→]
+   187→
+   188→// ─── Animation ───────────────────────────────────────────────────────────
+   189→
+   190→const fadeSlide = {
+   191→  initial: { opacity: 0, y: 12 },
+   192→  animate: { opacity: 1, y: 0 },
+   193→  transition: { duration: 0.3 },
+   194→}
+   195→
+   196→// ─── Component ───────────────────────────────────────────────────────────
+   197→
+   198→export function LabOrdersSection() {
+   199→  const { selectedPatientId } = useAppStore()
+   200→
+   201→  const [labOrders, setLabOrders] = useState<LabOrder[]>([])
+   202→  const [patients, setPatients] = useState<Patient[]>([])
+   203→  const [loading, setLoading] = useState(true)
+   204→  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+   205→  const [categoryTab, setCategoryTab] = useState<string>('all')
+   206→
+   207→  // Create dialog
+   208→  const [createOpen, setCreateOpen] = useState(false)
+   209→  const [formPatientId, setFormPatientId] = useState(selectedPatientId ?? '')
+   210→  const [formPriority, setFormPriority] = useState<LabPriority>('ROUTINE')
+   211→  const [formNotes, setFormNotes] = useState('')
+   212→  const [selectedTests, setSelectedTests] = useState<Set<string>>(new Set())
+   213→  const [submitting, setSubmitting] = useState(false)
+   214→
+   215→  // Detail dialog
+   216→  const [detailOpen, setDetailOpen] = useState(false)
+   217→  const [selectedOrder, setSelectedOrder] = useState<LabOrder | null>(null)
+   218→
+   219→  // ─── Fetch patients ───────────────────────────────────────────────
+   220→
+   221→  useEffect(() => {
+   222→    fetch('/api/patients')
+   223→      .then((r) => r.json())
+   224→      .then((d) => setPatients(d.data ?? d.patients ?? []))
+   225→      .catch(() => {})
+   226→  }, [])
+   227→
+   228→  // ─── Fetch lab orders ─────────────────────────────────────────────
+   229→
+   230→  const loadLabOrders = useCallback(async () => {
+   231→    setLoading(true)
+   232→    try {
+   233→      const params = new URLSearchParams()
+   234→      if (statusFilter && statusFilter !== 'ALL') params.set('status', statusFilter)
+   235→      if (selectedPatientId) params.set('patientId', selectedPatientId)
+   236→      const res = await fetch(`/api/lab-orders?${params.toString()}`)
+   237→      const json = await res.json()
+   238→      setLabOrders((json.data ?? json.labOrders ?? []) as LabOrder[])
+   239→    } catch {
+   240→      toast({ title: 'Error', description: 'Failed to load lab orders', variant: 'destructive' })
+   241→    } finally {
+   242→      setLoading(false)
+   243→    }
+   244→  }, [statusFilter, selectedPatientId])
+   245→
+   246→  useEffect(() => { loadLabOrders() }, [loadLabOrders])
+   247→
+   248→  // ─── Test toggle ──────────────────────────────────────────────────
+   249→
+   250→  const toggleTest = (testName: string) => {
+   251→    setSelectedTests((prev) => {
+   252→      const next = new Set(prev)
+   253→      if (next.has(testName)) next.delete(testName)
+   254→      else next.add(testName)
+   255→      return next
+   256→    })
+   257→  }
+   258→
+   259→  // ─── Create lab order ─────────────────────────────────────────────
+   260→
+   261→  const handleCreate = async () => {
+   262→    if (!formPatientId) {
+   263→      toast({ title: 'Validation', description: 'Select a patient', variant: 'destructive' })
+   264→      return
+   265→    }
+   266→    if (selectedTests.size === 0) {
+   267→      toast({ title: 'Validation', description: 'Select at least one test', variant: 'destructive' })
+   268→      return
+   269→    }
+   270→    setSubmitting(true)
+   271→    try {
+   272→      const tests = Array.from(selectedTests).map((name) => {
+   273→        const match = COMMON_TESTS.find((t) => t.name === name)
+   274→        return {
+   275→          testName: name,
+   276→          testCode: match?.loinc ?? '',
+   277→          category: match?.category ?? 'BIOCHEMISTRY',
+   278→        }
+   279→      })
+   280→      const res = await fetch('/api/lab-orders', {
+   281→        method: 'POST',
+   282→        headers: { 'Content-Type': 'application/json' },
+   283→        body: JSON.stringify({
+   284→          patientId: formPatientId,
+   285→          priority: formPriority,
+   286→          notes: formNotes || undefined,
+   287→          tests,
+   288→        }),
+   289→      })
+   290→      if (res.ok) {
+   291→        toast({ title: 'Lab Order Created', description: `Order with ${tests.length} test(s) placed` })
+   292→        setCreateOpen(false)
+   293→        resetForm()
+   294→        loadLabOrders()
+   295→      } else {
+   296→        toast({ title: 'Error', description: 'Failed to create lab order', variant: 'destructive' })
+   297→      }
+   298→    } catch {
+   299→      toast({ title: 'Error', description: 'Network error', variant: 'destructive' })
+   300→    } finally {
+   301→      setSubmitting(false)
+   302→    }
+   303→  }
+   304→
+   305→  const resetForm = () => {
+   306→    setFormPatientId(selectedPatientId ?? '')
+   307→    setFormPriority('ROUTINE')
+   308→    setFormNotes('')
+   309→    setSelectedTests(new Set())
+   310→  }
+   311→
+   312→  // ─── Filtered orders by category tab ──────────────────────────────
+   313→
+   314→  const filteredOrders = labOrders.filter((order) => {
+   315→    if (categoryTab === 'all') return true
+   316→    return order.tests?.some((t) => t.category === categoryTab)
+   317→  })
+   318→
+   319→  // ─── Status timeline step index ───────────────────────────────────
+   320→
+   321→  const getStepIndex = (status: LabOrderStatus): number => {
+   322→    if (status === 'CANCELLED') return -1
+   323→    return STATUS_STEPS.indexOf(status)
+   324→  }
+   325→
+   326→  // ─── Render ───────────────────────────────────────────────────────
+   327→
+   328→  if (loading) {
+   329→    return (
+   330→      <div className="space-y-3">
+   331→        {[1, 2, 3].map((i) => (
+   332→          <Skeleton key={i} className="h-24 w-full" />
+   333→        ))}
+   334→      </div>
+   335→    )
+   336→  }
+   337→
+   338→  return (
+   339→    <motion.div {...fadeSlide} className="space-y-6">
+   340→      {/* Header */}
+   341→      <div className="flex items-center justify-between flex-wrap gap-3">
+   342→        <div className="flex items-center gap-3">
+   343→          <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+   344→            <FlaskConical className="h-6 w-6 text-teal-600" />
+   345→          </div>
+   346→          <div>
+   347→            <h2 className="text-2xl font-bold tracking-tight">Lab & Diagnostics</h2>
+   348→            <p className="text-sm text-muted-foreground">Order tests, track results, and flag abnormal values</p>
+   349→          </div>
+   350→        </div>
+   351→        <Button
+   352→          className="gap-2 bg-teal-600 hover:bg-teal-700 text-white"
+   353→          onClick={() => {
+   354→            resetForm()
+   355→            setCreateOpen(true)
+   356→          }}
+   357→        >
+   358→          <Plus className="h-4 w-4" /> New Lab Order
+   359→        </Button>
+   360→      </div>
+   361→
+   362→      {/* Status Filter + Category Tabs */}
+   363→      <Tabs
+   364→        value={categoryTab}
+   365→        onValueChange={setCategoryTab}
+   366→        className="space-y-4"
+   367→      >
+   368→        <div className="flex items-center gap-4 flex-wrap">
+   369→          <TabsList>
+   370→            <TabsTrigger value="all" className="gap-1">
+   371→              All
+   372→            </TabsTrigger>
+   373→            <TabsTrigger value="HEMATOLOGY" className="gap-1">
+   374→              <Beaker className="h-3 w-3" /> Hematology
+   375→            </TabsTrigger>
+   376→            <TabsTrigger value="BIOCHEMISTRY" className="gap-1">
+   377→              <FlaskConical className="h-3 w-3" /> Biochemistry
+   378→            </TabsTrigger>
+   379→            <TabsTrigger value="MICROBIOLOGY" className="gap-1">
+   380→              <TestTube className="h-3 w-3" /> Microbiology
+   381→            </TabsTrigger>
+   382→            <TabsTrigger value="RADIOLOGY" className="gap-1">
+   383→              Radiology
+   384→            </TabsTrigger>
+   385→            <TabsTrigger value="PATHOLOGY" className="gap-1">
+   386→              Pathology
+   387→            </TabsTrigger>
+   388→          </TabsList>
+   389→
+   390→          <Select value={statusFilter} onValueChange={setStatusFilter}>
+   391→            <SelectTrigger className="w-40">
+   392→              <SelectValue placeholder="All Status" />
+   393→            </SelectTrigger>
+   394→            <SelectContent>
+   395→              <SelectItem value="ALL">All Status</SelectItem>
+   396→              <SelectItem value="ORDERED">Ordered</SelectItem>
+   397→              <SelectItem value="SAMPLE_COLLECTED">Sample Collected</SelectItem>
+   398→              <SelectItem value="PROCESSING">Processing</SelectItem>
+   399→              <SelectItem value="COMPLETED">Completed</SelectItem>
+   400→              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+   401→            </SelectContent>
+   402→          </Select>
+   403→        </div>
+   404→
+   405→        {/* All tab contents share the same table */}
+   406→        {['all', 'HEMATOLOGY', 'BIOCHEMISTRY', 'MICROBIOLOGY', 'RADIOLOGY', 'PATHOLOGY'].map(
+   407→          (tab) => (
+   408→            <TabsContent key={tab} value={tab} className="space-y-4">
+   409→              {/* Summary cards */}
+   410→              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+   411→                {(
+   412→                  ['ORDERED', 'SAMPLE_COLLECTED', 'PROCESSING', 'COMPLETED', 'CANCELLED'] as LabOrderStatus[]
+   413→                ).map((st) => {
+   414→                  const count = filteredOrders.filter((o) => o.status === st).length
+   415→                  return (
+   416→                    <Card key={st} className="p-3">
+   417→                      <div className="flex items-center justify-between">
+   418→                        <span className="text-xs font-medium text-muted-foreground">
+   419→                          {STATUS_CONFIG[st].label}
+   420→                        </span>
+   421→                        <Badge className={`text-xs ${STATUS_CONFIG[st].className}`}>
+   422→                          {count}
+   423→                        </Badge>
+   424→                      </div>
+   425→                    </Card>
+   426→                  )
+   427→                })}
+   428→              </div>
+   429→
+   430→              {/* Lab orders table */}
+   431→              {filteredOrders.length === 0 ? (
+   432→                <Card>
+   433→                  <CardContent className="py-8 text-center text-muted-foreground">
+   434→                    No lab orders found
+   435→                  </CardContent>
+   436→                </Card>
+   437→              ) : (
+   438→                <Card>
+   439→                  <CardContent className="p-0">
+   440→                    <div className="overflow-x-auto">
+   441→                      <Table>
+   442→                        <TableHeader>
+   443→                          <TableRow>
+   444→                            <TableHead>Order #</TableHead>
+   445→                            <TableHead>Patient</TableHead>
+   446→                            <TableHead>Priority</TableHead>
+   447→                            <TableHead>Tests</TableHead>
+   448→                            <TableHead>Status</TableHead>
+   449→                            <TableHead>Ordered</TableHead>
+   450→                            <TableHead className="text-right">Action</TableHead>
+   451→                          </TableRow>
+   452→                        </TableHeader>
+   453→                        <TableBody>
+   454→                          {filteredOrders.map((order) => {
+   455→                            const statusCfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.ORDERED
+   456→                            const priCfg = PRIORITY_CONFIG[order.priority] ?? PRIORITY_CONFIG.ROUTINE
+   457→                            const hasAbnormal = order.tests?.some((t) => t.isAbnormal)
+   458→                            return (
+   459→                              <TableRow
+   460→                                key={order.id}
+   461→                                className="cursor-pointer hover:bg-muted/50"
+   462→                                onClick={() => {
+   463→                                  setSelectedOrder(order)
+   464→                                  setDetailOpen(true)
+   465→                                }}
+   466→                              >
+   467→                                <TableCell className="font-mono text-sm font-medium">
+   468→                                  {order.orderNumber}
+   469→                                </TableCell>
+   470→                                <TableCell className="text-sm">
+   471→                                  {order.patient
+   472→                                    ? `${order.patient.firstName} ${order.patient.lastName}`
+   473→                                    : '—'}
+   474→                                </TableCell>
+   475→                                <TableCell>
+   476→                                  <Badge className={`text-xs ${priCfg.className}`}>
+   477→                                    {priCfg.label}
+   478→                                  </Badge>
+   479→                                </TableCell>
+   480→                                <TableCell className="text-sm">
+   481→                                  {order.tests?.length ?? 0}
+   482→                                </TableCell>
+   483→                                <TableCell>
+   484→                                  <div className="flex items-center gap-1">
+   485→                                    <Badge className={`text-xs ${statusCfg.className}`}>
+   486→                                      {statusCfg.label}
+   487→                                    </Badge>
+   488→                                    {hasAbnormal && (
+   489→                                      <AlertCircle className="h-3 w-3 text-red-500" />
+   490→                                    )}
+   491→                                  </div>
+   492→                                </TableCell>
+   493→                                <TableCell className="text-sm text-muted-foreground">
+   494→                                  {new Date(order.orderedAt).toLocaleDateString()}
+   495→                                </TableCell>
+   496→                                <TableCell className="text-right">
+   497→                                  <Button
+   498→                                    variant="ghost"
+   499→                                    size="sm"
+   500→                                    onClick={(e) => {
+   501→                                      e.stopPropagation()
+   502→                                      setSelectedOrder(order)
+   503→                                      setDetailOpen(true)
+   504→                                    }}
+   505→                                  >
+   506→                                    <FlaskConical className="h-4 w-4" />
+   507→                                  </Button>
+   508→                                </TableCell>
+   509→                              </TableRow>
+   510→                            )
+   511→                          })}
+   512→                        </TableBody>
+   513→                      </Table>
+   514→                    </div>
+   515→                  </CardContent>
+   516→                </Card>
+   517→              )}
+   518→            </TabsContent>
+   519→          )
+   520→        )}
+   521→      </Tabs>
+   522→
+   523→      {/* ─── Create Lab Order Dialog ─────────────────────────────── */}
+   524→      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+   525→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   526→          <DialogHeader>
+   527→            <DialogTitle className="flex items-center gap-2">
+   528→              <FlaskConical className="h-5 w-5 text-teal-600" /> New Lab Order
+   529→            </DialogTitle>
+   530→            <DialogDescription>
+   531→              Select tests to order — LOINC codes are auto-assigned
+   532→            </DialogDescription>
+   533→          </DialogHeader>
+   534→
+   535→          <div className="grid gap-4 py-2">
+   536→            {/* Patient & Priority */}
+   537→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   538→              <div className="space-y-2">
+   539→                <Label>Patient *</Label>
+   540→                <Select value={formPatientId} onValueChange={setFormPatientId}>
+   541→                  <SelectTrigger>
+   542→                    <SelectValue placeholder="Select patient..." />
+   543→                  </SelectTrigger>
+   544→                  <SelectContent>
+   545→                    {patients.map((p) => (
+   546→                      <SelectItem key={p.id} value={p.id}>
+   547→                        {p.firstName} {p.lastName}
+   548→                      </SelectItem>
+   549→                    ))}
+   550→                  </SelectContent>
+   551→                </Select>
+   552→              </div>
+   553→              <div className="space-y-2">
+   554→                <Label>Priority *</Label>
+   555→                <Select value={formPriority} onValueChange={(v) => setFormPriority(v as LabPriority)}>
+   556→                  <SelectTrigger>
+   557→                    <SelectValue />
+   558→                  </SelectTrigger>
+   559→                  <SelectContent>
+   560→                    <SelectItem value="ROUTINE">Routine</SelectItem>
+   561→                    <SelectItem value="URGENT">Urgent</SelectItem>
+   562→                    <SelectItem value="STAT">STAT (Immediately)</SelectItem>
+   563→                  </SelectContent>
+   564→                </Select>
+   565→              </div>
+   566→            </div>
+   567→
+   568→            {/* Notes */}
+   569→            <div className="space-y-2">
+   570→              <Label>Notes</Label>
+   571→              <Textarea
+   572→                placeholder="Clinical notes for lab..."
+   573→                value={formNotes}
+   574→                onChange={(e) => setFormNotes(e.target.value)}
+   575→                rows={2}
+   576→              />
+   577→            </div>
+   578→
+   579→            <Separator />
+   580→
+   581→            {/* Test selection by category */}
+   582→            <div className="space-y-3">
+   583→              <div className="flex items-center justify-between">
+   584→                <Label className="text-base font-semibold">Select Tests</Label>
+   585→                <Badge variant="outline" className="text-xs">
+   586→                  {selectedTests.size} selected
+   587→                </Badge>
+   588→              </div>
+   589→
+   590→              {/* Grouped by category */}
+   591→              {(
+   592→                ['HEMATOLOGY', 'BIOCHEMISTRY', 'MICROBIOLOGY', 'RADIOLOGY', 'PATHOLOGY'] as TestCategory[]
+   593→              ).map((cat) => {
+   594→                const catTests = COMMON_TESTS.filter((t) => t.category === cat)
+   595→                if (catTests.length === 0) return null
+   596→                const CatIcon = CATEGORY_ICONS[cat] ?? FlaskConical
+   597→                return (
+   598→                  <Card key={cat} className="p-3">
+   599→                    <div className="flex items-center gap-2 mb-2">
+   600→                      <CatIcon className="h-4 w-4 text-muted-foreground" />
+   601→                      <span className="text-sm font-semibold">
+   602→                        {cat.charAt(0) + cat.slice(1).toLowerCase()}
+   603→                      </span>
+   604→                    </div>
+   605→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   606→                      {catTests.map((test) => {
+   607→                        const isSelected = selectedTests.has(test.name)
+   608→                        return (
+   609→                          <Button
+   610→                            key={test.name}
+   611→                            variant={isSelected ? 'default' : 'outline'}
+   612→                            size="sm"
+   613→                            className={`justify-start text-xs h-auto py-2 px-3 ${
+   614→                              isSelected
+   615→                                ? 'bg-teal-600 hover:bg-teal-700 text-white'
+   616→                                : ''
+   617→                            }`}
+   618→                            onClick={() => toggleTest(test.name)}
+   619→                          >
+   620→                            {isSelected ? (
+   621→                              <CheckCircle2 className="h-3 w-3 mr-1 shrink-0" />
+   622→                            ) : (
+   623→                              <Plus className="h-3 w-3 mr-1 shrink-0" />
+   624→                            )}
+   625→                            <span className="truncate">{test.name}</span>
+   626→                            <span className="ml-auto text-[10px] opacity-60 shrink-0">
+   627→                              {test.loinc}
+   628→                            </span>
+   629→                          </Button>
+   630→                        )
+   631→                      })}
+   632→                    </div>
+   633→                  </Card>
+   634→                )
+   635→              })}
+   636→            </div>
+   637→          </div>
+   638→
+   639→          <DialogFooter>
+   640→            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+   641→              Cancel
+   642→            </Button>
+   643→            <Button
+   644→              onClick={handleCreate}
+   645→              disabled={submitting}
+   646→              className="gap-1 bg-teal-600 hover:bg-teal-700 text-white"
+   647→            >
+   648→              {submitting ? 'Ordering...' : 'Place Order'}
+   649→            </Button>
+   650→          </DialogFooter>
+   651→        </DialogContent>
+   652→      </Dialog>
+   653→
+   654→      {/* ─── Lab Order Detail Dialog ─────────────────────────────── */}
+   655→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   656→        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+   657→          {selectedOrder && (
+   658→            <>
+   659→              <DialogHeader>
+   660→                <DialogTitle className="flex items-center gap-2">
+   661→                  <FlaskConical className="h-5 w-5 text-teal-600" />
+   662→                  {selectedOrder.orderNumber}
+   663→                </DialogTitle>
+   664→                <DialogDescription>
+   665→                  {selectedOrder.patient
+   666→                    ? `${selectedOrder.patient.firstName} ${selectedOrder.patient.lastName}`
+   667→                    : 'Unknown Patient'}{' '}
+   668→                  • Ordered {new Date(selectedOrder.orderedAt).toLocaleDateString()}
+   669→                </DialogDescription>
+   670→              </DialogHeader>
+   671→
+   672→              <div className="space-y-4">
+   673→                {/* Meta badges */}
+   674→                <div className="flex items-center gap-2 flex-wrap">
+   675→                  <Badge
+   676→                    className={`text-xs ${STATUS_CONFIG[selectedOrder.status]?.className ?? ''}`}
+   677→                  >
+   678→                    {STATUS_CONFIG[selectedOrder.status]?.label ?? selectedOrder.status}
+   679→                  </Badge>
+   680→                  <Badge
+   681→                    className={`text-xs ${PRIORITY_CONFIG[selectedOrder.priority]?.className ?? ''}`}
+   682→                  >
+   683→                    {PRIORITY_CONFIG[selectedOrder.priority]?.label ?? selectedOrder.priority}
+   684→                  </Badge>
+   685→                  {selectedOrder.tests?.some((t) => t.isAbnormal) && (
+   686→                    <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 gap-1">
+   687→                      <AlertCircle className="h-3 w-3" /> Abnormal Results
+   688→                    </Badge>
+   689→                  )}
+   690→                </div>
+   691→
+   692→                {/* Status Timeline */}
+   693→                <Card className="p-4">
+   694→                  <p className="text-sm font-semibold mb-3 flex items-center gap-1">
+   695→                    <Clock className="h-4 w-4" /> Status Timeline
+   696→                  </p>
+   697→                  <div className="flex items-center gap-0">
+   698→                    {STATUS_STEPS.map((step, idx) => {
+   699→                      const currentIdx = getStepIndex(selectedOrder.status)
+   700→                      const isCompleted = currentIdx >= idx && currentIdx !== -1
+   701→                      const isCurrent = currentIdx === idx
+   702→                      return (
+   703→                        <div key={step} className="flex items-center flex-1">
+   704→                          <div className="flex flex-col items-center">
+   705→                            <div
+   706→                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+   707→                                isCompleted
+   708→                                  ? 'bg-teal-600 text-white'
+   709→                                  : isCurrent
+   710→                                  ? 'bg-teal-100 text-teal-700 ring-2 ring-teal-600 dark:bg-teal-900 dark:text-teal-200'
+   711→                                  : 'bg-muted text-muted-foreground'
+   712→                              }`}
+   713→                            >
+   714→                              {isCompleted ? (
+   715→                                <CheckCircle2 className="h-4 w-4" />
+   716→                              ) : (
+   717→                                idx + 1
+   718→                              )}
+   719→                            </div>
+   720→                            <span
+   721→                              className={`text-[10px] mt-1 text-center ${
+   722→                                isCompleted || isCurrent
+   723→                                  ? 'text-teal-700 dark:text-teal-300 font-medium'
+   724→                                  : 'text-muted-foreground'
+   725→                              }`}
+   726→                            >
+   727→                              {STATUS_CONFIG[step].label}
+   728→                            </span>
+   729→                          </div>
+   730→                          {idx < STATUS_STEPS.length - 1 && (
+   731→                            <div
+   732→                              className={`flex-1 h-0.5 mx-1 ${
+   733→                                currentIdx > idx && currentIdx !== -1
+   734→                                  ? 'bg-teal-600'
+   735→                                  : 'bg-muted'
+   736→                              }`}
+   737→                            />
+   738→                          )}
+   739→                        </div>
+   740→                      )
+   741→                    })}
+   742→                  </div>
+   743→                </Card>
+   744→
+   745→                {/* Notes */}
+   746→                {selectedOrder.notes && (
+   747→                  <div>
+   748→                    <p className="text-sm font-medium mb-1">Notes</p>
+   749→                    <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+   750→                  </div>
+   751→                )}
+   752→
+   753→                <Separator />
+   754→
+   755→                {/* Results table */}
+   756→                <div>
+   757→                  <p className="text-sm font-semibold mb-2 flex items-center gap-1">
+   758→                    <TestTube className="h-4 w-4" /> Test Results
+   759→                  </p>
+   760→                  {selectedOrder.tests?.length ? (
+   761→                    <div className="overflow-x-auto">
+   762→                      <Table>
+   763→                        <TableHeader>
+   764→                          <TableRow>
+   765→                            <TableHead>Test</TableHead>
+   766→                            <TableHead>LOINC</TableHead>
+   767→                            <TableHead>Category</TableHead>
+   768→                            <TableHead>Result</TableHead>
+   769→                            <TableHead>Reference Range</TableHead>
+   770→                            <TableHead>Status</TableHead>
+   771→                          </TableRow>
+   772→                        </TableHeader>
+   773→                        <TableBody>
+   774→                          {selectedOrder.tests.map((test) => {
+   775→                            const CatIcon = CATEGORY_ICONS[test.category ?? ''] ?? FlaskConical
+   776→                            return (
+   777→                              <TableRow
+   778→                                key={test.id}
+   779→                                className={
+   780→                                  test.isAbnormal
+   781→                                    ? 'bg-red-50 dark:bg-red-950/30'
+   782→                                    : ''
+   783→                                }
+   784→                              >
+   785→                                <TableCell className="text-sm font-medium">
+   786→                                  {test.testName}
+   787→                                </TableCell>
+   788→                                <TableCell className="text-xs font-mono text-muted-foreground">
+   789→                                  {test.testCode ?? '—'}
+   790→                                </TableCell>
+   791→                                <TableCell>
+   792→                                  <div className="flex items-center gap-1">
+   793→                                    <CatIcon className="h-3 w-3 text-muted-foreground" />
+   794→                                    <span className="text-xs">
+   795→                                      {test.category
+   796→                                        ? test.category.charAt(0) +
+   797→                                          test.category.slice(1).toLowerCase()
+   798→                                        : '—'}
+   799→                                    </span>
+   800→                                  </div>
+   801→                                </TableCell>
+   802→                                <TableCell>
+   803→                                  {test.resultValue ? (
+   804→                                    <span
+   805→                                      className={`text-sm font-medium ${
+   806→                                        test.isAbnormal
+   807→                                          ? 'text-red-600 dark:text-red-400'
+   808→                                          : 'text-teal-700 dark:text-teal-300'
+   809→                                      }`}
+   810→                                    >
+   811→                                      {test.resultValue}{' '}
+   812→                                      {test.resultUnit && (
+   813→                                        <span className="font-normal text-muted-foreground">
+   814→                                          {test.resultUnit}
+   815→                                        </span>
+   816→                                      )}
+   817→                                    </span>
+   818→                                  ) : (
+   819→                                    <span className="text-sm text-muted-foreground">
+   820→                                      Pending
+   821→                                    </span>
+   822→                                  )}
+   823→                                </TableCell>
+   824→                                <TableCell className="text-xs text-muted-foreground">
+   825→                                  {test.referenceRange ?? '—'}
+   826→                                </TableCell>
+   827→                                <TableCell>
+   828→                                  {test.isAbnormal ? (
+   829→                                    <Badge className="text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 gap-1">
+   830→                                      <AlertCircle className="h-3 w-3" /> Abnormal
+   831→                                    </Badge>
+   832→                                  ) : test.status === 'COMPLETED' ? (
+   833→                                    <Badge className="text-xs bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200 gap-1">
+   834→                                      <CheckCircle2 className="h-3 w-3" /> Normal
+   835→                                    </Badge>
+   836→                                  ) : (
+   837→                                    <Badge variant="outline" className="text-xs">
+   838→                                      {test.status}
+   839→                                    </Badge>
+   840→                                  )}
+   841→                                </TableCell>
+   842→                              </TableRow>
+   843→                            )
+   844→                          })}
+   845→                        </TableBody>
+   846→                      </Table>
+   847→                    </div>
+   848→                  ) : (
+   849→                    <p className="text-sm text-muted-foreground">No tests in this order</p>
+   850→                  )}
+   851→                </div>
+   852→
+   853→                {/* Timestamps */}
+   854→                <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+   855→                  <span>Ordered: {new Date(selectedOrder.orderedAt).toLocaleString()}</span>
+   856→                  {selectedOrder.sampleCollectedAt && (
+   857→                    <span>
+   858→                      Sample collected: {new Date(selectedOrder.sampleCollectedAt).toLocaleString()}
+   859→                    </span>
+   860→                  )}
+   861→                  {selectedOrder.completedAt && (
+   862→                    <span>
+   863→                      Completed: {new Date(selectedOrder.completedAt).toLocaleString()}
+   864→                    </span>
+   865→                  )}
+   866→                </div>
+   867→              </div>
+   868→            </>
+   869→          )}
+   870→        </DialogContent>
+   871→      </Dialog>
+   872→    </motion.div>
+   873→  )
+   874→}
+   875→
