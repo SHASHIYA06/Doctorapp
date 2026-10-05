@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { zai } from 'z-ai-web-dev-sdk'
+import ZAI from 'z-ai-web-dev-sdk'
 
 // ─── Validation Schema ────────────────────────────────────────────
 
@@ -230,8 +230,7 @@ export async function POST(request: NextRequest) {
     let evidenceCitations: Array<{ source: string; type: string; confidence: string }> = []
 
     try {
-      const sdk = zai()
-      const llm = sdk.llm()
+      const zai = await ZAI.create()
 
       const systemPrompt = `You are a clinical medicine knowledge assistant for the Indian healthcare system. You support three modalities: Allopathy, Ayurveda, and Homeopathy (NEVER merge these — they are separate care tracks).
 
@@ -263,15 +262,15 @@ ${JSON.stringify(knowledgeContext, null, 2)}
 
 Please provide a comprehensive clinical answer based on the above context and your training data.`
 
-      const response = await llm.chat({
-        model: 'glm-4-flash',
+      const completion = await zai.chat.completions.create({
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'assistant', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
+        thinking: { type: 'disabled' }
       })
 
-      aiResponse = response.choices?.[0]?.message?.content || response.content || null
+      aiResponse = completion.choices?.[0]?.message?.content || null
 
       // Build citations
       evidenceCitations = [
